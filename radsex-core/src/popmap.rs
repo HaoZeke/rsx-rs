@@ -78,16 +78,15 @@ impl Popmap {
             ));
         }
 
-        if n_groups > 2 {
-            if !self.group_counts.contains_key(&config.group1)
-                || !self.group_counts.contains_key(&config.group2)
-            {
-                return Err(format!(
-                    "Groups specified with --groups (\"{}\", \"{}\") were not found in popmap groups ({})",
-                    config.group1, config.group2,
-                    self.print_groups(false)
-                ));
-            }
+        if n_groups > 2
+            && (!self.group_counts.contains_key(&config.group1)
+                || !self.group_counts.contains_key(&config.group2))
+        {
+            return Err(format!(
+                "Groups specified with --groups (\"{}\", \"{}\") were not found in popmap groups ({})",
+                config.group1, config.group2,
+                self.print_groups(false)
+            ));
         }
 
         if n_groups == 2 && (config.group1.is_empty() || config.group2.is_empty()) {

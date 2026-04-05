@@ -37,6 +37,98 @@ impl Default for ParserConfig {
     }
 }
 
+/// Mutable parsing state passed through the byte-processing loop.
+struct ParseState<'a> {
+    marker: Marker,
+    temp: Vec<u8>,
+    field_n: usize,
+    batch: Vec<Marker>,
+    config: &'a ParserConfig,
+    compute_groups: bool,
+    groups: &'a [String],
+    group_names: &'a [String],
+    tx: &'a Sender<Vec<Marker>>,
+}
+
+impl<'a> ParseState<'a> {
+    fn process_bytes(&mut self, data: &[u8]) {
+        for &byte in data {
+            match byte {
+                b'\t' => {
+                    self.handle_field();
+                    self.temp.clear();
+                    self.field_n += 1;
+                }
+                b'\n' => {
+                    if self.field_n >= 2 {
+                        self.handle_field();
+                    }
+                    self.temp.clear();
+                    self.field_n = 0;
+
+                    self.batch.push(self.marker.clone());
+
+                    if self.batch.len() >= BATCH_SIZE {
+                        let full_batch =
+                            std::mem::replace(&mut self.batch, Vec::with_capacity(BATCH_SIZE));
+                        let _ = self.tx.send(full_batch);
+                    }
+
+                    self.marker.reset(!self.config.store_sequence);
+                    for gn in self.group_names {
+                        self.marker.group_counts.insert(gn.clone(), 0);
+                    }
+                }
+                b'\r' => {}
+                _ => {
+                    self.temp.push(byte);
+                }
+            }
+        }
+    }
+
+    fn handle_field(&mut self) {
+        match self.field_n {
+            0 => {
+                if self.config.store_sequence {
+                    self.marker.id = String::from_utf8_lossy(&self.temp).into_owned();
+                }
+            }
+            1 => {
+                if self.config.store_sequence {
+                    self.marker.sequence = String::from_utf8_lossy(&self.temp).into_owned();
+                }
+            }
+            _ => {
+                let depth = fast_parse_u16(&self.temp);
+                let idx = self.field_n - 2;
+                if idx < self.marker.individual_depths.len() {
+                    self.marker.individual_depths[idx] = depth;
+                    if depth >= self.config.min_depth {
+                        if self.compute_groups
+                            && self.field_n < self.groups.len()
+                            && !self.groups[self.field_n].is_empty()
+                        {
+                            if let Some(count) =
+                                self.marker.group_counts.get_mut(&self.groups[self.field_n])
+                            {
+                                *count += 1;
+                            }
+                        }
+                        self.marker.n_individuals += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    fn flush(self) {
+        if !self.batch.is_empty() {
+            let _ = self.tx.send(self.batch);
+        }
+    }
+}
+
 /// A streaming markers table that produces markers via a channel.
 pub struct MarkersTableStream {
     pub header: TableHeader,
@@ -53,10 +145,8 @@ impl MarkersTableStream {
     ) -> std::io::Result<Self> {
         let header = TableHeader::from_file(path)?;
 
-        // Build column-to-group mapping
         let groups: Vec<String> = if config.compute_groups {
             if let Some(pm) = popmap {
-                // First two columns are id and sequence
                 let mut g = vec![String::new(), String::new()];
                 for col in header.columns.iter().skip(2) {
                     g.push(pm.get_group(col).unwrap_or("").to_string());
@@ -82,14 +172,8 @@ impl MarkersTableStream {
             channel::bounded(CHANNEL_CAPACITY / BATCH_SIZE);
 
         let handle = thread::spawn(move || {
-            if let Err(e) = parse_table(
-                &path,
-                n_individuals,
-                &groups,
-                &group_names,
-                &config,
-                &tx,
-            ) {
+            if let Err(e) = parse_table(&path, n_individuals, &groups, &group_names, &config, &tx)
+            {
                 log::error!("Table parser error: {e}");
             }
         });
@@ -108,8 +192,7 @@ impl MarkersTableStream {
 
     /// Iterate over all markers (consuming batches).
     pub fn iter(&self) -> impl Iterator<Item = Marker> + '_ {
-        std::iter::from_fn(move || self.next_batch())
-            .flat_map(|batch| batch.into_iter())
+        std::iter::from_fn(move || self.next_batch()).flat_map(|batch| batch.into_iter())
     }
 }
 
@@ -133,7 +216,7 @@ fn parse_table(
             return Ok(());
         }
         if !line_buf.starts_with(b"#") && !line_buf.starts_with(b"id\t") {
-            break; // First data line
+            break;
         }
         if line_buf.starts_with(b"id\t") {
             line_buf.clear();
@@ -143,156 +226,46 @@ fn parse_table(
 
     let compute_groups = config.compute_groups && !groups.is_empty();
 
-    let mut batch: Vec<Marker> = Vec::with_capacity(BATCH_SIZE);
     let mut marker = Marker::new(n_individuals);
     for gn in group_names {
         marker.group_counts.insert(gn.clone(), 0);
     }
 
-    // Buffered character-by-character parsing (matching C++ approach)
-    let mut buffer = [0u8; BUF_SIZE];
-    let mut field_n: usize = 0;
-    let mut temp = Vec::with_capacity(256);
+    let mut state = ParseState {
+        marker,
+        temp: Vec::with_capacity(256),
+        field_n: 0,
+        batch: Vec::with_capacity(BATCH_SIZE),
+        config,
+        compute_groups,
+        groups,
+        group_names,
+        tx,
+    };
 
-    // If we already read a partial data line, process it
     if !line_buf.is_empty() {
-        process_bytes(
-            &line_buf,
-            &mut marker,
-            &mut temp,
-            &mut field_n,
-            &mut batch,
-            config,
-            compute_groups,
-            groups,
-            n_individuals,
-            group_names,
-            tx,
-        );
+        state.process_bytes(&line_buf);
         line_buf.clear();
     }
 
+    let mut buffer = [0u8; BUF_SIZE];
     loop {
         let bytes_read = reader.read(&mut buffer)?;
         if bytes_read == 0 {
             break;
         }
-
-        process_bytes(
-            &buffer[..bytes_read],
-            &mut marker,
-            &mut temp,
-            &mut field_n,
-            &mut batch,
-            config,
-            compute_groups,
-            groups,
-            n_individuals,
-            group_names,
-            tx,
-        );
+        state.process_bytes(&buffer[..bytes_read]);
     }
 
-    // Send remaining batch
-    if !batch.is_empty() {
-        let _ = tx.send(batch);
-    }
-
+    state.flush();
     Ok(())
 }
 
-fn process_bytes(
-    data: &[u8],
-    marker: &mut Marker,
-    temp: &mut Vec<u8>,
-    field_n: &mut usize,
-    batch: &mut Vec<Marker>,
-    config: &ParserConfig,
-    compute_groups: bool,
-    groups: &[String],
-    _n_individuals: u16,
-    group_names: &[String],
-    tx: &Sender<Vec<Marker>>,
-) {
-    for &byte in data {
-        match byte {
-            b'\t' => {
-                handle_field(marker, temp, *field_n, config, compute_groups, groups);
-                temp.clear();
-                *field_n += 1;
-            }
-            b'\n' => {
-                // Last field on the line
-                if *field_n >= 2 {
-                    handle_field(marker, temp, *field_n, config, compute_groups, groups);
-                }
-                temp.clear();
-                *field_n = 0;
-
-                batch.push(marker.clone());
-
-                if batch.len() >= BATCH_SIZE {
-                    let full_batch = std::mem::replace(batch, Vec::with_capacity(BATCH_SIZE));
-                    let _ = tx.send(full_batch);
-                }
-
-                // Reset marker
-                marker.reset(!config.store_sequence);
-                for gn in group_names {
-                    marker.group_counts.insert(gn.clone(), 0);
-                }
-            }
-            b'\r' => {} // skip
-            _ => {
-                temp.push(byte);
-            }
-        }
-    }
-}
-
-fn handle_field(
-    marker: &mut Marker,
-    temp: &[u8],
-    field_n: usize,
-    config: &ParserConfig,
-    compute_groups: bool,
-    groups: &[String],
-) {
-    match field_n {
-        0 => {
-            if config.store_sequence {
-                marker.id = String::from_utf8_lossy(temp).into_owned();
-            }
-        }
-        1 => {
-            if config.store_sequence {
-                marker.sequence = String::from_utf8_lossy(temp).into_owned();
-            }
-        }
-        _ => {
-            let depth = fast_parse_u16(temp);
-            let idx = field_n - 2;
-            if idx < marker.individual_depths.len() {
-                marker.individual_depths[idx] = depth;
-                if depth >= config.min_depth {
-                    if compute_groups && field_n < groups.len() {
-                        let group = &groups[field_n];
-                        if !group.is_empty() {
-                            if let Some(count) = marker.group_counts.get_mut(group) {
-                                *count += 1;
-                            }
-                        }
-                    }
-                    marker.n_individuals += 1;
-                }
-            }
-        }
-    }
-}
-
-fn read_line_bytes<R: std::io::BufRead>(reader: &mut R, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+fn read_line_bytes<R: std::io::BufRead>(
+    reader: &mut R,
+    buf: &mut Vec<u8>,
+) -> std::io::Result<usize> {
     let n = reader.read_until(b'\n', buf)?;
-    // Strip trailing newline
     if buf.ends_with(b"\n") {
         buf.pop();
     }

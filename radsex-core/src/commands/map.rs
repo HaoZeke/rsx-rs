@@ -3,15 +3,13 @@
 
 //! `map` command: align markers to a reference genome and compute metrics.
 //!
-//! Uses minimap2 for alignment (replacing the C++ BWA-MEM integration).
-//! Note: minimap2 integration is stubbed pending the minimap2 crate dependency.
-//! For now, this uses a simple exact-match approach as a placeholder that can
-//! be swapped for minimap2 when the dependency is added.
+//! Uses minimap2 for short-read alignment (replacing the C++ BWA-MEM integration).
 
 use crate::marker::AlignedMarker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
+use minimap2::Aligner;
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::Path;
@@ -41,12 +39,11 @@ fn load_contig_lengths(genome_path: &Path) -> std::io::Result<HashMap<String, u6
 
     for line in reader.lines() {
         let line = line?;
-        if line.starts_with('>') {
+        if let Some(stripped) = line.strip_prefix('>') {
             if !current_contig.is_empty() {
                 lengths.insert(current_contig.clone(), current_length);
             }
-            // Get contig name (first word after '>')
-            current_contig = line[1..]
+            current_contig = stripped
                 .split_whitespace()
                 .next()
                 .unwrap_or("")
@@ -63,11 +60,7 @@ fn load_contig_lengths(genome_path: &Path) -> std::io::Result<HashMap<String, u6
     Ok(lengths)
 }
 
-/// Run the `map` analysis.
-///
-/// NOTE: Full minimap2 alignment will be integrated when the minimap2 crate
-/// dependency is added. Currently this function reads markers, computes
-/// statistics, but alignment is a placeholder that logs a warning.
+/// Run the `map` analysis with minimap2 alignment.
 pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
@@ -86,6 +79,15 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let contig_lengths = load_contig_lengths(Path::new(&params.genome_file_path))?;
 
+    // Build minimap2 index for short-read alignment
+    log::info!("Building minimap2 index for {}", params.genome_file_path);
+    let aligner = Aligner::builder()
+        .sr() // short-read preset (equivalent to BWA-MEM for short reads)
+        .with_index(&params.genome_file_path, None)
+        .map_err(|e| format!("Failed to build minimap2 index: {e}"))?;
+
+    log::info!("Minimap2 index built successfully");
+
     let config = ParserConfig {
         store_sequence: true,
         compute_groups: true,
@@ -94,32 +96,73 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
 
-    let aligned_markers: Vec<AlignedMarker> = Vec::new();
+    let mut aligned_markers: Vec<AlignedMarker> = Vec::new();
     let mut n_markers: u64 = 0;
-
-    // TODO: Replace this stub with actual minimap2 alignment.
-    // The minimap2 crate will be used to align each marker sequence to the
-    // reference genome. For now, markers are collected but not aligned.
-    log::warn!("map command: minimap2 alignment not yet integrated; collecting markers only");
 
     for marker in stream.iter() {
         if marker.n_individuals > 0 {
             n_markers += 1;
         }
 
-        if marker.n_individuals >= min_individuals {
-            let g1 = *marker.group_counts.get(&groups.group1).unwrap_or(&0);
-            let g2 = *marker.group_counts.get(&groups.group2).unwrap_or(&0);
-
-            let bias = stats::group_bias(g1, total_g1, g2, total_g2);
-            let p = stats::p_association(g1, g2, total_g1, total_g2);
-
-            // Placeholder: in the real implementation, alignment results would
-            // populate contig and position from minimap2 output.
-            // For now, skip actual alignment but preserve the data pipeline.
-            let _ = (bias, p, &marker.sequence);
+        if marker.n_individuals < min_individuals {
+            continue;
         }
+
+        // Align marker sequence to the reference genome
+        let mappings = aligner
+            .map(marker.sequence.as_bytes(), false, false, None, None, None)
+            .unwrap_or_default();
+
+        // Find best-scoring unique alignment (matching C++ BWA-MEM logic)
+        if mappings.is_empty() {
+            continue;
+        }
+
+        let mut best_idx = 0usize;
+        let mut best_score = 0i32;
+        let mut best_count = 0u32;
+
+        for (j, mapping) in mappings.iter().enumerate() {
+            let score = mapping.alignment.as_ref().map_or(0, |a| a.alignment_score.unwrap_or(0));
+            if score > best_score {
+                best_idx = j;
+                best_score = score;
+                best_count = 1;
+            } else if score == best_score {
+                best_count += 1;
+            }
+        }
+
+        let best = &mappings[best_idx];
+        let mapq = best.mapq;
+
+        // Retain only unique best alignment with mapq >= min_quality
+        if best_count != 1 || mapq < params.min_quality {
+            continue;
+        }
+
+        let contig = best
+            .target_name
+            .as_deref()
+            .map_or(String::new(), |v| v.to_string());
+        let position = best.target_start as i64;
+
+        let g1 = *marker.group_counts.get(&groups.group1).unwrap_or(&0);
+        let g2 = *marker.group_counts.get(&groups.group2).unwrap_or(&0);
+
+        aligned_markers.push(AlignedMarker {
+            id: marker.id.clone(),
+            contig,
+            position,
+            bias: stats::group_bias(g1, total_g1, g2, total_g2),
+            p: stats::p_association(g1, g2, total_g1, total_g2),
+        });
     }
+
+    log::info!(
+        "Aligned {} markers to the reference genome",
+        aligned_markers.len()
+    );
 
     // Apply Bonferroni correction
     let effective_n_markers = if params.disable_correction {
@@ -146,7 +189,10 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         !params.disable_correction,
         effective_n_markers
     )?;
-    writeln!(output, "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif")?;
+    writeln!(
+        output,
+        "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif"
+    )?;
 
     for marker in &aligned_markers {
         let contig_len = contig_lengths.get(&marker.contig).copied().unwrap_or(0);

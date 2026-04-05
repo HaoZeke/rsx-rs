@@ -26,6 +26,7 @@ crossbeam = "0.8"
 memchr = "2"
 ahash = "0.8"
 rayon = { version = "1.10", optional = true }
+minimap2 = "0.1"
 log = "0.4"
 env_logger = "0.11"
 

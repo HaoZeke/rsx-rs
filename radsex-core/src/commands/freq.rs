@@ -42,8 +42,8 @@ pub fn run(params: &FreqParams) -> Result<(), Box<dyn std::error::Error>> {
     )?;
     writeln!(output, "Frequency\tCount")?;
 
-    for i in 1..=n_individuals {
-        writeln!(output, "{}\t{}", i, frequency[i])?;
+    for (i, count) in frequency.iter().enumerate().skip(1) {
+        writeln!(output, "{}\t{}", i, count)?;
     }
 
     Ok(())

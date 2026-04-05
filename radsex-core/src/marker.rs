@@ -67,8 +67,8 @@ impl Marker {
     }
 
     /// Write this marker in FASTA format:
-    /// >id_group1:count_group2:count_p:pval_pcorr:pcorr_mindepth:md
-    /// SEQUENCE
+    /// `>id_group1:count_group2:count_p:pval_pcorr:pcorr_mindepth:md`
+    /// followed by the sequence on the next line.
     pub fn write_as_fasta<W: Write>(&self, w: &mut W, min_depth: u32) -> io::Result<()> {
         write!(w, ">{}", self.id)?;
         // Sort group names for deterministic output

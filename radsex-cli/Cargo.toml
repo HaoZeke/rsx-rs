@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.85"
 license = "GPL-3.0-or-later"
 description = "CLI for RADSex: sex-determination analysis from RAD-Sequencing data"
+repository = "https://github.com/HaoZeke/radsex-rs"
 
 [[bin]]
 name = "radsex"
