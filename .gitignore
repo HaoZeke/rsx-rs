@@ -1,0 +1,23 @@
+/target
+/radsex-core/target
+/radsex-cli/target
+*.swp
+*.swo
+*~
+.DS_Store
+
+# pixi
+.pixi/
+pixi.lock
+
+# Build artifacts
+/radsex-core/include/radsex.h
+
+# IDE
+.vscode/
+.idea/
+
+# Claude/AI config
+.claude/
+CLAUDE.md
+.project-ctx.toml

@@ -1,0 +1,3 @@
+[workspace]
+members = ["radsex-core", "radsex-cli"]
+resolver = "2"

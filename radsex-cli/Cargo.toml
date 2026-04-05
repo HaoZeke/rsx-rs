@@ -1,0 +1,17 @@
+[package]
+name = "radsex-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+description = "CLI for RADSex: sex-determination analysis from RAD-Sequencing data"
+
+[[bin]]
+name = "radsex"
+path = "src/main.rs"
+
+[dependencies]
+radsex-core = { path = "../radsex-core", features = ["parallel"] }
+clap = { version = "4", features = ["derive"] }
+env_logger = "0.11"
+log = "0.4"
