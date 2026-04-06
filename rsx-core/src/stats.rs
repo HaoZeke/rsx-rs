@@ -4,7 +4,6 @@
 //! Statistical functions: chi-squared test with Yates correction,
 //! Bonferroni multiple testing correction, and group bias.
 
-use statrs::distribution::{ChiSquared, ContinuousCDF};
 use std::fmt;
 
 /// Format a float like C++ `operator<<` default: `%g` with 6 significant digits.
@@ -72,12 +71,23 @@ pub fn chi_squared_yates(
 }
 
 /// P-value for a chi-squared statistic with df=1.
+///
+/// Uses the exact identity: for df=1, the chi-squared CDF is
+///   P(chi2) = erf(sqrt(chi2/2))
+/// so the p-value is:
+///   p = 1 - P(chi2) = erfc(sqrt(chi2/2))
+///
+/// This replaces the full regularized gamma function with a single
+/// libm erfc call. Derived via SymPy:
+///   gamma(1/2, x) = sqrt(pi) * erf(sqrt(x))
+///   Gamma(1/2) = sqrt(pi)
+///   P(1/2, x) = erf(sqrt(x))
+///   p = erfc(sqrt(chi2/2))
 pub fn chi_squared_p(chi_sq: f64) -> f64 {
     if chi_sq.is_nan() || chi_sq <= 0.0 {
         return 1.0;
     }
-    let dist = ChiSquared::new(1.0).unwrap();
-    (1.0 - dist.cdf(chi_sq)).min(1.0)
+    libm::erfc((chi_sq / 2.0).sqrt()).min(1.0)
 }
 
 /// Compute p-value of association with group using chi-squared test

@@ -21,13 +21,14 @@ parallel = ["dep:rayon"]
 [dependencies]
 needletail = "0.6"
 flate2 = "1"
-statrs = "0.18"
+libm = "0.2"
 # crossbeam removed -- inline parsing is faster than channel-based
 indexmap = "2"
 memchr = "2"
 ahash = "0.8"
 rayon = { version = "1.10", optional = true }
 memmap2 = "0.9"
+ryu = "1"
 minimap2 = "0.1"
 log = "0.4"
 env_logger = "0.11"
