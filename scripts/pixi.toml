@@ -6,9 +6,45 @@ platforms = ["linux-64", "osx-64", "osx-arm64"]
 [dependencies]
 python = ">=3.11"
 sympy = "*"
+# Sollya build deps
+clangxx = "*"
+clang = "*"
+autoconf = "*"
+automake = "*"
+libtool = "*"
+pkg-config = "*"
+gmp = "*"
+mpfr = "*"
+mpfi = "*"
+libxml2 = "*"
+fplll = "*"
+make = "*"
+zlib = "*"
+xz = "*"
 
 [tasks]
 derive = "python sympy/chi2_cdf_derivation.py"
-# Sollya must be installed separately (not on conda-forge).
-# Build from https://www.sollya.org/ or use: nix-shell -p sollya
-# Then run: sollya < sollya/erfc_minimax.sollya
+build-sollya = """bash -c '
+  if command -v sollya >/dev/null 2>&1; then echo "Sollya already installed"; exit 0; fi
+  set -e
+  SOLLYA_VER=8.0
+  cd /tmp
+  [ -f sollya-${SOLLYA_VER}.tar.gz ] || curl -L -o sollya-${SOLLYA_VER}.tar.gz https://www.sollya.org/releases/sollya-${SOLLYA_VER}/sollya-${SOLLYA_VER}.tar.gz
+  rm -rf sollya-${SOLLYA_VER}
+  tar xzf sollya-${SOLLYA_VER}.tar.gz
+  cd sollya-${SOLLYA_VER}
+  ./configure CC=clang CXX=clang++ \
+    CFLAGS="-I$CONDA_PREFIX/include/libxml2" \
+    CPPFLAGS="-I$CONDA_PREFIX/include/libxml2" \
+    LDFLAGS="-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib" \
+    --prefix=$CONDA_PREFIX \
+    --with-gmp=$CONDA_PREFIX \
+    --with-mpfr=$CONDA_PREFIX \
+    --with-mpfi=$CONDA_PREFIX \
+    --with-fplll=$CONDA_PREFIX \
+    --with-xml2=$CONDA_PREFIX
+  make -j4
+  make install
+  echo "Sollya ${SOLLYA_VER} installed to $CONDA_PREFIX"
+'"""
+minimax = { cmd = "sollya < sollya/erfc_minimax.sollya", depends-on = ["build-sollya"] }
