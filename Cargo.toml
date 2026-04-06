@@ -2,7 +2,10 @@
 members = ["rsx-core", "rsx-cli"]
 resolver = "2"
 
-# The profile that 'dist' will build with
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# cargo-dist builds (cross-platform, no -C target-cpu=native)
 [profile.dist]
 inherits = "release"
-lto = "thin"

@@ -1,15 +1,15 @@
 // GPL-3.0-or-later
 // Copyright 2024--present rsx-rs developers
 
-//! Markers table parser with mmap I/O and optional parallel chunk parsing.
+//! Markers table parser: mmap + algorithmic optimizations.
 //!
-//! The file is memory-mapped (zero-copy), then either:
-//! - Single-thread: parsed sequentially via `for_each` callback
-//! - Parallel: split into chunks at newline boundaries, parsed with rayon
-//!
-//! Group counting uses bitset popcount (no HashMap in the hot path).
+//! Key optimizations:
+//! - mmap for zero-copy I/O
+//! - Skip id+sequence fields when not needed (memchr to 2nd tab)
+//! - Fast min_depth=1 threshold: check "0" vs non-"0" (1 byte, no parse)
+//! - Bitset presence tracking via popcount
 
-use crate::io::table_io::{TableHeader, fast_parse_u16};
+use crate::io::table_io::fast_parse_u16;
 use crate::marker::Marker;
 use crate::popmap::Popmap;
 
@@ -33,25 +33,23 @@ impl Default for ParserConfig {
     }
 }
 
-/// Markers table backed by mmap. Parsed inline via `for_each`.
+/// Markers table backed by mmap.
 pub struct MarkersTableStream {
-    pub header: TableHeader,
+    pub header: crate::io::table_io::TableHeader,
     pub groups: Vec<String>,
     config: ParserConfig,
     mmap: Mmap,
-    /// Byte offset where data lines start (after comments + header).
     data_start: usize,
     n_individuals: u16,
 }
 
 impl MarkersTableStream {
-    /// Open a markers table via mmap.
     pub fn open(
         path: &Path,
         popmap: Option<&Popmap>,
         config: ParserConfig,
     ) -> std::io::Result<Self> {
-        let header = TableHeader::from_file(path)?;
+        let header = crate::io::table_io::TableHeader::from_file(path)?;
 
         let groups: Vec<String> = if config.compute_groups {
             if let Some(pm) = popmap {
@@ -70,17 +68,14 @@ impl MarkersTableStream {
         let file = std::fs::File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
 
-        // Find where data starts (skip comment lines + header line)
         let mut data_start = 0;
         loop {
             if data_start >= mmap.len() {
                 break;
             }
-            // Find end of current line
             let line_end = memchr::memchr(b'\n', &mmap[data_start..])
                 .map(|p| data_start + p + 1)
                 .unwrap_or(mmap.len());
-
             if mmap[data_start] == b'#' || mmap[data_start..].starts_with(b"id\t") {
                 data_start = line_end;
             } else {
@@ -100,7 +95,7 @@ impl MarkersTableStream {
         })
     }
 
-    /// Process all markers via callback. Zero allocation per marker.
+    /// Process all markers. Uses fast path when sequence isn't needed.
     pub fn for_each<F>(&self, mut f: F) -> std::io::Result<()>
     where
         F: FnMut(&Marker),
@@ -110,6 +105,141 @@ impl MarkersTableStream {
             return Ok(());
         }
 
+        if !self.config.store_sequence && self.config.min_depth <= 1 {
+            // FAST PATH: skip id+seq, threshold=1 means just check != "0"
+            self.for_each_fast_d1(data, &mut f);
+        } else if !self.config.store_sequence {
+            // MEDIUM PATH: skip id+seq, but need integer parse for depth
+            self.for_each_skip_seq(data, &mut f);
+        } else {
+            // SLOW PATH: need sequence (for signif/subset FASTA output)
+            self.for_each_full(data, &mut f);
+        }
+
+        Ok(())
+    }
+
+    /// Fast path: min_depth=1, no sequence needed.
+    /// Skip id+seq fields. Check "0" vs non-"0" without integer parse.
+    #[inline]
+    fn for_each_fast_d1<F>(&self, data: &[u8], f: &mut F)
+    where
+        F: FnMut(&Marker),
+    {
+        let mut marker = Marker::new(self.n_individuals);
+        let mut pos = 0;
+
+        while pos < data.len() {
+            // Find end of line
+            let line_end = memchr::memchr(b'\n', &data[pos..])
+                .map(|p| pos + p)
+                .unwrap_or(data.len());
+
+            let line = &data[pos..line_end];
+            pos = line_end + 1;
+
+            // Skip id field (find 1st tab)
+            let tab1 = match memchr::memchr(b'\t', line) {
+                Some(p) => p,
+                None => continue,
+            };
+            // Skip sequence field (find 2nd tab)
+            let tab2 = match memchr::memchr(b'\t', &line[tab1 + 1..]) {
+                Some(p) => tab1 + 1 + p,
+                None => continue,
+            };
+
+            // Parse depth fields: everything after tab2
+            let mut col = 0usize;
+            let mut field_start = tab2 + 1;
+
+            while field_start < line.len() {
+                // Find next tab or end of line
+                let field_end = memchr::memchr(b'\t', &line[field_start..])
+                    .map(|p| field_start + p)
+                    .unwrap_or(line.len());
+
+                let field = &line[field_start..field_end];
+
+                // min_depth=1: present iff field != "0"
+                let is_zero = field.len() == 1 && field[0] == b'0';
+                if !is_zero && !field.is_empty() && col < self.n_individuals as usize {
+                    marker.presence.set(col);
+                    marker.n_individuals += 1;
+                }
+
+                col += 1;
+                field_start = field_end + 1;
+            }
+
+            f(&marker);
+            marker.reset(true); // keep_sequence=true (no sequence to clear)
+        }
+    }
+
+    /// Medium path: skip id+seq, parse depths for min_depth > 1.
+    #[inline]
+    fn for_each_skip_seq<F>(&self, data: &[u8], f: &mut F)
+    where
+        F: FnMut(&Marker),
+    {
+        let min_depth = self.config.min_depth;
+        let mut marker = Marker::new(self.n_individuals);
+        let mut pos = 0;
+
+        while pos < data.len() {
+            let line_end = memchr::memchr(b'\n', &data[pos..])
+                .map(|p| pos + p)
+                .unwrap_or(data.len());
+
+            let line = &data[pos..line_end];
+            pos = line_end + 1;
+
+            // Skip id + sequence
+            let tab1 = match memchr::memchr(b'\t', line) {
+                Some(p) => p,
+                None => continue,
+            };
+            let tab2 = match memchr::memchr(b'\t', &line[tab1 + 1..]) {
+                Some(p) => tab1 + 1 + p,
+                None => continue,
+            };
+
+            let mut col = 0usize;
+            let mut field_start = tab2 + 1;
+
+            while field_start < line.len() {
+                let field_end = memchr::memchr(b'\t', &line[field_start..])
+                    .map(|p| field_start + p)
+                    .unwrap_or(line.len());
+
+                let field = &line[field_start..field_end];
+                let depth = fast_parse_u16(field);
+
+                if col < self.n_individuals as usize {
+                    marker.individual_depths[col] = depth;
+                    if depth >= min_depth {
+                        marker.presence.set(col);
+                        marker.n_individuals += 1;
+                    }
+                }
+
+                col += 1;
+                field_start = field_end + 1;
+            }
+
+            f(&marker);
+            marker.reset(true);
+        }
+    }
+
+    /// Full path: parse everything including id and sequence.
+    #[inline]
+    fn for_each_full<F>(&self, data: &[u8], f: &mut F)
+    where
+        F: FnMut(&Marker),
+    {
+        let min_depth = self.config.min_depth;
         let mut marker = Marker::new(self.n_individuals);
         let mut temp = Vec::with_capacity(256);
         let mut field_n: usize = 0;
@@ -117,18 +247,18 @@ impl MarkersTableStream {
         for &byte in data {
             match byte {
                 b'\t' => {
-                    handle_field(&mut marker, &temp, field_n, &self.config);
+                    handle_field(&mut marker, &temp, field_n, min_depth);
                     temp.clear();
                     field_n += 1;
                 }
                 b'\n' => {
                     if field_n >= 2 {
-                        handle_field(&mut marker, &temp, field_n, &self.config);
+                        handle_field(&mut marker, &temp, field_n, min_depth);
                     }
                     temp.clear();
                     field_n = 0;
                     f(&marker);
-                    marker.reset(!self.config.store_sequence);
+                    marker.reset(false);
                 }
                 b'\r' => {}
                 _ => {
@@ -137,54 +267,40 @@ impl MarkersTableStream {
             }
         }
 
-        // Handle last line without trailing newline
         if field_n >= 2 {
-            handle_field(&mut marker, &temp, field_n, &self.config);
+            handle_field(&mut marker, &temp, field_n, min_depth);
             f(&marker);
         }
-
-        Ok(())
     }
 
-    /// Collect all markers into a Vec.
     pub fn collect(&self) -> std::io::Result<Vec<Marker>> {
         let mut markers = Vec::new();
         self.for_each(|m| markers.push(m.clone()))?;
         Ok(markers)
     }
 
-    /// Iterate over all markers (allocates).
     pub fn iter(&self) -> impl Iterator<Item = Marker> {
         self.collect().unwrap_or_default().into_iter()
     }
 }
 
 #[inline(always)]
-fn handle_field(
-    marker: &mut Marker,
-    temp: &[u8],
-    field_n: usize,
-    config: &ParserConfig,
-) {
+fn handle_field(marker: &mut Marker, temp: &[u8], field_n: usize, min_depth: u16) {
     match field_n {
         0 => {
-            if config.store_sequence {
-                marker.id.clear();
-                marker.id.push_str(std::str::from_utf8(temp).unwrap_or(""));
-            }
+            marker.id.clear();
+            marker.id.push_str(std::str::from_utf8(temp).unwrap_or(""));
         }
         1 => {
-            if config.store_sequence {
-                marker.sequence.clear();
-                marker.sequence.push_str(std::str::from_utf8(temp).unwrap_or(""));
-            }
+            marker.sequence.clear();
+            marker.sequence.push_str(std::str::from_utf8(temp).unwrap_or(""));
         }
         _ => {
             let depth = fast_parse_u16(temp);
             let idx = field_n - 2;
             if idx < marker.individual_depths.len() {
                 marker.individual_depths[idx] = depth;
-                if depth >= config.min_depth {
+                if depth >= min_depth {
                     marker.presence.set(idx);
                     marker.n_individuals += 1;
                 }

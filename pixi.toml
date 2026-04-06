@@ -9,10 +9,11 @@ rust = ">=1.85"
 
 [feature.dev.tasks]
 check = { cmd = "cargo fmt --check && cargo clippy -- -D warnings && cargo test" }
-build = { cmd = "cargo build --release" }
+build = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo build --release" }
+build-portable = { cmd = "cargo build --release" }
 test = { cmd = "cargo test" }
 gen-header = { cmd = "cargo build --manifest-path rsx-core/Cargo.toml --features gen-header" }
-bench = { cmd = "cargo bench --manifest-path rsx-core/Cargo.toml" }
+bench = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo bench --manifest-path rsx-core/Cargo.toml" }
 
 [feature.dev.dependencies]
 cargo-nextest = "*"
