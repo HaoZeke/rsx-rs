@@ -195,8 +195,8 @@ enum Commands {
 
     /// Merge multiple marker depth tables by sequence identity
     Merge {
-        /// Paths to input marker depth tables
-        #[arg(short = 'i', long = "input-files", num_args = 2..)]
+        /// Paths to input marker depth tables (positional, 2 or more)
+        #[arg(required = true, num_args = 1..)]
         input_files: Vec<String>,
         /// Path to the output merged table
         #[arg(short = 'o', long = "output-file")]
