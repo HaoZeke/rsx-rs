@@ -1,0 +1,14 @@
+[workspace]
+name = "rsx-scripts"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = ">=3.11"
+sympy = "*"
+
+[tasks]
+derive = "python sympy/chi2_cdf_derivation.py"
+# Sollya must be installed separately (not on conda-forge).
+# Build from https://www.sollya.org/ or use: nix-shell -p sollya
+# Then run: sollya < sollya/erfc_minimax.sollya

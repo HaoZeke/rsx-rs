@@ -1,0 +1,74 @@
+/*
+ * Sollya script: minimax polynomial for erfc(sqrt(x/2))
+ * Domain: chi-squared values [0, 50] for RAD-seq (df=1).
+ *
+ * Strategy: erfc(sqrt(x/2)) decays super-exponentially, so we split
+ * into two regions and approximate a slowly-varying transformed function.
+ *
+ * Region 1 [0, 6]:  erfc ranges from 1 to ~0.01
+ *   Direct polynomial approximation of erfc(sqrt(x/2))
+ *
+ * Region 2 [6, 50]: erfc ranges from ~0.01 to ~1e-23
+ *   Approximate g(x) = erfc(sqrt(x/2)) * exp(x/2) * sqrt(pi*x/2)
+ *   which is a slowly-varying function near 1 (the asymptotic series).
+ *   Recover erfc via: erfc(sqrt(x/2)) = g(x) * exp(-x/2) / sqrt(pi*x/2)
+ *
+ * Run: cd scripts && sollya < sollya/erfc_minimax.sollya
+ * Requires: Sollya >= 8.0 (https://www.sollya.org/)
+ */
+
+prec = 300!;
+
+/* Target function */
+f = erfc(sqrt(x/2));
+
+/* === Region 1: chi2 in [0, 6] === */
+display = decimal!;
+print("=== Region 1: chi2 in [0, 6], degree 12 ===");
+p1 = remez(f, 12, [0, 6]);
+err1 = dirtyinfnorm(f - p1, [0, 6]);
+print("Max absolute error:", err1);
+print("Coefficients (Rust const array):");
+print("const ERFC_POLY_SMALL: [f64; 13] = [");
+for i from 0 to 12 do {
+    print("    ", coeff(p1, i), ",");
+};
+print("];");
+print("");
+
+/* === Region 2: chi2 in [6, 50] === */
+/* Transform: g(x) = erfc(sqrt(x/2)) * exp(x/2) * sqrt(pi * x / 2) */
+g = f * exp(x/2) * sqrt(pi * x / 2);
+print("=== Region 2: chi2 in [6, 50], degree 8 ===");
+p2 = remez(g, 8, [6, 50]);
+err2 = dirtyinfnorm(g - p2, [6, 50]);
+print("Max absolute error of g:", err2);
+print("Coefficients (Rust const array):");
+print("const ERFC_POLY_LARGE: [f64; 9] = [");
+for i from 0 to 8 do {
+    print("    ", coeff(p2, i), ",");
+};
+print("];");
+print("");
+
+/* === Verification === */
+print("=== Verification ===");
+display = decimal!;
+for chi2 in [| 0, 0.5, 1.0, 2.0, 3.841, 5.0, 5.9, 6.1, 10.0, 20.0, 30.0, 40.0, 50.0 |] do {
+    exact = f(chi2);
+    if chi2 <= 6 then {
+        approx = p1(chi2);
+    } else {
+        approx = p2(chi2) * exp(-chi2/2) / sqrt(pi * chi2 / 2);
+    };
+    if exact != 0 then relerr = abs(approx - exact) / abs(exact)
+    else relerr = abs(approx);
+    print("  chi2=", chi2, " p=", exact, " approx=", approx, " relerr=", relerr);
+};
+
+print("");
+print("Total absolute error bound:");
+print("  Region 1 [0,6]:  ", err1);
+print("  Region 2 [6,50]: ", err2, " (on transformed function g)");
+
+quit;

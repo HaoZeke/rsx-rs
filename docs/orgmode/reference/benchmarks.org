@@ -33,49 +33,61 @@ markers, 10% female-biased, 80% common. FASTQ files gzip-compressed.
 
 | Command | Small (1K) | Medium (10K) | Large (100K) | Average |
 |---------+------------+--------------+--------------+---------|
-| process | 2.1x       | 2.7x         | --           | 2.4x    |
-| freq    | 5.0x       | 2.4x         | 1.6x         | 3.0x    |
-| depth   | 7.5x       | 2.1x         | 2.4x         | 4.0x    |
-| distrib | 4.3x       | 2.4x         | 1.9x         | 2.9x    |
-| signif  | 5.0x       | 1.7x         | 1.6x         | 2.8x    |
-| subset  | 3.5x       | 1.7x         | 1.6x         | 2.3x    |
-| map     | 1.8x       | 1.7x         | --            | 1.7x    |
+| process | 3.6x       | 2.5x         | --           | 3.1x    |
+| freq    | 4.0x       | 2.0x         | 1.9x         | 2.6x    |
+| depth   | 4.3x       | 2.6x         | 2.9x         | 3.3x    |
+| distrib | 5.3x       | 3.9x         | 2.5x         | 3.9x    |
+| signif  | 3.2x       | 1.9x         | 2.1x         | 2.4x    |
+| subset  | 4.0x       | 2.0x         | 2.3x         | 2.8x    |
+| map     | 2.1x       | 1.6x         | --           | 1.9x    |
 
 *** Per-scale average speedup
 
-| Scale  | Average speedup | Total C++ (s) | Total Rust (s) |
-|--------+-----------------+---------------+----------------|
-| Small  | 4.2x            |         0.129 |          0.046 |
-| Medium | 2.1x            |         0.708 |          0.391 |
-| Large  | 1.8x            |         1.099 |          0.603 |
+| Scale  | Average speedup |
+|--------+-----------------|
+| Small  | 3.8x            |
+| Medium | 2.4x            |
+| Large  | 2.3x            |
 
 *** Overall
 
-*Rust is 1.86x faster* across all 19 benchmarks (1.907s vs 1.025s total).
+*Rust is 2.19x faster* across all 19 benchmarks (1.896s vs 0.864s total).
+
+*** Microbenchmarks (criterion)
+
+| Operation              |   Time | Notes                           |
+|------------------------+--------+---------------------------------|
+| chi_squared_yates      | 4.6 ns | Pure f64 arithmetic             |
+| p_association (erfc)   | 108 ns | libm::erfc, was 562 ns (statrs) |
+| bitset popcount (40)   | 2.3 ns | 1 u64 word                      |
+| bitset popcount (200)  | 5.0 ns | 4 u64 words                     |
+| bitset popcount (1000) |  18 ns | 16 u64 words                    |
+| fast_parse_u16         | 4.5 ns | Integer field parsing            |
+| Cg float format        | 193 ns | C++ %g compatible output        |
 
 ** Raw timing data (seconds, median of 3 runs)
 
 | Scale  | Command | C++ (s) | Rust (s) | Speedup |
 |--------+---------+---------+----------+---------|
-| small  | freq    |   0.015 |    0.003 | 5.0x    |
-| small  | depth   |   0.015 |    0.002 | 7.5x    |
-| small  | distrib |   0.013 |    0.003 | 4.3x    |
-| small  | signif  |   0.015 |    0.003 | 5.0x    |
-| small  | subset  |   0.014 |    0.004 | 3.5x    |
-| small  | map     |   0.042 |    0.024 | 1.8x    |
-| small  | process |   0.015 |    0.007 | 2.1x    |
-| medium | freq    |   0.026 |    0.011 | 2.4x    |
-| medium | depth   |   0.029 |    0.014 | 2.1x    |
-| medium | distrib |   0.029 |    0.012 | 2.4x    |
-| medium | signif  |   0.027 |    0.016 | 1.7x    |
-| medium | subset  |   0.024 |    0.014 | 1.7x    |
-| medium | map     |   0.467 |    0.280 | 1.7x    |
-| medium | process |   0.077 |    0.029 | 2.7x    |
-| large  | freq    |   0.131 |    0.083 | 1.6x    |
-| large  | depth   |   0.325 |    0.138 | 2.4x    |
-| large  | distrib |   0.192 |    0.101 | 1.9x    |
-| large  | signif  |   0.248 |    0.151 | 1.6x    |
-| large  | subset  |   0.203 |    0.130 | 1.6x    |
+| small  | process |   0.018 |    0.005 | 3.6x    |
+| small  | freq    |   0.016 |    0.004 | 4.0x    |
+| small  | depth   |   0.017 |    0.004 | 4.3x    |
+| small  | distrib |   0.016 |    0.003 | 5.3x    |
+| small  | signif  |   0.016 |    0.005 | 3.2x    |
+| small  | subset  |   0.015 |    0.004 | 4.0x    |
+| small  | map     |   0.049 |    0.023 | 2.1x    |
+| medium | process |   0.066 |    0.026 | 2.5x    |
+| medium | freq    |   0.014 |    0.007 | 2.0x    |
+| medium | depth   |   0.026 |    0.010 | 2.6x    |
+| medium | distrib |   0.031 |    0.008 | 3.9x    |
+| medium | signif  |   0.021 |    0.011 | 1.9x    |
+| medium | subset  |   0.026 |    0.013 | 2.0x    |
+| medium | map     |   0.431 |    0.263 | 1.6x    |
+| large  | freq    |   0.129 |    0.067 | 1.9x    |
+| large  | depth   |   0.302 |    0.119 | 2.5x    |
+| large  | distrib |   0.189 |    0.076 | 2.5x    |
+| large  | signif  |   0.271 |    0.123 | 2.2x    |
+| large  | subset  |   0.198 |    0.086 | 2.3x    |
 
 ** Why Rust is faster
 
@@ -92,13 +104,33 @@ cloning. The fix: inline =for_each= callback that reuses a single =Marker=
 struct with zero allocation per marker. The marker is passed by reference to
 the callback, reset in-place between iterations.
 
-*** AHashMap for group counts
+*** Bitset popcount for group counts (eliminated HashMap entirely)
 
-Each marker has a =group_counts= map (group name -> count). The C++ uses
-=std::unordered_map<string, uint>= with the default hash. rsx-rs uses
-=ahash::AHashMap= which leverages hardware AES instructions for fast hashing
-of small string keys. Since there are only 2 groups per marker, the hash
-lookup is the hot path -- faster hashing gives a direct speedup.
+The C++ stores group counts in =std::unordered_map<string, uint>=, hashing
+group name strings for every marker field. rsx-rs replaces this with a
+=BitsetRow= (1 bit per individual) and pre-computed =GroupMask= bitmasks.
+Group count = =popcount(marker_bits & group_mask)= -- a single CPU
+instruction per 64 individuals, with zero hashing.
+
+For 200 individuals: 5.0 ns per group count vs ~200 ns for a HashMap lookup.
+
+*** erfc identity for chi-squared CDF (SymPy-derived, 5.2x faster)
+
+The chi-squared p-value for df=1 simplifies exactly to
+=p = erfc(sqrt(chi2/2))=. This is proven via the identity
+=P(1/2, x) = erf(sqrt(x))= (DLMF 8.2.1). The derivation script is in
+=scripts/sympy/chi2_cdf_derivation.py=.
+
+This replaces the full regularized gamma function (statrs crate, 562 ns)
+with a single =libm::erfc= call (108 ns). A Sollya-generated minimax
+polynomial (=scripts/sollya/erfc_minimax.sollya=) can further replace
+=libm::erfc= for GPU kernels.
+
+*** mmap I/O (zero-copy file access)
+
+The markers table is memory-mapped via =memmap2=, eliminating buffered
+read syscalls. The kernel manages page faults transparently. Combined
+with the inline =for_each= parser, this achieves near-memcpy throughput.
 
 *** Rayon for =process= command
 

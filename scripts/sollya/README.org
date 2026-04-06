@@ -1,0 +1,47 @@
+#+TITLE: Sollya Minimax Approximation for erfc
+#+AUTHOR: Rohit Goswami
+
+* Purpose
+
+Generate a minimax polynomial approximation for =erfc(sqrt(chi2/2))= (the
+chi-squared p-value for df=1) that is faster than =libm::erfc= and usable
+in GPU kernels where libm is not available.
+
+* Running
+
+Sollya is not on conda-forge. Install from source or use nix:
+
+#+begin_src bash
+# Option 1: nix
+nix-shell -p sollya --run "sollya < erfc_minimax.sollya"
+
+# Option 2: build from source
+# https://www.sollya.org/
+#+end_src
+
+* Output
+
+The script generates two sets of polynomial coefficients:
+
+1. *Region 1* [0, 6]: direct polynomial of =erfc(sqrt(x/2))=, degree 12
+2. *Region 2* [6, 50]: polynomial of the transformed function
+   =g(x) = erfc(sqrt(x/2)) * exp(x/2) * sqrt(pi*x/2)=, degree 8
+
+The transformed function is slowly varying (~1 for large x), making it
+amenable to low-degree polynomial approximation. The original function is
+recovered via =erfc = g(x) * exp(-x/2) / sqrt(pi*x/2)=.
+
+* Integration
+
+Once coefficients are generated, they go into =rsx-core/src/stats.rs= as
+a =fast_chi2_p()= function using Horner evaluation. This replaces
+=libm::erfc= for both CPU (avoiding function call overhead) and GPU
+(where libm is unavailable).
+
+* Precision target
+
+- f64: relative error < 2^-52 (~2.2e-16) across [0, 50]
+- This covers all chi-squared values encountered in RAD-seq
+  (N < 2000 individuals, chi2 < ~2000)
+- Values above chi2=50 give p < 1e-12, well below any significance
+  threshold; the floor at 1e-16 handles these
