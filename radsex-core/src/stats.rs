@@ -5,6 +5,41 @@
 //! Bonferroni multiple testing correction, and group bias.
 
 use statrs::distribution::{ChiSquared, ContinuousCDF};
+use std::fmt;
+
+/// Format a float like C++ `operator<<` default: `%g` with 6 significant digits.
+/// This matches the C++ radsex output format exactly.
+pub struct Cg(pub f64);
+
+impl fmt::Display for Cg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // %g with 6 significant digits, strip trailing zeros
+        let val = self.0;
+        if val == 0.0 {
+            return write!(f, "0");
+        }
+        let abs = val.abs();
+        let exp = abs.log10().floor() as i32;
+        if (-4..6).contains(&exp) {
+            // Fixed notation
+            let precision = (5 - exp).max(0) as usize;
+            let formatted = format!("{:.*}", precision, val);
+            // Strip trailing zeros after decimal point
+            if formatted.contains('.') {
+                let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
+                write!(f, "{trimmed}")
+            } else {
+                write!(f, "{formatted}")
+            }
+        } else {
+            // Scientific notation
+            let mantissa = val / 10f64.powi(exp);
+            let formatted = format!("{:.5}", mantissa);
+            let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
+            write!(f, "{trimmed}e{exp:+03}")
+        }
+    }
+}
 
 /// Chi-squared statistic with Yates continuity correction for a 2x2 table.
 ///

@@ -46,7 +46,7 @@ enum Commands {
         #[arg(short = 'd', long = "min-depth", default_value = "1")]
         min_depth: u16,
         /// Names of groups to compare (comma-separated)
-        #[arg(short = 'G', long = "groups", value_delimiter = ',', num_args = 2)]
+        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
         groups: Option<Vec<String>>,
         /// P-value significance threshold
         #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
@@ -71,7 +71,7 @@ enum Commands {
         #[arg(short = 'd', long = "min-depth", default_value = "1")]
         min_depth: u16,
         /// Names of groups to compare
-        #[arg(short = 'G', long = "groups", value_delimiter = ',', num_args = 2)]
+        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
         groups: Option<Vec<String>>,
         /// P-value significance threshold
         #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
@@ -131,7 +131,7 @@ enum Commands {
         #[arg(short = 'd', long = "min-depth", default_value = "1")]
         min_depth: u16,
         /// Names of groups to compare
-        #[arg(short = 'G', long = "groups", value_delimiter = ',', num_args = 2)]
+        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
         groups: Option<Vec<String>>,
         /// Minimum mapping quality
         #[arg(short = 'q', long = "min-quality", default_value = "20")]
@@ -162,7 +162,7 @@ enum Commands {
         #[arg(short = 'd', long = "min-depth", default_value = "1")]
         min_depth: u16,
         /// Names of groups to compare
-        #[arg(short = 'G', long = "groups", value_delimiter = ',', num_args = 2)]
+        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
         groups: Option<Vec<String>>,
         /// P-value significance threshold
         #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]

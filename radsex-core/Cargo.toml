@@ -23,6 +23,7 @@ needletail = "0.6"
 flate2 = "1"
 statrs = "0.18"
 crossbeam = "0.8"
+indexmap = "2"
 memchr = "2"
 ahash = "0.8"
 rayon = { version = "1.10", optional = true }

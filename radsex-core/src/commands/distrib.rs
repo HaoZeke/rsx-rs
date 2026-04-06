@@ -6,6 +6,7 @@
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
+use crate::stats::Cg;
 use std::io::Write;
 use std::path::Path;
 
@@ -77,7 +78,7 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
         output,
         "#source:radsex-distrib;min_depth:{};signif_threshold:{};bonferroni:{};n_markers:{}",
         params.min_depth,
-        signif_threshold,
+        Cg(signif_threshold),
         !params.disable_correction,
         effective_n_markers
     )?;
@@ -105,10 +106,10 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
                 g,
                 h,
                 count,
-                p,
-                p_corrected,
+                Cg(p),
+                Cg(p_corrected),
                 if signif { "True" } else { "False" },
-                bias
+                Cg(bias)
             )?;
         }
     }

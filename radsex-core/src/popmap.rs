@@ -3,17 +3,20 @@
 
 //! Population map: maps individual names to groups (e.g. M/F).
 
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::io::{self, BufRead};
 use std::path::Path;
 
 /// Population map storing individual-to-group assignments and group counts.
+/// Uses IndexMap for group_counts to preserve insertion order (matching C++
+/// unordered_map behavior where first-seen group becomes group1).
 #[derive(Debug, Clone, Default)]
 pub struct Popmap {
     /// individual_name -> group_name
     pub individual_groups: HashMap<String, String>,
-    /// group_name -> count of individuals
-    pub group_counts: HashMap<String, u32>,
+    /// group_name -> count of individuals (insertion-ordered)
+    pub group_counts: IndexMap<String, u32>,
     /// Total number of individuals
     pub n_individuals: u16,
 }

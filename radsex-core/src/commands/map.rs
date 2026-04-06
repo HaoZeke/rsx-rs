@@ -9,6 +9,7 @@ use crate::marker::AlignedMarker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
+use crate::stats::Cg;
 use minimap2::Aligner;
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -185,7 +186,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         params.min_depth,
         params.min_quality,
         params.min_frequency,
-        signif_threshold,
+        Cg(signif_threshold),
         !params.disable_correction,
         effective_n_markers
     )?;
@@ -206,9 +207,9 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
             marker.position,
             contig_len,
             marker.id,
-            marker.bias,
-            marker.p,
-            p_corrected,
+            Cg(marker.bias),
+            Cg(marker.p),
+            Cg(p_corrected),
             if signif { "True" } else { "False" }
         )?;
     }

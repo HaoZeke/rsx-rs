@@ -964,6 +964,7 @@ dependencies = [
  "crossbeam",
  "env_logger",
  "flate2",
+ "indexmap",
  "log",
  "memchr",
  "minimap2",
