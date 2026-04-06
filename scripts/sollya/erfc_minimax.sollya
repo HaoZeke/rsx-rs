@@ -1,74 +1,70 @@
 /*
- * Sollya script: minimax polynomial for erfc(sqrt(x/2))
- * Domain: chi-squared values [0, 50] for RAD-seq (df=1).
+ * Sollya script: minimax polynomial for chi-squared p-value (df=1).
  *
- * Strategy: erfc(sqrt(x/2)) decays super-exponentially, so we split
- * into two regions and approximate a slowly-varying transformed function.
+ * Target: p(chi2) = erfc(sqrt(chi2/2))
  *
- * Region 1 [0, 6]:  erfc ranges from 1 to ~0.01
- *   Direct polynomial approximation of erfc(sqrt(x/2))
+ * Strategy: change variable t = sqrt(chi2/2), approximate erfc(t).
+ * Split into 3 sub-intervals for optimal polynomial degree:
+ *   [0, 1]:     erfc near 1, smooth, degree 15 sufficient
+ *   [1, 3]:     erfc drops to ~2e-5, degree 15
+ *   [3, 7.07]:  erfc drops to ~4e-24 (chi2=100), use asymptotic transform
  *
- * Region 2 [6, 50]: erfc ranges from ~0.01 to ~1e-23
- *   Approximate g(x) = erfc(sqrt(x/2)) * exp(x/2) * sqrt(pi*x/2)
- *   which is a slowly-varying function near 1 (the asymptotic series).
- *   Recover erfc via: erfc(sqrt(x/2)) = g(x) * exp(-x/2) / sqrt(pi*x/2)
+ * The variable t = sqrt(chi2/2), so:
+ *   chi2 in [0, 2]  -> t in [0, 1]
+ *   chi2 in [2, 18] -> t in [1, 3]
+ *   chi2 in [18, 100]-> t in [3, ~7.07]
  *
- * Run: cd scripts && sollya < sollya/erfc_minimax.sollya
- * Requires: Sollya >= 8.0 (https://www.sollya.org/)
+ * Run: cd scripts && pixi run minimax
  */
 
 prec = 300!;
-
-/* Target function */
-f = erfc(sqrt(x/2));
-
-/* === Region 1: chi2 in [0, 6] === */
 display = decimal!;
-print("=== Region 1: chi2 in [0, 6], degree 12 ===");
-p1 = remez(f, 12, [0, 6]);
-err1 = dirtyinfnorm(f - p1, [0, 6]);
-print("Max absolute error:", err1);
-print("Coefficients (Rust const array):");
-print("const ERFC_POLY_SMALL: [f64; 13] = [");
-for i from 0 to 12 do {
-    print("    ", coeff(p1, i), ",");
-};
+
+/* === Region 1: t in [0, 1], erfc(t) in [1, 0.157] === */
+print("=== Region 1: t in [0, 1], degree 15 ===");
+f1 = erfc(x);
+p1 = remez(f1, 15, [0, 1], 1/f1);  /* relative error weighting */
+err1 = dirtyinfnorm((f1 - p1)/f1, [1b-100, 1]);
+print("Max relative error:", err1);
+print("const ERFC_R1: [f64; 16] = [");
+for i from 0 to 15 do { print("    ", coeff(p1, i), ","); };
 print("];");
 print("");
 
-/* === Region 2: chi2 in [6, 50] === */
-/* Transform: g(x) = erfc(sqrt(x/2)) * exp(x/2) * sqrt(pi * x / 2) */
-g = f * exp(x/2) * sqrt(pi * x / 2);
-print("=== Region 2: chi2 in [6, 50], degree 8 ===");
-p2 = remez(g, 8, [6, 50]);
-err2 = dirtyinfnorm(g - p2, [6, 50]);
-print("Max absolute error of g:", err2);
-print("Coefficients (Rust const array):");
-print("const ERFC_POLY_LARGE: [f64; 9] = [");
-for i from 0 to 8 do {
-    print("    ", coeff(p2, i), ",");
-};
+/* === Region 2: t in [1, 3], erfc(t) in [0.157, 2.2e-5] === */
+print("=== Region 2: t in [1, 3], degree 15 ===");
+p2 = remez(f1, 15, [1, 3], 1/f1);
+err2 = dirtyinfnorm((f1 - p2)/f1, [1, 3]);
+print("Max relative error:", err2);
+print("const ERFC_R2: [f64; 16] = [");
+for i from 0 to 15 do { print("    ", coeff(p2, i), ","); };
 print("];");
 print("");
 
-/* === Verification === */
-print("=== Verification ===");
-display = decimal!;
-for chi2 in [| 0, 0.5, 1.0, 2.0, 3.841, 5.0, 5.9, 6.1, 10.0, 20.0, 30.0, 40.0, 50.0 |] do {
-    exact = f(chi2);
-    if chi2 <= 6 then {
-        approx = p1(chi2);
-    } else {
-        approx = p2(chi2) * exp(-chi2/2) / sqrt(pi * chi2 / 2);
-    };
+/* === Region 3: t in [3, 8], use asymptotic transform === */
+/* g(t) = erfc(t) * exp(t^2) * t * sqrt(pi) is slowly varying near 1 */
+print("=== Region 3: t in [3, 8], transformed, degree 10 ===");
+g3 = erfc(x) * exp(x^2) * x * sqrt(pi);
+p3 = remez(g3, 10, [3, 8]);
+err3 = dirtyinfnorm(g3 - p3, [3, 8]);
+print("Max absolute error of g:", err3);
+print("(erfc recovered via: erfc(t) = p(t) * exp(-t^2) / (t * sqrt(pi)))");
+print("const ERFC_R3: [f64; 11] = [");
+for i from 0 to 10 do { print("    ", coeff(p3, i), ","); };
+print("];");
+print("");
+
+/* === Verification: evaluate p(chi2) = erfc(sqrt(chi2/2)) === */
+print("=== Verification (chi2 -> p-value) ===");
+for chi2 in [| 0.01, 0.5, 1, 2, 3.841, 5, 10, 18, 20, 30, 50, 100 |] do {
+    t = sqrt(chi2/2);
+    exact = erfc(t);
+    if t <= 1 then approx = horner(p1)(t)
+    else if t <= 3 then approx = horner(p2)(t)
+    else approx = horner(p3)(t) * exp(-t^2) / (t * sqrt(pi));
     if exact != 0 then relerr = abs(approx - exact) / abs(exact)
     else relerr = abs(approx);
-    print("  chi2=", chi2, " p=", exact, " approx=", approx, " relerr=", relerr);
+    print("  chi2=", chi2, " t=", t, " relerr=", relerr);
 };
-
-print("");
-print("Total absolute error bound:");
-print("  Region 1 [0,6]:  ", err1);
-print("  Region 2 [6,50]: ", err2, " (on transformed function g)");
 
 quit;
