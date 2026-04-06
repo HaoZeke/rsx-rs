@@ -97,3 +97,31 @@ rsx subset -t <table.tsv> -p <popmap.tsv> -o <output.tsv> \
   [-d 5] [-G M,F] [-m min_g1] [-M max_g1] [-n min_g2] [-N max_g2] \
   [-i min_ind] [-I max_ind] [-S 0.05] [-C] [-a]
 #+end_src
+
+** merge
+
+Merge multiple marker depth tables by sequence identity.
+
+#+begin_src bash
+rsx merge -o <output.tsv> <table1.tsv> <table2.tsv> [table3.tsv ...] [-B 2000000]
+#+end_src
+
+| Flag | Default   | Description                                      |
+|------+-----------+--------------------------------------------------|
+| =-o= |           | Output merged markers table                      |
+| =-B= | 2,000,000 | Entries to buffer before flushing to disk         |
+
+Uses external sort-merge with bounded memory (~500MB). Input files are
+positional arguments (supports shell glob). Sequences are deduplicated
+across files using 2-bit DNA encoding. Depths from the same individual
+appearing in multiple files are summed.
+
+The algorithm:
+1. Reads all files streaming, buffers entries in RAM
+2. When buffer full: sorts by packed sequence, writes lz4 temp file
+3. K-way merges sorted temp files, coalesces equal sequences
+4. Writes merged TSV output
+
+Handles 75M+ unique sequences across hundreds of samples without OOM.
+Adjust =-B= to trade memory for fewer temp files (higher) or less RAM
+(lower).

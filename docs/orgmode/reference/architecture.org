@@ -76,12 +76,29 @@ This replaces the C++ =std::queue= + =std::mutex= + =sleep(10us)= pattern.
 ** Parallelism
 
 =process= uses =rayon::par_iter()= over input files. Each file is processed
-independently (count sequences with =needletail=, accumulate in =ahash::AHashMap=),
-then results are merged sequentially.
+independently (count sequences with =needletail=, accumulate in =ahash::AHashMap=).
+For >= 8 individuals, a =DashMap= enables lock-free concurrent insertion
+(no sequential merge phase). Sequences are stored as 2-bit packed DNA
+(4x key compression: 100bp -> 26 bytes).
+
+** External sort-merge (merge command)
+
+The =merge= command handles datasets that exceed available RAM (75M+
+unique sequences across hundreds of samples). Algorithm:
+
+1. Read all input files streaming, buffer N entries in memory
+2. When buffer full: sort by 2-bit packed sequence, write lz4 temp file
+3. K-way merge sorted temp files using =BinaryHeap= (min-heap)
+4. Coalesce entries with equal sequence keys, merge depth columns
+5. Write TSV output with unified sample columns
+
+Memory: O(buffer_size), not O(total_sequences). Default buffer: 2M
+entries (~400MB). Temp files: lz4-compressed sorted chunks on disk.
 
 ** Statistics
 
 - Chi-squared with Yates continuity correction (exact port of C++ =stats.cpp=)
-- P-value via =statrs::ChiSquared= CDF (replaces kfun gamma function)
+- P-value via =erfc(sqrt(chi2/2))= (SymPy-derived identity, replaces gamma CDF)
+- Sollya degree-40 minimax polynomial available for GPU (=fast_erfc_poly=)
 - Bonferroni correction: =p_corrected = min(1.0, p * n_markers)=
 - Float formatting via =Cg= struct: matches C++ =%g= (6 significant digits)
