@@ -99,24 +99,24 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut aligned_markers: Vec<AlignedMarker> = Vec::new();
     let mut n_markers: u64 = 0;
+    let g1_key = groups.group1.clone();
+    let g2_key = groups.group2.clone();
 
-    for marker in stream.iter() {
+    stream.for_each(|marker| {
         if marker.n_individuals > 0 {
             n_markers += 1;
         }
 
         if marker.n_individuals < min_individuals {
-            continue;
+            return;
         }
 
-        // Align marker sequence to the reference genome
         let mappings = aligner
             .map(marker.sequence.as_bytes(), false, false, None, None, None)
             .unwrap_or_default();
 
-        // Find best-scoring unique alignment (matching C++ BWA-MEM logic)
         if mappings.is_empty() {
-            continue;
+            return;
         }
 
         let mut best_idx = 0usize;
@@ -137,9 +137,8 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         let best = &mappings[best_idx];
         let mapq = best.mapq;
 
-        // Retain only unique best alignment with mapq >= min_quality
         if best_count != 1 || mapq < params.min_quality {
-            continue;
+            return;
         }
 
         let contig = best
@@ -148,8 +147,8 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
             .map_or(String::new(), |v| v.to_string());
         let position = best.target_start as i64;
 
-        let g1 = *marker.group_counts.get(&groups.group1).unwrap_or(&0);
-        let g2 = *marker.group_counts.get(&groups.group2).unwrap_or(&0);
+        let g1 = *marker.group_counts.get(&g1_key).unwrap_or(&0);
+        let g2 = *marker.group_counts.get(&g2_key).unwrap_or(&0);
 
         aligned_markers.push(AlignedMarker {
             id: marker.id.clone(),
@@ -158,7 +157,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
             bias: stats::group_bias(g1, total_g1, g2, total_g2),
             p: stats::p_association(g1, g2, total_g1, total_g2),
         });
-    }
+    })?;
 
     log::info!(
         "Aligned {} markers to the reference genome",

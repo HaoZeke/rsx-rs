@@ -26,20 +26,14 @@ pub fn run(params: &FreqParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream = MarkersTableStream::open(table_path, None, config)?;
     let n_individuals = stream.header.n_individuals as usize;
 
-    // frequency[i] = number of markers present in exactly i individuals
     let mut frequency: Vec<u32> = vec![0; n_individuals + 1];
 
-    for marker in stream.iter() {
+    stream.for_each(|marker| {
         frequency[marker.n_individuals as usize] += 1;
-    }
+    })?;
 
-    // Write output
     let mut output = std::fs::File::create(&params.output_file_path)?;
-    writeln!(
-        output,
-        "#source:radsex-freq;min_depth:{}",
-        params.min_depth
-    )?;
+    writeln!(output, "#source:radsex-freq;min_depth:{}", params.min_depth)?;
     writeln!(output, "Frequency\tCount")?;
 
     for (i, count) in frequency.iter().enumerate().skip(1) {

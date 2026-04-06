@@ -3,7 +3,6 @@
 
 //! Marker: a DNA sequence with per-individual depth counts.
 
-use std::collections::HashMap;
 use std::io::{self, Write};
 
 /// A single RAD-seq marker with its depth across all individuals.
@@ -16,7 +15,8 @@ pub struct Marker {
     /// Depth of this marker in each individual (ordered by table columns).
     pub individual_depths: Vec<u16>,
     /// Count of individuals per group where marker depth >= min_depth.
-    pub group_counts: HashMap<String, u32>,
+    /// Uses AHashMap for fast hashing (the hot path in table parsing).
+    pub group_counts: ahash::AHashMap<String, u32>,
     /// Total number of individuals where marker is present (depth >= min_depth).
     pub n_individuals: u32,
     /// P-value of association with group.
@@ -32,7 +32,7 @@ impl Marker {
             id: String::new(),
             sequence: String::new(),
             individual_depths: vec![0; n_individuals as usize],
-            group_counts: HashMap::new(),
+            group_counts: ahash::AHashMap::new(),
             n_individuals: 0,
             p: 0.0,
             p_corrected: 0.0,

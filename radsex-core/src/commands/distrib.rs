@@ -44,75 +44,51 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
 
-    // distribution[g1_count][g2_count] = marker_count
     let rows = (total_g1 + 1) as usize;
     let cols = (total_g2 + 1) as usize;
     let mut distribution: Vec<Vec<u64>> = vec![vec![0; cols]; rows];
     let mut n_markers: u64 = 0;
 
-    for marker in stream.iter() {
+    let g1_key = groups.group1.clone();
+    let g2_key = groups.group2.clone();
+
+    stream.for_each(|marker| {
         if marker.n_individuals > 0 {
-            let g1 = *marker.group_counts.get(&groups.group1).unwrap_or(&0) as usize;
-            let g2 = *marker.group_counts.get(&groups.group2).unwrap_or(&0) as usize;
+            let g1 = *marker.group_counts.get(&g1_key).unwrap_or(&0) as usize;
+            let g2 = *marker.group_counts.get(&g2_key).unwrap_or(&0) as usize;
             distribution[g1][g2] += 1;
             n_markers += 1;
         }
-    }
+    })?;
 
-    // Apply Bonferroni correction
-    let effective_n_markers = if params.disable_correction {
-        1u64
-    } else {
-        n_markers
-    };
-
+    let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
     let signif_threshold = if params.disable_correction {
         params.signif_threshold as f64
     } else {
         params.signif_threshold as f64 / n_markers as f64
     };
 
-    // Write output
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
     writeln!(
         output,
         "#source:radsex-distrib;min_depth:{};signif_threshold:{};bonferroni:{};n_markers:{}",
-        params.min_depth,
-        Cg(signif_threshold),
-        !params.disable_correction,
-        effective_n_markers
+        params.min_depth, Cg(signif_threshold), !params.disable_correction, effective_n_markers
     )?;
-    writeln!(
-        output,
-        "{}\t{}\tMarkers\tP\tCorrectedP\tSignif\tBias",
-        groups.group1, groups.group2
-    )?;
+    writeln!(output, "{}\t{}\tMarkers\tP\tCorrectedP\tSignif\tBias",
+        groups.group1, groups.group2)?;
 
     for g in 0..=total_g1 {
         for h in 0..=total_g2 {
-            if g + h == 0 {
-                continue;
-            }
-
+            if g + h == 0 { continue; }
             let count = distribution[g as usize][h as usize];
             let p = stats::p_association(g, h, total_g1, total_g2);
             let p_corrected = stats::bonferroni_correct(p, effective_n_markers);
             let signif = p < signif_threshold;
             let bias = stats::group_bias(g, total_g1, h, total_g2);
-
-            writeln!(
-                output,
-                "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                g,
-                h,
-                count,
-                Cg(p),
-                Cg(p_corrected),
-                if signif { "True" } else { "False" },
-                Cg(bias)
-            )?;
+            writeln!(output, "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                g, h, count, Cg(p), Cg(p_corrected),
+                if signif { "True" } else { "False" }, Cg(bias))?;
         }
     }
-
     Ok(())
 }

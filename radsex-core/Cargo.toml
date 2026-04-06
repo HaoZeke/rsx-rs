@@ -22,7 +22,7 @@ parallel = ["dep:rayon"]
 needletail = "0.6"
 flate2 = "1"
 statrs = "0.18"
-crossbeam = "0.8"
+# crossbeam removed -- inline parsing is faster than channel-based
 indexmap = "2"
 memchr = "2"
 ahash = "0.8"
