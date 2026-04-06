@@ -192,6 +192,19 @@ enum Commands {
         #[arg(short = 'I', long = "max-individuals", default_value = "9999")]
         max_individuals: u32,
     },
+
+    /// Merge multiple marker depth tables by sequence identity
+    Merge {
+        /// Paths to input marker depth tables
+        #[arg(short = 'i', long = "input-files", num_args = 2..)]
+        input_files: Vec<String>,
+        /// Path to the output merged table
+        #[arg(short = 'o', long = "output-file")]
+        output_file: String,
+        /// Number of entries to buffer before flushing to disk (default: 2M)
+        #[arg(short = 'B', long = "buffer-size", default_value = "2000000")]
+        buffer_size: usize,
+    },
 }
 
 fn extract_groups(groups: &Option<Vec<String>>) -> (String, String) {
@@ -356,6 +369,16 @@ fn main() {
                 max_individuals,
             })
         }
+
+        Commands::Merge {
+            input_files,
+            output_file,
+            buffer_size,
+        } => commands::merge::run(&commands::merge::MergeParams {
+            input_files,
+            buffer_size: Some(buffer_size),
+            output_file_path: output_file,
+        }),
     };
 
     if let Err(e) = result {
