@@ -2,9 +2,12 @@
 // Copyright 2024--present rsx-rs developers
 
 //! `signif` command: extract markers significantly associated with a group.
+//!
+//! Two-pass streaming: O(n_individuals) memory, not O(n_markers).
+//! Pass 1: count markers for Bonferroni correction.
+//! Pass 2: re-read table, compute p-values, write qualifying markers directly.
 
 use crate::bitset::GroupMask;
-use crate::marker::Marker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
@@ -36,34 +39,16 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    let config = ParserConfig {
-        store_sequence: true,
+    // Pass 1: count markers for Bonferroni (no sequence needed, fast path)
+    log::info!("signif pass 1: counting markers");
+    let config1 = ParserConfig {
+        store_sequence: false,
         compute_groups: true,
         min_depth: params.min_depth,
     };
-
-    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
-    let header_columns = stream.header.columns.clone();
-
-    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
-    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
-
-    let mut candidate_markers: Vec<Marker> = Vec::new();
-    let mut n_markers: u64 = 0;
-
-    stream.for_each(|marker| {
-        if marker.n_individuals > 0 {
-            n_markers += 1;
-            let g1 = marker.presence.count_masked(&mask_g1);
-            let g2 = marker.presence.count_masked(&mask_g2);
-            let p = stats::p_association(g1, g2, total_g1, total_g2);
-            if (p as f32) < params.signif_threshold {
-                let mut m = marker.clone();
-                m.p = p;
-                candidate_markers.push(m);
-            }
-        }
-    })?;
+    let stream1 = MarkersTableStream::open(table_path, Some(&popmap), config1)?;
+    let n_markers = stream1.count_markers()?;
+    log::info!("signif pass 1: {} markers", n_markers);
 
     let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
     let corrected_threshold = if params.disable_correction {
@@ -71,6 +56,23 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         params.signif_threshold as f64 / n_markers as f64
     };
+
+    // Pass 2: re-read, compute, write directly (no Vec accumulation)
+    log::info!("signif pass 2: filtering and writing");
+    let config2 = ParserConfig {
+        store_sequence: true,
+        compute_groups: true,
+        min_depth: params.min_depth,
+    };
+    let stream2 = MarkersTableStream::open(table_path, Some(&popmap), config2)?;
+    let header_columns = stream2.header.columns.clone();
+
+    let mask_g1 = GroupMask::from_columns(
+        &stream2.groups, &groups.group1, stream2.header.n_individuals,
+    );
+    let mask_g2 = GroupMask::from_columns(
+        &stream2.groups, &groups.group2, stream2.header.n_individuals,
+    );
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 
@@ -87,15 +89,27 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
         (groups.group2.clone(), &mask_g2),
     ];
 
-    for mut marker in candidate_markers {
-        if (marker.p as f32) < corrected_threshold as f32 {
-            marker.p_corrected = stats::bonferroni_correct(marker.p, effective_n_markers);
-            if params.output_fasta {
-                marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)?;
-            } else {
-                marker.write_as_table(&mut output)?;
+    stream2.for_each(|marker| {
+        if marker.n_individuals > 0 {
+            let g1 = marker.presence.count_masked(&mask_g1);
+            let g2 = marker.presence.count_masked(&mask_g2);
+            let p = stats::p_association(g1, g2, total_g1, total_g2);
+
+            if (p as f32) < corrected_threshold as f32 {
+                let p_corr = stats::bonferroni_correct(p, effective_n_markers);
+                // Write directly -- no cloning, no accumulation
+                if params.output_fasta {
+                    // For FASTA we need a mutable marker for p/p_corrected
+                    let mut m = marker.clone();
+                    m.p = p;
+                    m.p_corrected = p_corr;
+                    let _ = m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+                } else {
+                    let _ = marker.write_as_table(&mut output);
+                }
             }
         }
-    }
+    })?;
+
     Ok(())
 }

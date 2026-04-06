@@ -2,9 +2,10 @@
 // Copyright 2024--present rsx-rs developers
 
 //! `subset` command: extract a filtered subset of markers.
+//!
+//! Two-pass streaming: O(n_individuals) memory, not O(n_markers).
 
 use crate::bitset::GroupMask;
-use crate::marker::Marker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
@@ -42,37 +43,34 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    let config = ParserConfig {
+    // Pass 1: count markers for Bonferroni
+    log::info!("subset pass 1: counting markers");
+    let config1 = ParserConfig {
+        store_sequence: false,
+        compute_groups: true,
+        min_depth: params.min_depth,
+    };
+    let stream1 = MarkersTableStream::open(table_path, Some(&popmap), config1)?;
+    let n_markers = stream1.count_markers()?;
+
+    let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
+
+    // Pass 2: filter and write directly
+    log::info!("subset pass 2: filtering and writing");
+    let config2 = ParserConfig {
         store_sequence: true,
         compute_groups: true,
         min_depth: params.min_depth,
     };
+    let stream2 = MarkersTableStream::open(table_path, Some(&popmap), config2)?;
+    let header_columns = stream2.header.columns.clone();
 
-    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
-    let header_columns = stream.header.columns.clone();
-
-    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
-    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
-
-    let mut filtered_markers: Vec<Marker> = Vec::new();
-    let mut n_markers: u64 = 0;
-
-    stream.for_each(|marker| {
-        if marker.n_individuals > 0 { n_markers += 1; }
-        let g1 = marker.presence.count_masked(&mask_g1);
-        let g2 = marker.presence.count_masked(&mask_g2);
-        if g1 >= params.min_group1 && g1 <= params.max_group1
-            && g2 >= params.min_group2 && g2 <= params.max_group2
-            && marker.n_individuals >= params.min_individuals
-            && marker.n_individuals <= params.max_individuals
-        {
-            let mut m = marker.clone();
-            m.p = stats::p_association(g1, g2, total_g1, total_g2);
-            filtered_markers.push(m);
-        }
-    })?;
-
-    let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
+    let mask_g1 = GroupMask::from_columns(
+        &stream2.groups, &groups.group1, stream2.header.n_individuals,
+    );
+    let mask_g2 = GroupMask::from_columns(
+        &stream2.groups, &groups.group2, stream2.header.n_individuals,
+    );
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 
@@ -93,13 +91,30 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
         (groups.group2.clone(), &mask_g2),
     ];
 
-    for mut marker in filtered_markers {
-        marker.p_corrected = stats::bonferroni_correct(marker.p, effective_n_markers);
-        if params.output_fasta {
-            marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)?;
-        } else {
-            marker.write_as_table(&mut output)?;
+    stream2.for_each(|marker| {
+        if marker.n_individuals > 0 {
+            let g1 = marker.presence.count_masked(&mask_g1);
+            let g2 = marker.presence.count_masked(&mask_g2);
+
+            if g1 >= params.min_group1 && g1 <= params.max_group1
+                && g2 >= params.min_group2 && g2 <= params.max_group2
+                && marker.n_individuals >= params.min_individuals
+                && marker.n_individuals <= params.max_individuals
+            {
+                let p = stats::p_association(g1, g2, total_g1, total_g2);
+                let p_corr = stats::bonferroni_correct(p, effective_n_markers);
+
+                if params.output_fasta {
+                    let mut m = marker.clone();
+                    m.p = p;
+                    m.p_corrected = p_corr;
+                    let _ = m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+                } else {
+                    let _ = marker.write_as_table(&mut output);
+                }
+            }
         }
-    }
+    })?;
+
     Ok(())
 }

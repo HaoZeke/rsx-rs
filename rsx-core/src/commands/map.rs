@@ -3,10 +3,11 @@
 
 //! `map` command: align markers to a reference genome and compute metrics.
 //!
-//! Uses minimap2 for short-read alignment (replacing the C++ BWA-MEM integration).
+//! Two-pass streaming: O(genome_index) memory, not O(n_markers).
+//! Pass 1: count markers for Bonferroni (fast, no alignment).
+//! Pass 2: align each marker, compute stats, write directly.
 
 use crate::bitset::GroupMask;
-use crate::marker::AlignedMarker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
@@ -16,7 +17,6 @@ use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::Path;
 
-/// Parameters for the `map` command.
 pub struct MapParams {
     pub markers_table_path: String,
     pub popmap_file_path: String,
@@ -31,7 +31,6 @@ pub struct MapParams {
     pub group2: String,
 }
 
-/// Load contig lengths from a FASTA genome file.
 fn load_contig_lengths(genome_path: &Path) -> std::io::Result<HashMap<String, u64>> {
     let file = std::fs::File::open(genome_path)?;
     let reader = std::io::BufReader::new(file);
@@ -58,11 +57,9 @@ fn load_contig_lengths(genome_path: &Path) -> std::io::Result<HashMap<String, u6
     if !current_contig.is_empty() {
         lengths.insert(current_contig, current_length);
     }
-
     Ok(lengths)
 }
 
-/// Run the `map` analysis with minimap2 alignment.
 pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
@@ -81,34 +78,60 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let contig_lengths = load_contig_lengths(Path::new(&params.genome_file_path))?;
 
-    // Build minimap2 index for short-read alignment
+    // Pass 1: count markers for Bonferroni (no alignment, no sequence, fast)
+    log::info!("map pass 1: counting markers");
+    let config1 = ParserConfig {
+        store_sequence: false,
+        compute_groups: true,
+        min_depth: params.min_depth,
+    };
+    let stream1 = MarkersTableStream::open(table_path, Some(&popmap), config1)?;
+    let n_markers = stream1.count_markers()?;
+    log::info!("map pass 1: {} markers", n_markers);
+
+    let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
+    let signif_threshold = if params.disable_correction {
+        params.signif_threshold as f64
+    } else {
+        params.signif_threshold as f64 / n_markers as f64
+    };
+
+    // Build minimap2 index
     log::info!("Building minimap2 index for {}", params.genome_file_path);
     let aligner = Aligner::builder()
-        .sr() // short-read preset (equivalent to BWA-MEM for short reads)
+        .sr()
         .with_index(&params.genome_file_path, None)
         .map_err(|e| format!("Failed to build minimap2 index: {e}"))?;
+    log::info!("Minimap2 index built");
 
-    log::info!("Minimap2 index built successfully");
-
-    let config = ParserConfig {
+    // Pass 2: align + write directly (no Vec accumulation)
+    log::info!("map pass 2: aligning and writing");
+    let config2 = ParserConfig {
         store_sequence: true,
         compute_groups: true,
         min_depth: params.min_depth,
     };
+    let stream2 = MarkersTableStream::open(table_path, Some(&popmap), config2)?;
 
-    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
+    let mask_g1 = GroupMask::from_columns(
+        &stream2.groups, &groups.group1, stream2.header.n_individuals,
+    );
+    let mask_g2 = GroupMask::from_columns(
+        &stream2.groups, &groups.group2, stream2.header.n_individuals,
+    );
 
-    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
-    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
+    let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
+    writeln!(
+        output,
+        "#source:rsx-map;min_depth:{};min_qual:{};min_freq:{};signif_threshold:{};bonferroni:{};n_markers:{}",
+        params.min_depth, params.min_quality, params.min_frequency,
+        Cg(signif_threshold), !params.disable_correction, effective_n_markers
+    )?;
+    writeln!(output, "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif")?;
 
-    let mut aligned_markers: Vec<AlignedMarker> = Vec::new();
-    let mut n_markers: u64 = 0;
+    let mut n_aligned = 0u64;
 
-    stream.for_each(|marker| {
-        if marker.n_individuals > 0 {
-            n_markers += 1;
-        }
-
+    stream2.for_each(|marker| {
         if marker.n_individuals < min_individuals {
             return;
         }
@@ -137,9 +160,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let best = &mappings[best_idx];
-        let mapq = best.mapq;
-
-        if best_count != 1 || mapq < params.min_quality {
+        if best_count != 1 || best.mapq < params.min_quality {
             return;
         }
 
@@ -147,73 +168,26 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
             .target_name
             .as_deref()
             .map_or(String::new(), |v| v.to_string());
-        let position = best.target_start as i64;
+        let position = best.target_start;
 
         let g1 = marker.presence.count_masked(&mask_g1);
         let g2 = marker.presence.count_masked(&mask_g2);
+        let bias = stats::group_bias(g1, total_g1, g2, total_g2);
+        let p = stats::p_association(g1, g2, total_g1, total_g2);
+        let p_corrected = stats::bonferroni_correct(p, effective_n_markers);
+        let signif = p < signif_threshold;
+        let contig_len = contig_lengths.get(&contig).copied().unwrap_or(0);
 
-        aligned_markers.push(AlignedMarker {
-            id: marker.id.clone(),
-            contig,
-            position,
-            bias: stats::group_bias(g1, total_g1, g2, total_g2),
-            p: stats::p_association(g1, g2, total_g1, total_g2),
-        });
+        let _ = writeln!(
+            output, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            contig, position, contig_len, marker.id,
+            Cg(bias), Cg(p), Cg(p_corrected),
+            if signif { "True" } else { "False" }
+        );
+
+        n_aligned += 1;
     })?;
 
-    log::info!(
-        "Aligned {} markers to the reference genome",
-        aligned_markers.len()
-    );
-
-    // Apply Bonferroni correction
-    let effective_n_markers = if params.disable_correction {
-        1u64
-    } else {
-        n_markers
-    };
-
-    let signif_threshold = if params.disable_correction {
-        params.signif_threshold as f64
-    } else {
-        params.signif_threshold as f64 / n_markers as f64
-    };
-
-    // Write output
-    let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
-    writeln!(
-        output,
-        "#source:rsx-map;min_depth:{};min_qual:{};min_freq:{};signif_threshold:{};bonferroni:{};n_markers:{}",
-        params.min_depth,
-        params.min_quality,
-        params.min_frequency,
-        Cg(signif_threshold),
-        !params.disable_correction,
-        effective_n_markers
-    )?;
-    writeln!(
-        output,
-        "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif"
-    )?;
-
-    for marker in &aligned_markers {
-        let contig_len = contig_lengths.get(&marker.contig).copied().unwrap_or(0);
-        let p_corrected = stats::bonferroni_correct(marker.p, effective_n_markers);
-        let signif = marker.p < signif_threshold;
-
-        writeln!(
-            output,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            marker.contig,
-            marker.position,
-            contig_len,
-            marker.id,
-            Cg(marker.bias),
-            Cg(marker.p),
-            Cg(p_corrected),
-            if signif { "True" } else { "False" }
-        )?;
-    }
-
+    log::info!("Aligned {} markers to the reference genome", n_aligned);
     Ok(())
 }

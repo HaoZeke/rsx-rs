@@ -95,6 +95,18 @@ impl MarkersTableStream {
         })
     }
 
+    /// Count markers with n_individuals > 0 (for Bonferroni correction).
+    /// Streaming: O(1) memory, just counts.
+    pub fn count_markers(&self) -> std::io::Result<u64> {
+        let mut n = 0u64;
+        self.for_each(|m| {
+            if m.n_individuals > 0 {
+                n += 1;
+            }
+        })?;
+        Ok(n)
+    }
+
     /// Process all markers. Uses fast path when sequence isn't needed.
     pub fn for_each<F>(&self, mut f: F) -> std::io::Result<()>
     where
