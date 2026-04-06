@@ -8,22 +8,22 @@
 *** From source (recommended)
 
 #+begin_src bash
-git clone https://github.com/HaoZeke/radsex-rs.git
-cd radsex-rs
+git clone https://github.com/HaoZeke/rsx-rs.git
+cd rsx-rs
 cargo build --release
-# Binary at target/release/radsex
+# Binary at target/release/rsx
 #+end_src
 
 *** From GitHub releases
 
 Pre-built binaries are available for Linux (x86_64, aarch64), macOS
 (x86_64, arm64), and Windows from the
-[[https://github.com/HaoZeke/radsex-rs/releases][Releases page]].
+[[https://github.com/HaoZeke/rsx-rs/releases][Releases page]].
 
 *** Via pixi
 
 #+begin_src bash
-cd radsex-rs
+cd rsx-rs
 pixi run build
 #+end_src
 
@@ -42,31 +42,31 @@ ind4    F
 *** Step 1: Build markers table
 
 #+begin_src bash
-radsex process -i reads/ -o markers.tsv -T 4 -d 5
+rsx process -i reads/ -o markers.tsv -T 4 -d 5
 #+end_src
 
 *** Step 2: Check marker frequencies
 
 #+begin_src bash
-radsex freq -t markers.tsv -o freq.tsv -d 5
+rsx freq -t markers.tsv -o freq.tsv -d 5
 #+end_src
 
 *** Step 3: Compute sex-bias distribution
 
 #+begin_src bash
-radsex distrib -t markers.tsv -p popmap.tsv -o distrib.tsv -d 5 -G M,F
+rsx distrib -t markers.tsv -p popmap.tsv -o distrib.tsv -d 5 -G M,F
 #+end_src
 
 *** Step 4: Extract significant markers
 
 #+begin_src bash
-radsex signif -t markers.tsv -p popmap.tsv -o signif.tsv -d 5 -G M,F
+rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv -d 5 -G M,F
 #+end_src
 
 *** Step 5: Map to reference genome
 
 #+begin_src bash
-radsex map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -d 5 -G M,F
+rsx map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -d 5 -G M,F
 #+end_src
 
 ** Output format

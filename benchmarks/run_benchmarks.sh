@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Benchmark harness: compare C++ radsex vs Rust radsex-rs
+# Benchmark harness: compare C++ radsex vs Rust rsx-rs
 # Runs each command 3 times, reports median wall-clock time
 
 CPP_BIN="${CPP_RADSEX:-../<path>"
-RUST_BIN="${RUST_RADSEX:-./target/release/radsex}"
+RUST_BIN="${RUST_RADSEX:-./target/release/rsx}"
 DATA_DIR="${BENCH_DATA:-./benchmarks/data}"
 RESULTS_DIR="${BENCH_RESULTS:-./benchmarks/results}"
 REPS=3

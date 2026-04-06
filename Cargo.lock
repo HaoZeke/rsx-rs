@@ -914,35 +914,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
-name = "radsex-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "env_logger",
- "log",
- "radsex-core",
-]
-
-[[package]]
-name = "radsex-core"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "cbindgen",
- "criterion",
- "env_logger",
- "flate2",
- "indexmap",
- "log",
- "memchr",
- "minimap2",
- "needletail",
- "rayon",
- "statrs",
- "tempfile",
-]
-
-[[package]]
 name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1036,6 +1007,35 @@ name = "regex-syntax"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+
+[[package]]
+name = "rsx-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "env_logger",
+ "log",
+ "rsx-core",
+]
+
+[[package]]
+name = "rsx-core"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "cbindgen",
+ "criterion",
+ "env_logger",
+ "flate2",
+ "indexmap",
+ "log",
+ "memchr",
+ "minimap2",
+ "needletail",
+ "rayon",
+ "statrs",
+ "tempfile",
+]
 
 [[package]]
 name = "rustix"

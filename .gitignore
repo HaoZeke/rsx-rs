@@ -11,7 +11,7 @@
 pixi.lock
 
 # Build artifacts
-/radsex-core/include/radsex.h
+/rsx-core/include/rsx.h
 
 # IDE
 .vscode/

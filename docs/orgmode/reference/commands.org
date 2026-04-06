@@ -10,7 +10,7 @@ All commands match the original C++ RADSex CLI interface exactly.
 Build a marker depth table from demultiplexed reads.
 
 #+begin_src bash
-radsex process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth]
+rsx process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth]
 #+end_src
 
 | Flag | Default | Description |
@@ -28,7 +28,7 @@ Individual names are derived from filenames.
 Compute marker distribution between two groups.
 
 #+begin_src bash
-radsex distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C]
+rsx distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C]
 #+end_src
 
 | Flag | Default | Description |
@@ -46,7 +46,7 @@ radsex distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-
 Extract markers significantly associated with a group.
 
 #+begin_src bash
-radsex signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C] [-a]
+rsx signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C] [-a]
 #+end_src
 
 Additional flags: =-a= outputs FASTA instead of table format.
@@ -56,7 +56,7 @@ Additional flags: =-a= outputs FASTA instead of table format.
 Compute marker frequency distribution.
 
 #+begin_src bash
-radsex freq -t <table.tsv> -o <output.tsv> [-d 5]
+rsx freq -t <table.tsv> -o <output.tsv> [-d 5]
 #+end_src
 
 ** depth
@@ -64,7 +64,7 @@ radsex freq -t <table.tsv> -o <output.tsv> [-d 5]
 Compute retained read statistics per individual.
 
 #+begin_src bash
-radsex depth -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-f 0.75]
+rsx depth -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-f 0.75]
 #+end_src
 
 | Flag | Default | Description |
@@ -76,7 +76,7 @@ radsex depth -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-f 0.75]
 Align markers to a reference genome.
 
 #+begin_src bash
-radsex map -t <table.tsv> -p <popmap.tsv> -g <genome.fa> -o <output.tsv> \
+rsx map -t <table.tsv> -p <popmap.tsv> -g <genome.fa> -o <output.tsv> \
   [-d 5] [-G M,F] [-q 20] [-Q 0.1] [-S 0.05] [-C]
 #+end_src
 
@@ -93,7 +93,7 @@ Uses minimap2 with =sr= (short-read) preset.
 Extract a filtered subset of markers.
 
 #+begin_src bash
-radsex subset -t <table.tsv> -p <popmap.tsv> -o <output.tsv> \
+rsx subset -t <table.tsv> -p <popmap.tsv> -o <output.tsv> \
   [-d 5] [-G M,F] [-m min_g1] [-M max_g1] [-n min_g2] [-N max_g2] \
   [-i min_ind] [-I max_ind] [-S 0.05] [-C] [-a]
 #+end_src

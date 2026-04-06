@@ -1,7 +1,7 @@
 {
     "version": 1,
-    "project": "radsex-rs",
-    "project_url": "https://github.com/HaoZeke/radsex-rs",
+    "project": "rsx-rs",
+    "project_url": "https://github.com/HaoZeke/rsx-rs",
     "repo": ".",
     "environment_type": "existing",
     "benchmark_dir": "benchmarks",

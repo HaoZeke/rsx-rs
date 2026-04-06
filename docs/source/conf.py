@@ -1,4 +1,4 @@
-project = "radsex-rs"
+project = "rsx-rs"
 copyright = "2024, Rohit Goswami"
 author = "Rohit Goswami"
 
@@ -11,5 +11,5 @@ html_theme = "shibuya"
 html_static_path = ["_static"]
 
 html_theme_options = {
-    "github_url": "https://github.com/HaoZeke/radsex-rs",
+    "github_url": "https://github.com/HaoZeke/rsx-rs",
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot benchmark results comparing C++ radsex vs Rust radsex-rs."""
+"""Plot benchmark results comparing C++ radsex vs Rust rsx-rs."""
 
 import csv
 from pathlib import Path

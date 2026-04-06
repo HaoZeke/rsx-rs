@@ -33,12 +33,12 @@ jobs:
         run: cargo build --release -j4
 
       - name: Unit tests
-        run: cargo test -p radsex-core --lib
+        run: cargo test -p rsx-core --lib
 
       - name: Integration tests
-        run: cargo test -p radsex-core --test test_pipeline
+        run: cargo test -p rsx-core --test test_pipeline
 
       - name: CLI smoke test
         run: |
-          ./target/release/radsex --help
-          ./target/release/radsex freq --help
+          ./target/release/rsx --help
+          ./target/release/rsx freq --help

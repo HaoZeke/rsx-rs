@@ -1,0 +1,43 @@
+[package]
+name = "rsx-core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+description = "Core library for RADSex: sex-determination analysis from RAD-Sequencing data"
+repository = "https://github.com/HaoZeke/rsx-rs"
+keywords = ["bioinformatics", "rad-seq", "sex-determination", "genomics", "ffi"]
+categories = ["science", "api-bindings"]
+
+[lib]
+name = "rsx_core"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[features]
+default = ["parallel"]
+gen-header = ["dep:cbindgen"]
+parallel = ["dep:rayon"]
+
+[dependencies]
+needletail = "0.6"
+flate2 = "1"
+statrs = "0.18"
+# crossbeam removed -- inline parsing is faster than channel-based
+indexmap = "2"
+memchr = "2"
+ahash = "0.8"
+rayon = { version = "1.10", optional = true }
+minimap2 = "0.1"
+log = "0.4"
+env_logger = "0.11"
+
+[build-dependencies]
+cbindgen = { version = "0.28", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
+
+[[bench]]
+name = "bench_stats"
+harness = false

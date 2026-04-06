@@ -1,5 +1,5 @@
 [workspace]
-members = ["radsex-core", "radsex-cli"]
+members = ["rsx-core", "rsx-cli"]
 resolver = "2"
 
 # The profile that 'dist' will build with

@@ -4,7 +4,7 @@
 
 * Performance Benchmarks
 
-Comparison of radsex-rs (Rust) vs the original RADSex (C++11) across three
+Comparison of rsx-rs (Rust) vs the original RADSex (C++11) across three
 dataset scales. All benchmarks are median of 3 runs on the same machine.
 
 ** Test environment
@@ -14,7 +14,7 @@ dataset scales. All benchmarks are median of 3 runs on the same machine.
 - C++ compiler: GCC 15.2.1, =-O2 -std=c++11=
 - Rust compiler: rustc 1.85+, =--release= (LTO thin)
 - C++ radsex: v1.2.0 (with =<cstdint>= fix for GCC 15)
-- Rust radsex-rs: v0.1.0
+- Rust rsx-rs: v0.1.0
 
 ** Dataset scales
 
@@ -86,7 +86,7 @@ markers table into a =std::queue<Marker>= protected by a mutex, another
 thread processes markers from the queue with busy-wait polling
 (=sleep(10us)= when empty).
 
-radsex-rs originally copied this pattern using crossbeam channels, but
+rsx-rs originally copied this pattern using crossbeam channels, but
 profiling showed ~50% of CPU time was spent on channel overhead and marker
 cloning. The fix: inline =for_each= callback that reuses a single =Marker=
 struct with zero allocation per marker. The marker is passed by reference to
@@ -95,7 +95,7 @@ the callback, reset in-place between iterations.
 *** AHashMap for group counts
 
 Each marker has a =group_counts= map (group name -> count). The C++ uses
-=std::unordered_map<string, uint>= with the default hash. radsex-rs uses
+=std::unordered_map<string, uint>= with the default hash. rsx-rs uses
 =ahash::AHashMap= which leverages hardware AES instructions for fast hashing
 of small string keys. Since there are only 2 groups per marker, the hash
 lookup is the hot path -- faster hashing gives a direct speedup.
@@ -103,13 +103,13 @@ lookup is the hot path -- faster hashing gives a direct speedup.
 *** Rayon for =process= command
 
 The =process= command reads all FASTQ files and counts sequences. C++ uses
-a manual thread pool with mutex-protected work-stealing. radsex-rs uses
+a manual thread pool with mutex-protected work-stealing. rsx-rs uses
 rayon's work-stealing thread pool with per-thread =AHashMap= accumulators,
 merged at the end. This avoids mutex contention during file processing.
 
 *** minimap2 for =map= command
 
-radsex-rs uses minimap2 (via Rust bindings) instead of BWA-MEM. minimap2 is
+rsx-rs uses minimap2 (via Rust bindings) instead of BWA-MEM. minimap2 is
 the modern successor with better index construction and alignment speed for
 short reads. The =sr= (short-read) preset matches BWA-MEM behavior.
 
@@ -129,8 +129,8 @@ python3 benchmarks/generate_data.py
 # Build C++ radsex (requires patching for GCC 15)
 cd /path/to/radsex && make -j4
 
-# Build Rust radsex-rs
-cd /path/to/radsex-rs && cargo build --release
+# Build Rust rsx-rs
+cd /path/to/rsx-rs && cargo build --release
 
 # Run benchmarks
 bash benchmarks/run_benchmarks.sh
@@ -141,7 +141,7 @@ python3 benchmarks/plot_benchmarks.py
 
 ** Golden file compatibility
 
-Despite the performance differences, radsex-rs produces *byte-identical
+Despite the performance differences, rsx-rs produces *byte-identical
 output* to C++ radsex for all downstream commands (freq, depth, distrib,
 signif, subset) when groups are specified explicitly with =-G M,F=. The
 =Cg= float formatter matches C++'s default =%g= output (6 significant

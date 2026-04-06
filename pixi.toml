@@ -1,5 +1,5 @@
 [workspace]
-name = "radsex-rs"
+name = "rsx-rs"
 version = "0.1.0"
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]
@@ -11,8 +11,8 @@ rust = ">=1.85"
 check = { cmd = "cargo fmt --check && cargo clippy -- -D warnings && cargo test" }
 build = { cmd = "cargo build --release" }
 test = { cmd = "cargo test" }
-gen-header = { cmd = "cargo build --manifest-path radsex-core/Cargo.toml --features gen-header" }
-bench = { cmd = "cargo bench --manifest-path radsex-core/Cargo.toml" }
+gen-header = { cmd = "cargo build --manifest-path rsx-core/Cargo.toml --features gen-header" }
+bench = { cmd = "cargo bench --manifest-path rsx-core/Cargo.toml" }
 
 [feature.dev.dependencies]
 cargo-nextest = "*"
