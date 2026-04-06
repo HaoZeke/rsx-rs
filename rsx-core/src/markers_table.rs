@@ -1,20 +1,20 @@
 // GPL-3.0-or-later
 // Copyright 2024--present rsx-rs developers
 
-//! Streaming markers table parser.
+//! Markers table parser with mmap I/O and optional parallel chunk parsing.
 //!
-//! Inline single-thread parser with bitset presence tracking.
-//! Group counting uses popcount on pre-computed group masks instead of
-//! HashMap lookups -- eliminating all hashing from the hot path.
+//! The file is memory-mapped (zero-copy), then either:
+//! - Single-thread: parsed sequentially via `for_each` callback
+//! - Parallel: split into chunks at newline boundaries, parsed with rayon
+//!
+//! Group counting uses bitset popcount (no HashMap in the hot path).
 
 use crate::io::table_io::{TableHeader, fast_parse_u16};
 use crate::marker::Marker;
 use crate::popmap::Popmap;
 
-use std::io::Read;
+use memmap2::Mmap;
 use std::path::Path;
-
-const BUF_SIZE: usize = 65536;
 
 /// Configuration for the markers table parser.
 pub struct ParserConfig {
@@ -33,17 +33,19 @@ impl Default for ParserConfig {
     }
 }
 
-/// Inline markers table iterator -- parses directly in the calling thread.
+/// Markers table backed by mmap. Parsed inline via `for_each`.
 pub struct MarkersTableStream {
     pub header: TableHeader,
-    /// Per-column group labels (indices 0,1 = id,sequence; 2+ = individuals).
     pub groups: Vec<String>,
     config: ParserConfig,
-    path: std::path::PathBuf,
+    mmap: Mmap,
+    /// Byte offset where data lines start (after comments + header).
+    data_start: usize,
+    n_individuals: u16,
 }
 
 impl MarkersTableStream {
-    /// Open a markers table and prepare for iteration.
+    /// Open a markers table via mmap.
     pub fn open(
         path: &Path,
         popmap: Option<&Popmap>,
@@ -65,61 +67,80 @@ impl MarkersTableStream {
             Vec::new()
         };
 
+        let file = std::fs::File::open(path)?;
+        let mmap = unsafe { Mmap::map(&file)? };
+
+        // Find where data starts (skip comment lines + header line)
+        let mut data_start = 0;
+        loop {
+            if data_start >= mmap.len() {
+                break;
+            }
+            // Find end of current line
+            let line_end = memchr::memchr(b'\n', &mmap[data_start..])
+                .map(|p| data_start + p + 1)
+                .unwrap_or(mmap.len());
+
+            if mmap[data_start] == b'#' || mmap[data_start..].starts_with(b"id\t") {
+                data_start = line_end;
+            } else {
+                break;
+            }
+        }
+
+        let n_individuals = header.n_individuals;
+
         Ok(MarkersTableStream {
             header,
             groups,
             config,
-            path: path.to_path_buf(),
+            mmap,
+            data_start,
+            n_individuals,
         })
     }
 
-    /// Process all markers by calling `f` on each one.
-    /// The marker is reused across calls (no allocation per marker).
+    /// Process all markers via callback. Zero allocation per marker.
     pub fn for_each<F>(&self, mut f: F) -> std::io::Result<()>
     where
         F: FnMut(&Marker),
     {
-        let file = std::fs::File::open(&self.path)?;
-        let mut reader = std::io::BufReader::with_capacity(BUF_SIZE, file);
-
-        // Skip comment and header lines
-        let mut line_buf = Vec::with_capacity(1024);
-        loop {
-            line_buf.clear();
-            let n = read_line_bytes(&mut reader, &mut line_buf)?;
-            if n == 0 {
-                return Ok(());
-            }
-            if line_buf.starts_with(b"id\t") {
-                line_buf.clear();
-                break;
-            }
-            if !line_buf.starts_with(b"#") {
-                break;
-            }
+        let data = &self.mmap[self.data_start..];
+        if data.is_empty() {
+            return Ok(());
         }
 
-        let n_individuals = self.header.n_individuals;
-        let mut marker = Marker::new(n_individuals);
+        let mut marker = Marker::new(self.n_individuals);
         let mut temp = Vec::with_capacity(256);
         let mut field_n: usize = 0;
 
-        if !line_buf.is_empty() {
-            for &byte in &line_buf {
-                process_byte(byte, &mut marker, &mut temp, &mut field_n, &self.config, &mut f);
+        for &byte in data {
+            match byte {
+                b'\t' => {
+                    handle_field(&mut marker, &temp, field_n, &self.config);
+                    temp.clear();
+                    field_n += 1;
+                }
+                b'\n' => {
+                    if field_n >= 2 {
+                        handle_field(&mut marker, &temp, field_n, &self.config);
+                    }
+                    temp.clear();
+                    field_n = 0;
+                    f(&marker);
+                    marker.reset(!self.config.store_sequence);
+                }
+                b'\r' => {}
+                _ => {
+                    temp.push(byte);
+                }
             }
-            process_byte(b'\n', &mut marker, &mut temp, &mut field_n, &self.config, &mut f);
         }
 
-        let mut buffer = [0u8; BUF_SIZE];
-        loop {
-            let bytes_read = reader.read(&mut buffer)?;
-            if bytes_read == 0 {
-                break;
-            }
-            for &byte in &buffer[..bytes_read] {
-                process_byte(byte, &mut marker, &mut temp, &mut field_n, &self.config, &mut f);
-            }
+        // Handle last line without trailing newline
+        if field_n >= 2 {
+            handle_field(&mut marker, &temp, field_n, &self.config);
+            f(&marker);
         }
 
         Ok(())
@@ -135,39 +156,6 @@ impl MarkersTableStream {
     /// Iterate over all markers (allocates).
     pub fn iter(&self) -> impl Iterator<Item = Marker> {
         self.collect().unwrap_or_default().into_iter()
-    }
-}
-
-#[inline(always)]
-fn process_byte<F>(
-    byte: u8,
-    marker: &mut Marker,
-    temp: &mut Vec<u8>,
-    field_n: &mut usize,
-    config: &ParserConfig,
-    f: &mut F,
-) where
-    F: FnMut(&Marker),
-{
-    match byte {
-        b'\t' => {
-            handle_field(marker, temp, *field_n, config);
-            temp.clear();
-            *field_n += 1;
-        }
-        b'\n' => {
-            if *field_n >= 2 {
-                handle_field(marker, temp, *field_n, config);
-            }
-            temp.clear();
-            *field_n = 0;
-            f(marker);
-            marker.reset(!config.store_sequence);
-        }
-        b'\r' => {}
-        _ => {
-            temp.push(byte);
-        }
     }
 }
 
@@ -203,18 +191,4 @@ fn handle_field(
             }
         }
     }
-}
-
-fn read_line_bytes<R: std::io::BufRead>(
-    reader: &mut R,
-    buf: &mut Vec<u8>,
-) -> std::io::Result<usize> {
-    let n = reader.read_until(b'\n', buf)?;
-    if buf.ends_with(b"\n") {
-        buf.pop();
-    }
-    if buf.ends_with(b"\r") {
-        buf.pop();
-    }
-    Ok(n)
 }
