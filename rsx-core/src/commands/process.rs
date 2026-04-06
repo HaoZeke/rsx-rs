@@ -37,7 +37,6 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(feature = "parallel")]
     let global = {
-        use dashmap::DashMap;
         use rayon::prelude::*;
 
         rayon::ThreadPoolBuilder::new()
@@ -45,29 +44,57 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             .build_global()
             .ok();
 
-        // Single-phase: rayon threads insert directly into DashMap
-        let global: DashMap<Vec<u8>, Vec<u16>, ahash::RandomState> =
-            DashMap::with_hasher(ahash::RandomState::new());
+        // Use DashMap for concurrent merge when many files (>= 8),
+        // fall back to collect+merge for fewer files where DashMap
+        // sharding overhead dominates.
+        if n_individuals >= 8 {
+            use dashmap::DashMap;
 
-        input_files.par_iter().for_each(|f| {
-            match count_sequences(&f.path) {
-                Ok(counts) => {
-                    let idx = individual_indices[&f.individual_name];
-                    for (packed_seq, count) in counts {
-                        let mut entry = global
-                            .entry(packed_seq)
-                            .or_insert_with(|| vec![0u16; n_individuals]);
-                        entry[idx] = count;
+            let dm: DashMap<Vec<u8>, Vec<u16>, ahash::RandomState> =
+                DashMap::with_hasher(ahash::RandomState::new());
+
+            input_files.par_iter().for_each(|f| {
+                match count_sequences(&f.path) {
+                    Ok(counts) => {
+                        let idx = individual_indices[&f.individual_name];
+                        for (packed_seq, count) in counts {
+                            let mut entry = dm
+                                .entry(packed_seq)
+                                .or_insert_with(|| vec![0u16; n_individuals]);
+                            entry[idx] = count;
+                        }
+                        log::info!("Finished processing individual {}", f.individual_name);
                     }
-                    log::info!("Finished processing individual {}", f.individual_name);
+                    Err(e) => log::error!("Error processing {}: {e}", f.path.display()),
                 }
-                Err(e) => {
-                    log::error!("Error processing {}: {e}", f.path.display());
+            });
+
+            // Convert to AHashMap for uniform output path
+            dm.into_iter().collect::<ahash::AHashMap<_, _>>()
+        } else {
+            // Few files: collect per-file results, merge sequentially
+            let per_file: Vec<_> = input_files
+                .par_iter()
+                .filter_map(|f| {
+                    count_sequences(&f.path).ok().map(|c| {
+                        log::info!("Finished processing individual {}", f.individual_name);
+                        (f.individual_name.clone(), c)
+                    })
+                })
+                .collect();
+
+            let mut global: ahash::AHashMap<Vec<u8>, Vec<u16>> = ahash::AHashMap::new();
+            for (name, counts) in per_file {
+                let idx = individual_indices[&name];
+                for (packed_seq, count) in counts {
+                    let entry = global
+                        .entry(packed_seq)
+                        .or_insert_with(|| vec![0u16; n_individuals]);
+                    entry[idx] = count;
                 }
             }
-        });
-
-        global
+            global
+        }
     };
 
     #[cfg(not(feature = "parallel"))]
@@ -106,23 +133,6 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Writing marker depths to output file");
     let mut id: u64 = 0;
 
-    #[cfg(feature = "parallel")]
-    for entry in global.iter() {
-        let (packed_seq, depths) = entry.pair();
-        if params.min_depth > 1 && !depths.iter().any(|&d| d >= params.min_depth) {
-            continue;
-        }
-        let unpacked = unpack_2bit(packed_seq);
-        let seq_str = std::str::from_utf8(&unpacked).unwrap_or("?");
-        write!(output, "{}\t{}", id, seq_str)?;
-        for &d in depths {
-            write!(output, "\t{d}")?;
-        }
-        writeln!(output)?;
-        id += 1;
-    }
-
-    #[cfg(not(feature = "parallel"))]
     for (packed_seq, depths) in &global {
         if params.min_depth > 1 && !depths.iter().any(|&d| d >= params.min_depth) {
             continue;
