@@ -3,6 +3,7 @@
 
 //! `distrib` command: compute marker distribution between two groups.
 
+use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
@@ -49,13 +50,19 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut distribution: Vec<Vec<u64>> = vec![vec![0; cols]; rows];
     let mut n_markers: u64 = 0;
 
-    let g1_key = groups.group1.clone();
-    let g2_key = groups.group2.clone();
+    // Pre-compute group masks for popcount-based counting
+    let mask_g1 = GroupMask::from_columns(
+        &stream.groups, &groups.group1, stream.header.n_individuals,
+    );
+    let mask_g2 = GroupMask::from_columns(
+        &stream.groups, &groups.group2, stream.header.n_individuals,
+    );
 
     stream.for_each(|marker| {
         if marker.n_individuals > 0 {
-            let g1 = *marker.group_counts.get(&g1_key).unwrap_or(&0) as usize;
-            let g2 = *marker.group_counts.get(&g2_key).unwrap_or(&0) as usize;
+            // popcount: O(1) per group instead of HashMap lookup
+            let g1 = marker.presence.count_masked(&mask_g1) as usize;
+            let g2 = marker.presence.count_masked(&mask_g2) as usize;
             distribution[g1][g2] += 1;
             n_markers += 1;
         }

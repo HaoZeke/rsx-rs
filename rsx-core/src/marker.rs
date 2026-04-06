@@ -3,6 +3,7 @@
 
 //! Marker: a DNA sequence with per-individual depth counts.
 
+use crate::bitset::BitsetRow;
 use std::io::{self, Write};
 
 /// A single RAD-seq marker with its depth across all individuals.
@@ -15,8 +16,11 @@ pub struct Marker {
     /// Depth of this marker in each individual (ordered by table columns).
     pub individual_depths: Vec<u16>,
     /// Count of individuals per group where marker depth >= min_depth.
-    /// Uses AHashMap for fast hashing (the hot path in table parsing).
+    /// Kept for backward compatibility and FASTA output.
     pub group_counts: ahash::AHashMap<String, u32>,
+    /// Bitset: bit `i` set iff individual `i` has depth >= min_depth.
+    /// Used for fast group counting via popcount.
+    pub presence: BitsetRow,
     /// Total number of individuals where marker is present (depth >= min_depth).
     pub n_individuals: u32,
     /// P-value of association with group.
@@ -33,6 +37,7 @@ impl Marker {
             sequence: String::new(),
             individual_depths: vec![0; n_individuals as usize],
             group_counts: ahash::AHashMap::new(),
+            presence: BitsetRow::new(n_individuals),
             n_individuals: 0,
             p: 0.0,
             p_corrected: 0.0,
@@ -51,6 +56,7 @@ impl Marker {
         for v in self.group_counts.values_mut() {
             *v = 0;
         }
+        self.presence.clear();
         self.n_individuals = 0;
         self.p = 0.0;
         self.p_corrected = 0.0;

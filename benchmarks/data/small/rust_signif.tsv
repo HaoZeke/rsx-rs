@@ -1,2 +1,2 @@
-#source:radsex-signif;min_depth:5;signif_threshold:0.05;bonferroni:true;n_markers:1000
+#source:rsx-signif;min_depth:5;signif_threshold:0.05;bonferroni:true;n_markers:1000
 id	sequence	ind1	ind2	ind3	ind4	ind5	ind6	ind7	ind8	ind9	ind10

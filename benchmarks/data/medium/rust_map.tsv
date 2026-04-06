@@ -1,4 +1,4 @@
-#source:radsex-map;min_depth:5;min_qual:0;min_freq:0.1;signif_threshold:5e-06;bonferroni:true;n_markers:10000
+#source:rsx-map;min_depth:5;min_qual:0;min_freq:0.1;signif_threshold:5e-06;bonferroni:true;n_markers:10000
 Contig	Position	Length	Marker_id	Bias	P	CorrectedP	Signif
 chr1	2	100000	0	1	5.69941e-05	0.569941	False
 chr1	114	100000	1	1	5.69941e-05	0.569941	False

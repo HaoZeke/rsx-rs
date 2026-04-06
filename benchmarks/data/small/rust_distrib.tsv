@@ -1,4 +1,4 @@
-#source:radsex-distrib;min_depth:5;signif_threshold:5e-05;bonferroni:true;n_markers:1000
+#source:rsx-distrib;min_depth:5;signif_threshold:5e-05;bonferroni:true;n_markers:1000
 M	F	Markers	P	CorrectedP	Signif	Bias
 0	1	0	1	1	False	-0.2
 0	2	0	0.429195	1	False	-0.4

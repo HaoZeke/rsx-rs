@@ -7,6 +7,7 @@
 //! identify sex-linked markers. It exposes both a Rust API and a C-compatible
 //! FFI layer (via cbindgen) for integration with C++, R, and other languages.
 
+pub mod bitset;
 pub mod c_api;
 pub mod commands;
 pub mod io;

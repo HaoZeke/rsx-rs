@@ -38,7 +38,7 @@ impl Default for ParserConfig {
 /// via a callback to avoid allocation.
 pub struct MarkersTableStream {
     pub header: TableHeader,
-    groups: Vec<String>,
+    pub groups: Vec<String>,
     group_names: Vec<String>,
     config: ParserConfig,
     path: std::path::PathBuf,
@@ -230,6 +230,9 @@ fn handle_field(
             if idx < marker.individual_depths.len() {
                 marker.individual_depths[idx] = depth;
                 if depth >= config.min_depth {
+                    // Set presence bit for fast popcount-based group counting
+                    marker.presence.set(idx);
+                    // Also update legacy group_counts for commands that need it
                     if compute_groups
                         && field_n < groups.len()
                         && !groups[field_n].is_empty()

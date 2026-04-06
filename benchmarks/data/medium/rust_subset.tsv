@@ -1,4 +1,4 @@
-#source:radsex-subset;min_depth:5;filters:M=[3,9999],F=[0,2],individuals=[0,9999];signif_threshold:0.05;bonferroni:true;n_markers:10000
+#source:rsx-subset;min_depth:5;filters:M=[3,9999],F=[0,2],individuals=[0,9999];signif_threshold:0.05;bonferroni:true;n_markers:10000
 id	sequence	ind1	ind2	ind3	ind4	ind5	ind6	ind7	ind8	ind9	ind10	ind11	ind12	ind13	ind14	ind15	ind16	ind17	ind18	ind19	ind20
 0	CATACCGATAACAACCACGAGCTAGTAAGCGCCGTCGCGCCAATAAATCTTATGCCACATGCCCGGAATTAGGTCTGTTACTCGTAGCAAACGTATGCGG	5	48	12	48	39	22	46	26	12	23	1	0	1	0	2	2	1	2	0	2
 1	GGTCCAGCGCATAGGGTAGGATAGGATCTGTACCATGCTCAATCAAACAGGAACAAGCTGGAATTTCCGATTGAATTTAGTGCAGGGGGATATATGTGTT	40	47	50	36	14	17	23	18	8	42	2	2	0	2	1	0	0	2	1	2
