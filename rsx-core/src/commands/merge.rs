@@ -25,6 +25,7 @@ pub struct MergeParams {
     pub input_files: Vec<String>,
     pub output_file_path: String,
     pub buffer_size: Option<usize>,
+    pub output_parquet: bool,
 }
 
 /// A single merge entry: one input line's contribution.
@@ -199,11 +200,24 @@ pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Phase 3 output: choose TSV or Parquet
+    if params.output_parquet {
+        eprintln!("  Writing Parquet {}...", params.output_file_path);
+        let row_iter = KWayMergeIter::new(heap, chunk_readers, total_samples);
+        crate::commands::merge_parquet::write_parquet(
+            &params.output_file_path,
+            &all_samples,
+            row_iter,
+        )?;
+        let _n_merged = 0u64; // count tracked internally by parquet writer
+        eprintln!("  Done (Parquet output)");
+        return Ok(());
+    }
+
     eprintln!("  Writing {}...", params.output_file_path);
     let out_file = std::fs::File::create(&params.output_file_path)?;
     let mut writer = BufWriter::with_capacity(1 << 20, out_file);
 
-    // Write placeholder header (fix count after)
     writeln!(writer, "#Number of markers : {:<20}", 0)?;
     write!(writer, "id\tsequence")?;
     for s in &all_samples {
@@ -237,7 +251,6 @@ pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
             current_seq = Some(entry.packed_seq.clone());
         }
 
-        // Merge depths
         let offset = entry.sample_offset as usize;
         for (j, &d) in entry.depths.iter().enumerate() {
             let col = offset + j;
@@ -258,7 +271,6 @@ pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Flush final
     if let Some(ref seq) = current_seq {
         write_merged_row(&mut writer, n_merged, seq, &current_depths)?;
         n_merged += 1;
@@ -289,6 +301,104 @@ fn write_merged_row(
         write!(writer, "\t{d}")?;
     }
     writeln!(writer)
+}
+
+/// Iterator adapter for the k-way merge that yields (id, packed_seq, depths).
+struct KWayMergeIter {
+    heap: BinaryHeap<HeapEntry>,
+    chunk_readers: Vec<ChunkReader>,
+    total_samples: usize,
+    current_seq: Option<Vec<u8>>,
+    current_depths: Vec<u16>,
+    n_emitted: u64,
+}
+
+impl KWayMergeIter {
+    fn new(
+        heap: BinaryHeap<HeapEntry>,
+        chunk_readers: Vec<ChunkReader>,
+        total_samples: usize,
+    ) -> Self {
+        KWayMergeIter {
+            heap,
+            chunk_readers,
+            total_samples,
+            current_seq: None,
+            current_depths: vec![0u16; total_samples],
+            n_emitted: 0,
+        }
+    }
+}
+
+impl Iterator for KWayMergeIter {
+    type Item = (u64, Vec<u8>, Vec<u16>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let top = self.heap.pop();
+
+            match top {
+                Some(top) => {
+                    let entry = top.entry;
+                    let chunk_idx = top.chunk_idx;
+
+                    let is_new = match &self.current_seq {
+                        Some(seq) => *seq != entry.packed_seq,
+                        None => true,
+                    };
+
+                    let emit = if is_new && self.current_seq.is_some() {
+                        let seq = self.current_seq.take().unwrap();
+                        let depths = self.current_depths.clone();
+                        let id = self.n_emitted;
+                        self.n_emitted += 1;
+                        self.current_depths.fill(0);
+                        Some((id, seq, depths))
+                    } else {
+                        None
+                    };
+
+                    if is_new {
+                        self.current_seq = Some(entry.packed_seq.clone());
+                    }
+
+                    let offset = entry.sample_offset as usize;
+                    for (j, &d) in entry.depths.iter().enumerate() {
+                        let col = offset + j;
+                        if col < self.total_samples {
+                            if self.current_depths[col] == 0 {
+                                self.current_depths[col] = d;
+                            } else {
+                                self.current_depths[col] =
+                                    self.current_depths[col].saturating_add(d);
+                            }
+                        }
+                    }
+
+                    if let Ok(Some(next)) = self.chunk_readers[chunk_idx].next_entry() {
+                        self.heap.push(HeapEntry {
+                            entry: next,
+                            chunk_idx,
+                        });
+                    }
+
+                    if emit.is_some() {
+                        return emit;
+                    }
+                }
+                None => {
+                    // Heap exhausted -- emit last sequence if any
+                    if let Some(seq) = self.current_seq.take() {
+                        let depths = self.current_depths.clone();
+                        let id = self.n_emitted;
+                        self.n_emitted += 1;
+                        return Some((id, seq, depths));
+                    }
+                    return None;
+                }
+            }
+        }
+    }
 }
 
 fn fix_header_count(path: &str, count: u64) -> std::io::Result<()> {

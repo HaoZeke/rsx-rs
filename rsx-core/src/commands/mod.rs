@@ -6,8 +6,10 @@
 pub mod depth;
 pub mod distrib;
 pub mod freq;
+#[cfg(feature = "map")]
 pub mod map;
 pub mod merge;
+pub mod merge_parquet;
 pub mod process;
 pub mod process_mpi;
 pub mod signif;

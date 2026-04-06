@@ -14,10 +14,12 @@ name = "rsx_core"
 crate-type = ["staticlib", "cdylib", "lib"]
 
 [features]
-default = ["parallel"]
+default = ["parallel", "map"]
 gen-header = ["dep:cbindgen"]
 parallel = ["dep:rayon", "dep:dashmap"]
 mpi = ["dep:mpi"]
+map = ["dep:minimap2"]
+parquet-io = ["dep:arrow", "dep:parquet"]
 
 [dependencies]
 needletail = "0.6"
@@ -35,7 +37,9 @@ ryu = "1"
 # mpi 0.8.1 has OpenMPI struct layout issues. Using git main.
 mpi = { git = "https://github.com/rsmpi/rsmpi.git", optional = true }
 lz4_flex = "0.11"
-minimap2 = "0.1"
+minimap2 = { version = "0.1", optional = true }
+arrow = { version = "55", optional = true }
+parquet = { version = "55", optional = true, features = ["arrow"] }
 tempfile = "3"
 log = "0.4"
 env_logger = "0.11"

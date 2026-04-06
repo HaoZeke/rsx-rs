@@ -12,8 +12,10 @@ name = "rsx"
 path = "src/main.rs"
 
 [features]
-default = []
+default = ["map"]
+map = ["rsx-core/map"]
 mpi = ["rsx-core/mpi"]
+parquet-io = ["rsx-core/parquet-io"]
 
 [dependencies]
 rsx-core = { path = "../rsx-core", features = ["parallel"] }

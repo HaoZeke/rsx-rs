@@ -114,6 +114,7 @@ enum Commands {
     },
 
     /// Align markers to a genome and compute metrics
+    #[cfg(feature = "map")]
     Map {
         /// Path to a markers file (depth table or FASTA)
         #[arg(short = 't', long = "markers-file")]
@@ -204,6 +205,9 @@ enum Commands {
         /// Number of entries to buffer before flushing to disk (default: 2M)
         #[arg(short = 'B', long = "buffer-size", default_value = "2000000")]
         buffer_size: usize,
+        /// Output as Parquet instead of TSV (requires --features parquet-io)
+        #[arg(long = "output-parquet")]
+        output_parquet: bool,
     },
 }
 
@@ -306,6 +310,7 @@ fn main() {
             min_frequency,
         }),
 
+        #[cfg(feature = "map")]
         Commands::Map {
             markers_file,
             output_file,
@@ -374,10 +379,12 @@ fn main() {
             input_files,
             output_file,
             buffer_size,
+            output_parquet,
         } => commands::merge::run(&commands::merge::MergeParams {
             input_files,
             buffer_size: Some(buffer_size),
             output_file_path: output_file,
+            output_parquet,
         }),
     };
 

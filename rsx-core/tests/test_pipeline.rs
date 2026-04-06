@@ -257,6 +257,7 @@ fn test_process_command() {
 }
 
 #[test]
+#[cfg(feature = "map")]
 fn test_map_command() {
     let dir = test_dir().join("map");
     std::fs::create_dir_all(&dir).unwrap();
