@@ -21,6 +21,7 @@ parallel = ["dep:rayon"]
 [dependencies]
 needletail = "0.6"
 flate2 = "1"
+hexf = "0.2"
 libm = "0.2"
 # crossbeam removed -- inline parsing is faster than channel-based
 indexmap = "2"

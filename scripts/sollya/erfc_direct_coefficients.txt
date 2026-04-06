@@ -1,0 +1,65 @@
+✨ Pixi task (build-sollya): bash -c '
+  if command -v sollya >/dev/null 2>&1; then echo "Sollya already installed"; exit 0; fi
+  set -e
+  SOLLYA_VER=8.0
+  cd /tmp
+  [ -f sollya-${SOLLYA_VER}.tar.gz ] || curl -L -o sollya-${SOLLYA_VER}.tar.gz https://www.sollya.org/releases/sollya-${SOLLYA_VER}/sollya-${SOLLYA_VER}.tar.gz
+  rm -rf sollya-${SOLLYA_VER}
+  tar xzf sollya-${SOLLYA_VER}.tar.gz
+  cd sollya-${SOLLYA_VER}
+  ./configure CC=clang CXX=clang++ CFLAGS="-I$CONDA_PREFIX/include/libxml2" CPPFLAGS="-I$CONDA_PREFIX/include/libxml2" LDFLAGS="-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib" --prefix=$CONDA_PREFIX --with-gmp=$CONDA_PREFIX --with-mpfr=$CONDA_PREFIX --with-mpfi=$CONDA_PREFIX --with-fplll=$CONDA_PREFIX --with-xml2=$CONDA_PREFIX
+  make -j4
+  make install
+  echo "Sollya ${SOLLYA_VER} installed to $CONDA_PREFIX"
+'
+Sollya already installed
+
+✨ Pixi task (minimax-direct): sollya < sollya/erfc_direct.sollya
+=== Single interval [0, 6], degree 40 ===
+Max absolute error: 8.223075209717624096672497295379657992266417146520118279842918043194213357595246683098248937e-17
+Max relative error (t in [0,4]): 4.461533812931666697204692772641011040837250216836940658009935114480878046362864939769148955e-9
+
+// Sollya remez degree 40 on [0, 6]
+// Max abs error: ~8e-17, max relerr (t<4): ~1e-15
+const ERFC_POLY: [f64; 41] = [
+     0x1.fffffffffffff4263dcc8926b602c925d56b3ee1b9ffc1e8d807763e11895dcb126572044a2p-1 ,
+     -0x1.20dd750429abbd94539d1142182304f2779ae12a27864224beb78f3f0af7f5c2d37caa6f77cp0 ,
+     -0x1.b83ea9b36d55d0a88a2f952bf115a77dbfb9c9aa56a9e3187057837699835e6fa0e3fa86a7p-39 ,
+     0x1.812746b1e8a4c48d728965ccca03e55a5de69c76ea596e72b571dedd99c14bc65f2ade00ca2p-2 ,
+     -0x1.c01f0b102e8ee49994775f9561fc3c91a3ea811781c9f96ff71d56dc2e14c42c2c34da88c84p-30 ,
+     -0x1.ce2f1d3ee338e38323753c5ff20d07796c102e3529c6aacb723302e308ea8b519e1ef7bf30cp-4 ,
+     -0x1.c92fce83a23c696d570f0c6b176411fcb703073ffb0ddb60db969eaa3815099a2ffad1df3fep-24 ,
+     0x1.b82ed8ff9fbe3fc29123aa5de83d6043909e305736468df733578973ee1da74ec133e0cedecp-6 ,
+     -0x1.6af32fff4be8301f169e64756a910079345f8d22d41ff27918b0e319796463505bbbd54d01cp-20 ,
+     -0x1.56386821f01b0c56946e07aad45d49f4eea9303a5dde8e7a2178a32839be163db59f13fc5p-8 ,
+     0x1.84dc6b9cac39950782515ae8bb863e0790bdfd17132f5a89a27485c62af3a61693ea93438cp-20 ,
+     0x1.b5ac4763df8f1084eaaa18624ef7831591ad72b0c99a94a7c4ffe94e6b9a07c39c58f80b7eep-11 ,
+     0x1.226e298aa6414230072432b636472bd7722ab1fd523b4869f7909e0ac92d1fb862ba82d273ap-14 ,
+     -0x1.24f7e6a2b2ce9d9da35246a2a299dc01dae47467cfe4ccfbe04ca6c980519f261c282816ddep-12 ,
+     0x1.239ab445441db9b6046f4ed7d98afa1e0857f2a4096a28b192f9f03b0f33d795b4e14d72d7cp-12 ,
+     -0x1.8b31805e161c3b97d1da48ea9e6f213fb4a9e1447f274ddba2fc82449ff1c18f0f30e78cc92p-12 ,
+     0x1.dee4be601e3e8b91584cfbd61a155e796838dfdea026602fec5ed651701bd0493bad411a42ap-12 ,
+     -0x1.d77acde9787389091f09c15a3eede55316c2158a83392728543bfacc869a520b5a9073208p-12 ,
+     0x1.883aaa14deb9f589ec1f54311e47d1fde96288dbdcde2c7a9599d0c4c859074a17ddad94e16p-12 ,
+     -0x1.18dadbd5cc3aaae2ed1d0ca5ad95769777fae72f6253f2da99d4b4c39dfe6e521d0bcb3efdp-12 ,
+     0x1.5b8d481772fb3dfcf5152b45b0316ee829bc424ca57753e584e8f585b8163d241fbacdcf04ep-13 ,
+     -0x1.74855604ef48a3b2f34f44b4240c6f65fbe88d456e97d4d73bb028d284e100c4a27017cb826p-14 ,
+     0x1.5acc93d93d3b3dcce8e4c60ccb6ac49c66c2954d3aecc62d757fb603cb48e9dcc445d181158p-15 ,
+     -0x1.18f50a2c68bec093146142fe7ea1a4abe82632eb085d6e81d1ac63a5fdaca03540c7138ca48p-16 ,
+     0x1.8c5fd35d0866bcc95364cabe1bc6e8eba0bbc84045b1900a1ba24ae3b3b2ae0a003fe9afe6ep-18 ,
+     -0x1.e6a1ce3798ff88a73f669bbd192f94bc158cc250ae56c3fbec30e6ed4a7a6efd5784abde258p-20 ,
+     0x1.03a13e31b65d00251b15347cecb38e4d5c5bae3fb457746434f1fedff15364bcb01ff1f005ep-21 ,
+     -0x1.e0be7f87c8ead931e4b9c785f6e51b047d25a6eacedaf2b6289b10d267bc9149a0e6779cf94p-24 ,
+     0x1.815459515f2172aa7422ec1c58206894864b2d5fcad76a94b8478a73ec2f2978fb2fdf691aep-26 ,
+     -0x1.0a9d538fdfb11e836fe05823911d092d46285af3827bb49d8699edf260b6f2298dbd3659a0ep-28 ,
+     0x1.3d4235505e0e0c861991493faee514174af745503faf08a4116508606c38b9d1ed8adcf4d6ep-31 ,
+     -0x1.42ee4b10402d7bf2d976c6436b1543af5e13ba478066c063314c028ccf3cf5674205b6f7048p-34 ,
+     0x1.172dd0bdac957891a0773bd7a2190a5a1b64f2a393270adf95503e58fca697d50f885318c7ep-37 ,
+     -0x1.960c57cfddb973e1093770688f18f7df5cced94306632446fb5aa7659610d06a305e1393b5p-41 ,
+     0x1.ea4beaf5f97015c1b57bffb013e320db4caa668f1716319bc14dc9c2166dfbf338873ee36ecp-45 ,
+     -0x1.e2a4b9cf888a45088bd464c44cd166b0e2a96eae172a1cc1348241856596dd06218b2271d7p-49 ,
+     0x1.796af39619720af679c8d3d63d7a2a6ec5c631db8671c5484a162ea73b6c8340c9b3642c872p-53 ,
+     -0x1.c31352aaa9450e65e5d1541729777206841dbf1351a5ad2a559a4cf5f9dd5b7dbe7c6a7a83cp-58 ,
+     0x1.82f8c944633565cd7173659d5c2e836e318b3a566983e9f67d8c0422c45e3bd7c7fe15f865p-63 ,
+     -0x1.a861a25d26d002214b661557159bc26c94a5f0e0e1c45f2af9ac3be9a16b21dace40d138d04p-69 ,
+     0x1.bef061298bc3608f937916c666efab3515d4

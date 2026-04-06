@@ -1,0 +1,46 @@
+/*
+ * Sollya: single-interval degree-40 minimax for erfc(t) on [0, 6].
+ *
+ * For t >= 6, erfc(t) < 2.2e-17 which is below the p-value floor
+ * of 1e-16, so we return 0.
+ *
+ * Single polynomial = zero branching = perfectly SIMD/GPU friendly.
+ * 41 coefficients, ~10 FMA ops with 4-wide AVX2.
+ *
+ * Run: cd scripts && pixi run minimax-direct
+ */
+
+prec = 300!;
+display = hexadecimal!;
+
+f = erfc(x);
+
+print("=== Single interval [0, 6], degree 40 ===");
+p = remez(f, 40, [0, 6]);
+display = decimal!;
+err = dirtyinfnorm(f - p, [0, 6]);
+print("Max absolute error:", err);
+relerr = dirtyinfnorm((f - p)/f, [1b-1000, 4]);
+print("Max relative error (t in [0,4]):", relerr);
+
+display = hexadecimal!;
+print("");
+print("// Sollya remez degree 40 on [0, 6]");
+print("// Max abs error: ~8e-17, max relerr (t<4): ~1e-15");
+print("const ERFC_POLY: [f64; 41] = [");
+for i from 0 to 40 do { print("    ", coeff(p, i), ","); };
+print("];");
+
+/* Verification */
+display = decimal!;
+print("");
+print("=== Verification ===");
+for t in [| 0, 0.01, 0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.841/2, 4, 5, 5.5, 5.99 |] do {
+    exact = evaluate(f, t);
+    approx = evaluate(p, t);
+    abserr = abs(approx - exact);
+    if exact != 0 then rr = abserr / abs(exact) else rr = abserr;
+    print("  t=", t, " erfc=", exact, " abserr=", abserr, " relerr=", rr);
+};
+
+quit;

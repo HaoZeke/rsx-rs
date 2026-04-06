@@ -49,3 +49,5 @@ build-sollya = """bash -c '
   echo "Sollya ${SOLLYA_VER} installed to $CONDA_PREFIX"
 '"""
 minimax = { cmd = "sollya < sollya/erfc_minimax.sollya", depends-on = ["build-sollya"] }
+minimax-direct = { cmd = "sollya < sollya/erfc_direct.sollya", depends-on = ["build-sollya"] }
+patch-coefficients = { cmd = "python sollya/patch_coefficients.py" }
