@@ -1,0 +1,115 @@
+name: Benchmark PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  benchmark:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: main
+            sha: ${{ github.event.pull_request.base.sha }}
+          - label: pr
+            sha: ${{ github.event.pull_request.head.sha }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout target commit
+        run: |
+          mkdir -p /tmp/_bench_preserve
+          cp -r benchmarks/ /tmp/_bench_preserve/
+          cp asv.conf.json /tmp/_bench_preserve/
+          git checkout -f ${{ matrix.sha }}
+          git clean -fd
+          rm -rf benchmarks
+          cp -r /tmp/_bench_preserve/benchmarks/ benchmarks/
+          cp /tmp/_bench_preserve/asv.conf.json asv.conf.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release
+        run: cargo build --release -j4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Run benchmarks
+        run: |
+          uv venv /tmp/asv_env
+          uv pip install --python /tmp/asv_env/bin/python asv asv_runner
+          /tmp/asv_env/bin/asv machine --yes
+          /tmp/asv_env/bin/asv run -E "existing:/tmp/asv_env/bin/python" \
+            --set-commit-hash ${{ matrix.sha }} \
+            --record-samples --quick
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.label }}
+          path: .asv/results/
+          retention-days: 7
+
+  combine:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Download main results
+        uses: actions/download-artifact@v4
+        with:
+          name: bench-main
+          path: results/
+
+      - name: Download PR results
+        uses: actions/download-artifact@v4
+        with:
+          name: bench-pr
+          path: results/
+
+      - name: Compare results
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          PR_SHA="${{ github.event.pull_request.head.sha }}"
+          BASE_PREFIX="${BASE_SHA:0:8}"
+          PR_PREFIX="${PR_SHA:0:8}"
+          BASE_FILE=$(find results -name "${BASE_PREFIX}*.json" | head -1)
+          PR_FILE=$(find results -name "${PR_PREFIX}*.json" | head -1)
+          BCONF=$(find results -name "benchmarks.json" | head -1)
+          BCONF_ARG=""
+          if [ -n "$BCONF" ]; then
+            BCONF_ARG="$BCONF"
+          fi
+          uvx --from "git+https://github.com/airspeed-velocity/asv_spyglass.git" \
+            asv-spyglass compare "$BASE_FILE" "$PR_FILE" $BCONF_ARG \
+            --label-before main --label-after pr \
+            > results/comparison.txt || true
+          cat results/comparison.txt
+
+      - name: Write metadata
+        run: |
+          echo "main_sha=${{ github.event.pull_request.base.sha }}" > results/metadata.txt
+          echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> results/metadata.txt
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: results/
+          retention-days: 7

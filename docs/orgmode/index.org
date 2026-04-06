@@ -43,5 +43,6 @@ radsex map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -G M,F
    tutorials/quickstart
    reference/architecture
    reference/commands
+   reference/benchmarks
    howto/chromsex
 #+end_export

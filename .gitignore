@@ -17,6 +17,18 @@ pixi.lock
 .vscode/
 .idea/
 
+# ASV
+.asv/
+
+# Benchmark intermediate outputs (keep data/ and results/ in git)
+benchmarks/data/*/cpp_*.tsv
+benchmarks/data/*/rust_*.tsv
+benchmarks/data/*/*.amb
+benchmarks/data/*/*.ann
+benchmarks/data/*/*.bwt
+benchmarks/data/*/*.pac
+benchmarks/data/*/*.sa
+
 # Claude/AI config
 .claude/
 CLAUDE.md

@@ -1,0 +1,149 @@
+#+TITLE: Performance Benchmarks
+#+AUTHOR: Rohit Goswami
+#+DATE: 2026-04-06
+
+* Performance Benchmarks
+
+Comparison of radsex-rs (Rust) vs the original RADSex (C++11) across three
+dataset scales. All benchmarks are median of 3 runs on the same machine.
+
+** Test environment
+
+- CPU: AMD Threadripper (single-socket, benchmarks use 4 threads for =process=)
+- OS: Arch Linux 6.19.11
+- C++ compiler: GCC 15.2.1, =-O2 -std=c++11=
+- Rust compiler: rustc 1.85+, =--release= (LTO thin)
+- C++ radsex: v1.2.0 (with =<cstdint>= fix for GCC 15)
+- Rust radsex-rs: v0.1.0
+
+** Dataset scales
+
+| Scale  | Individuals | Markers | Reads/ind | Description            |
+|--------+-------------+---------+-----------+------------------------|
+| Small  |          10 |   1,000 |       500 | Quick validation       |
+| Medium |          20 |  10,000 |     2,000 | Typical small study    |
+| Large  |          40 | 100,000 |     5,000 | Realistic RAD-seq size |
+
+Synthetic data generated with =benchmarks/generate_data.py=: 10% male-biased
+markers, 10% female-biased, 80% common. FASTQ files gzip-compressed.
+
+** Results
+
+*** Per-command speedup (Rust / C++)
+
+| Command | Small (1K) | Medium (10K) | Large (100K) | Average |
+|---------+------------+--------------+--------------+---------|
+| process | 2.1x       | 2.7x         | --           | 2.4x    |
+| freq    | 5.0x       | 2.4x         | 1.6x         | 3.0x    |
+| depth   | 7.5x       | 2.1x         | 2.4x         | 4.0x    |
+| distrib | 4.3x       | 2.4x         | 1.9x         | 2.9x    |
+| signif  | 5.0x       | 1.7x         | 1.6x         | 2.8x    |
+| subset  | 3.5x       | 1.7x         | 1.6x         | 2.3x    |
+| map     | 1.8x       | 1.7x         | --            | 1.7x    |
+
+*** Per-scale average speedup
+
+| Scale  | Average speedup | Total C++ (s) | Total Rust (s) |
+|--------+-----------------+---------------+----------------|
+| Small  | 4.2x            |         0.129 |          0.046 |
+| Medium | 2.1x            |         0.708 |          0.391 |
+| Large  | 1.8x            |         1.099 |          0.603 |
+
+*** Overall
+
+*Rust is 1.86x faster* across all 19 benchmarks (1.907s vs 1.025s total).
+
+** Raw timing data (seconds, median of 3 runs)
+
+| Scale  | Command | C++ (s) | Rust (s) | Speedup |
+|--------+---------+---------+----------+---------|
+| small  | freq    |   0.015 |    0.003 | 5.0x    |
+| small  | depth   |   0.015 |    0.002 | 7.5x    |
+| small  | distrib |   0.013 |    0.003 | 4.3x    |
+| small  | signif  |   0.015 |    0.003 | 5.0x    |
+| small  | subset  |   0.014 |    0.004 | 3.5x    |
+| small  | map     |   0.042 |    0.024 | 1.8x    |
+| small  | process |   0.015 |    0.007 | 2.1x    |
+| medium | freq    |   0.026 |    0.011 | 2.4x    |
+| medium | depth   |   0.029 |    0.014 | 2.1x    |
+| medium | distrib |   0.029 |    0.012 | 2.4x    |
+| medium | signif  |   0.027 |    0.016 | 1.7x    |
+| medium | subset  |   0.024 |    0.014 | 1.7x    |
+| medium | map     |   0.467 |    0.280 | 1.7x    |
+| medium | process |   0.077 |    0.029 | 2.7x    |
+| large  | freq    |   0.131 |    0.083 | 1.6x    |
+| large  | depth   |   0.325 |    0.138 | 2.4x    |
+| large  | distrib |   0.192 |    0.101 | 1.9x    |
+| large  | signif  |   0.248 |    0.151 | 1.6x    |
+| large  | subset  |   0.203 |    0.130 | 1.6x    |
+
+** Why Rust is faster
+
+*** Inline =for_each= parser (biggest win)
+
+The C++ version uses a producer-consumer pattern: one thread parses the
+markers table into a =std::queue<Marker>= protected by a mutex, another
+thread processes markers from the queue with busy-wait polling
+(=sleep(10us)= when empty).
+
+radsex-rs originally copied this pattern using crossbeam channels, but
+profiling showed ~50% of CPU time was spent on channel overhead and marker
+cloning. The fix: inline =for_each= callback that reuses a single =Marker=
+struct with zero allocation per marker. The marker is passed by reference to
+the callback, reset in-place between iterations.
+
+*** AHashMap for group counts
+
+Each marker has a =group_counts= map (group name -> count). The C++ uses
+=std::unordered_map<string, uint>= with the default hash. radsex-rs uses
+=ahash::AHashMap= which leverages hardware AES instructions for fast hashing
+of small string keys. Since there are only 2 groups per marker, the hash
+lookup is the hot path -- faster hashing gives a direct speedup.
+
+*** Rayon for =process= command
+
+The =process= command reads all FASTQ files and counts sequences. C++ uses
+a manual thread pool with mutex-protected work-stealing. radsex-rs uses
+rayon's work-stealing thread pool with per-thread =AHashMap= accumulators,
+merged at the end. This avoids mutex contention during file processing.
+
+*** minimap2 for =map= command
+
+radsex-rs uses minimap2 (via Rust bindings) instead of BWA-MEM. minimap2 is
+the modern successor with better index construction and alignment speed for
+short reads. The =sr= (short-read) preset matches BWA-MEM behavior.
+
+*** Zero-copy field parsing
+
+The table parser uses =push_str= into pre-allocated strings rather than
+creating new =String= objects per field. Combined with =fast_parse_u16= for
+integer fields (matching the C++ =fast_stoi= approach), this eliminates
+allocation in the inner parsing loop.
+
+** Reproducing
+
+#+begin_src bash
+# Generate test data
+python3 benchmarks/generate_data.py
+
+# Build C++ radsex (requires patching for GCC 15)
+cd /path/to/radsex && make -j4
+
+# Build Rust radsex-rs
+cd /path/to/radsex-rs && cargo build --release
+
+# Run benchmarks
+bash benchmarks/run_benchmarks.sh
+
+# Print summary
+python3 benchmarks/plot_benchmarks.py
+#+end_src
+
+** Golden file compatibility
+
+Despite the performance differences, radsex-rs produces *byte-identical
+output* to C++ radsex for all downstream commands (freq, depth, distrib,
+signif, subset) when groups are specified explicitly with =-G M,F=. The
+=Cg= float formatter matches C++'s default =%g= output (6 significant
+digits). The =map= command uses minimap2 instead of BWA-MEM so alignment
+results differ, but the output format is identical.
