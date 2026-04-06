@@ -211,12 +211,19 @@ fn main() {
             output_file,
             threads,
             min_depth,
-        } => commands::process::run(&commands::process::ProcessParams {
-            input_dir_path: input_dir,
-            output_file_path: output_file,
-            n_threads: threads,
-            min_depth,
-        }),
+        } => {
+            let params = commands::process::ProcessParams {
+                input_dir_path: input_dir,
+                output_file_path: output_file,
+                n_threads: threads,
+                min_depth,
+            };
+            // Use MPI if available (feature-gated), else single-node rayon
+            #[cfg(feature = "mpi")]
+            { commands::process_mpi::run_mpi(&params) }
+            #[cfg(not(feature = "mpi"))]
+            { commands::process::run(&params) }
+        }
 
         Commands::Distrib {
             markers_table,

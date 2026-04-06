@@ -11,6 +11,10 @@ repository = "https://github.com/HaoZeke/rsx-rs"
 name = "rsx"
 path = "src/main.rs"
 
+[features]
+default = []
+mpi = ["rsx-core/mpi"]
+
 [dependencies]
 rsx-core = { path = "../rsx-core", features = ["parallel"] }
 clap = { version = "4", features = ["derive"] }

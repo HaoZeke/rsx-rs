@@ -17,6 +17,7 @@ crate-type = ["staticlib", "cdylib", "lib"]
 default = ["parallel"]
 gen-header = ["dep:cbindgen"]
 parallel = ["dep:rayon"]
+mpi = ["dep:mpi"]
 
 [dependencies]
 needletail = "0.6"
@@ -30,6 +31,7 @@ ahash = "0.8"
 rayon = { version = "1.10", optional = true }
 memmap2 = "0.9"
 ryu = "1"
+mpi = { version = "0.8", optional = true }
 minimap2 = "0.1"
 log = "0.4"
 env_logger = "0.11"
