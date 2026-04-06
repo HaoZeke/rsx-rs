@@ -7,6 +7,7 @@ pub mod depth;
 pub mod distrib;
 pub mod freq;
 pub mod map;
+pub mod merge;
 pub mod process;
 pub mod process_mpi;
 pub mod signif;

@@ -31,6 +31,14 @@ shibuya = "*"
 mkrst = { cmd = "emacs --batch --load docs/export.el", description = "Export orgmode docs to RST" }
 site = { cmd = "sphinx-build docs/source docs/_build" }
 
+[feature.mpi.dependencies]
+mpich = "*"
+compilers = ">=1.8"
+
+[feature.mpi.tasks]
+build-mpi = { cmd = "MPICC=$CONDA_PREFIX/bin/mpicc CC=$CONDA_PREFIX/bin/mpicc C_INCLUDE_PATH=$CONDA_PREFIX/include LIBRARY_PATH=$CONDA_PREFIX/lib RUSTFLAGS='-C target-cpu=native' cargo build --release --features mpi" }
+
 [environments]
 default = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
+mpi = { features = ["dev", "mpi"], solve-group = "default" }
