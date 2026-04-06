@@ -3,8 +3,8 @@
 
 * Integrating with ChromSex
 
-[[https://github.com/RuhiRG/ChromSex][ChromSex]] is an R package for analyzing
-sex chromosome evolution in salmonid fish. It consumes RADSex output files.
+ChromSex is an R package for analyzing sex chromosome evolution in
+salmonid fish. It consumes RADSex output files.
 
 ** Drop-in replacement
 
