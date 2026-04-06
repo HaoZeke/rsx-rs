@@ -1,0 +1,99 @@
+#+TITLE: Command Reference
+#+AUTHOR: Rohit Goswami
+
+* Command Reference
+
+All commands match the original C++ RADSex CLI interface exactly.
+
+** process
+
+Build a marker depth table from demultiplexed reads.
+
+#+begin_src bash
+radsex process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth]
+#+end_src
+
+| Flag | Default | Description |
+|------+---------+-------------|
+| =-i= |         | Directory of FASTQ/FASTA files (gzip supported) |
+| =-o= |         | Output markers depth table |
+| =-T= | 1       | Number of threads |
+| =-d= | 1       | Minimum depth to retain a marker |
+
+Supported extensions: =.fq=, =.fastq=, =.fasta=, =.fa=, =.fna= (optionally =.gz=).
+Individual names are derived from filenames.
+
+** distrib
+
+Compute marker distribution between two groups.
+
+#+begin_src bash
+radsex distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C]
+#+end_src
+
+| Flag | Default | Description |
+|------+---------+-------------|
+| =-t= |         | Markers depth table from =process= |
+| =-p= |         | Population map (individual\tgroup) |
+| =-o= |         | Output distribution table |
+| =-d= | 1       | Minimum depth |
+| =-G= | auto    | Groups to compare (comma-separated) |
+| =-S= | 0.05    | Significance threshold |
+| =-C= | false   | Disable Bonferroni correction |
+
+** signif
+
+Extract markers significantly associated with a group.
+
+#+begin_src bash
+radsex signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C] [-a]
+#+end_src
+
+Additional flags: =-a= outputs FASTA instead of table format.
+
+** freq
+
+Compute marker frequency distribution.
+
+#+begin_src bash
+radsex freq -t <table.tsv> -o <output.tsv> [-d 5]
+#+end_src
+
+** depth
+
+Compute retained read statistics per individual.
+
+#+begin_src bash
+radsex depth -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-f 0.75]
+#+end_src
+
+| Flag | Default | Description |
+|------+---------+-------------|
+| =-f= | 0.75    | Min fraction of individuals for a marker to count |
+
+** map
+
+Align markers to a reference genome.
+
+#+begin_src bash
+radsex map -t <table.tsv> -p <popmap.tsv> -g <genome.fa> -o <output.tsv> \
+  [-d 5] [-G M,F] [-q 20] [-Q 0.1] [-S 0.05] [-C]
+#+end_src
+
+| Flag | Default | Description |
+|------+---------+-------------|
+| =-g= |         | Reference genome (FASTA) |
+| =-q= | 20      | Minimum mapping quality |
+| =-Q= | 0.1     | Minimum marker frequency |
+
+Uses minimap2 with =sr= (short-read) preset.
+
+** subset
+
+Extract a filtered subset of markers.
+
+#+begin_src bash
+radsex subset -t <table.tsv> -p <popmap.tsv> -o <output.tsv> \
+  [-d 5] [-G M,F] [-m min_g1] [-M max_g1] [-n min_g2] [-N max_g2] \
+  [-i min_ind] [-I max_ind] [-S 0.05] [-C] [-a]
+#+end_src

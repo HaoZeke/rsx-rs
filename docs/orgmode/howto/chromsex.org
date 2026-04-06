@@ -1,0 +1,45 @@
+#+TITLE: ChromSex Integration
+#+AUTHOR: Rohit Goswami
+
+* Integrating with ChromSex
+
+[[https://github.com/RuhiRG/ChromSex][ChromSex]] is an R package for analyzing
+sex chromosome evolution in salmonid fish. It consumes RADSex output files.
+
+** Drop-in replacement
+
+radsex-rs produces byte-identical output to C++ RADSex when groups are
+specified explicitly (=-G M,F=). The existing ChromSex R functions
+(=load_radsex_distribution=, =load_radsex_alignment=, =extract_signif_markers=)
+work without any changes.
+
+** Adding to ChromSex pixi.toml
+
+The =build-radsex= task in ChromSex's =pixi.toml= builds radsex-rs from source:
+
+#+begin_src toml
+build-radsex = """bash -c 'if ! command -v radsex >/dev/null 2>&1; then \
+  cd /tmp && git clone https://github.com/HaoZeke/radsex-rs.git && \
+  cd radsex-rs && cargo build --release -j4 && \
+  cp target/release/radsex ~/.local/bin/radsex; fi'"""
+#+end_src
+
+** Running from ChromSex
+
+Use =system()= or =processx::run()= to call radsex from R:
+
+#+begin_src R
+system2("radsex", c(
+  "distrib",
+  "-t", "data/radsex/BT/markers_table.tsv",
+  "-p", "data/popmaps/popmap_BT_sex_hestvatn.tsv",
+  "-o", "data/radsex/BT/hestvatn_BT_distribution.tsv",
+  "-d", "5", "-G", "M,F"
+))
+#+end_src
+
+** Future: direct R FFI
+
+The C API (=libradsex_core.so=) will enable direct =.Call()= from R,
+eliminating intermediate file I/O. See the
+[[https://github.com/HaoZeke/radsex-rs/issues][issue tracker]] for progress.

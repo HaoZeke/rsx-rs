@@ -1,0 +1,47 @@
+#+TITLE: radsex-rs Documentation
+#+AUTHOR: Rohit Goswami
+#+OPTIONS: toc:2 num:t
+
+* radsex-rs
+
+Rust rewrite of [[https://github.com/RomainFeron/RADSex][RADSex]], a
+computational pipeline for analyzing sex-determination using RAD-Sequencing
+data. Drop-in CLI replacement with C FFI for language bindings.
+
+** Features
+
+- All 7 original commands: =process=, =distrib=, =signif=, =depth=, =freq=, =map=, =subset=
+- Byte-identical output to C++ RADSex (when groups specified explicitly)
+- Parallel file processing via [[https://docs.rs/rayon][rayon]]
+- minimap2 alignment (replaces BWA-MEM)
+- C API with cbindgen for R/Python/C++ integration
+- Cross-platform: Linux, macOS (Intel + Apple Silicon), Windows
+
+** Quick start
+
+#+begin_src bash
+# Install from source
+git clone https://github.com/HaoZeke/radsex-rs.git
+cd radsex-rs
+cargo build --release
+cp target/release/radsex ~/.local/bin/
+
+# Or via pixi
+pixi run build
+
+# Run the pipeline
+radsex process -i reads/ -o markers.tsv -T 8
+radsex distrib -t markers.tsv -p popmap.tsv -o distrib.tsv -G M,F
+radsex signif -t markers.tsv -p popmap.tsv -o signif.tsv -G M,F
+radsex map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -G M,F
+#+end_src
+
+#+begin_export rst
+.. toctree::
+   :maxdepth: 2
+
+   tutorials/quickstart
+   reference/architecture
+   reference/commands
+   howto/chromsex
+#+end_export

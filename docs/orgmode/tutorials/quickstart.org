@@ -1,0 +1,76 @@
+#+TITLE: Quick Start
+#+AUTHOR: Rohit Goswami
+
+* Quick Start
+
+** Installation
+
+*** From source (recommended)
+
+#+begin_src bash
+git clone https://github.com/HaoZeke/radsex-rs.git
+cd radsex-rs
+cargo build --release
+# Binary at target/release/radsex
+#+end_src
+
+*** From GitHub releases
+
+Pre-built binaries are available for Linux (x86_64, aarch64), macOS
+(x86_64, arm64), and Windows from the
+[[https://github.com/HaoZeke/radsex-rs/releases][Releases page]].
+
+*** Via pixi
+
+#+begin_src bash
+cd radsex-rs
+pixi run build
+#+end_src
+
+** Example workflow
+
+Given demultiplexed RAD-seq reads in =reads/= and a population map:
+
+#+begin_example
+# popmap.tsv
+ind1    M
+ind2    M
+ind3    F
+ind4    F
+#+end_example
+
+*** Step 1: Build markers table
+
+#+begin_src bash
+radsex process -i reads/ -o markers.tsv -T 4 -d 5
+#+end_src
+
+*** Step 2: Check marker frequencies
+
+#+begin_src bash
+radsex freq -t markers.tsv -o freq.tsv -d 5
+#+end_src
+
+*** Step 3: Compute sex-bias distribution
+
+#+begin_src bash
+radsex distrib -t markers.tsv -p popmap.tsv -o distrib.tsv -d 5 -G M,F
+#+end_src
+
+*** Step 4: Extract significant markers
+
+#+begin_src bash
+radsex signif -t markers.tsv -p popmap.tsv -o signif.tsv -d 5 -G M,F
+#+end_src
+
+*** Step 5: Map to reference genome
+
+#+begin_src bash
+radsex map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -d 5 -G M,F
+#+end_src
+
+** Output format
+
+All outputs are tab-separated with an optional =#source:= comment line.
+The format is identical to the original C++ RADSex tool, so existing
+R scripts (e.g. ChromSex) work without modification.
