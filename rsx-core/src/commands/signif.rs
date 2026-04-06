@@ -3,6 +3,7 @@
 
 //! `signif` command: extract markers significantly associated with a group.
 
+use crate::bitset::GroupMask;
 use crate::marker::Marker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
@@ -44,17 +45,17 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
     let header_columns = stream.header.columns.clone();
 
+    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
+    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
+
     let mut candidate_markers: Vec<Marker> = Vec::new();
     let mut n_markers: u64 = 0;
-    let threshold = params.signif_threshold as f64;
-    let g1_key = groups.group1.clone();
-    let g2_key = groups.group2.clone();
 
     stream.for_each(|marker| {
         if marker.n_individuals > 0 {
             n_markers += 1;
-            let g1 = *marker.group_counts.get(&g1_key).unwrap_or(&0);
-            let g2 = *marker.group_counts.get(&g2_key).unwrap_or(&0);
+            let g1 = marker.presence.count_masked(&mask_g1);
+            let g2 = marker.presence.count_masked(&mask_g2);
             let p = stats::p_association(g1, g2, total_g1, total_g2);
             if (p as f32) < params.signif_threshold {
                 let mut m = marker.clone();
@@ -66,9 +67,9 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
     let corrected_threshold = if params.disable_correction {
-        threshold
+        params.signif_threshold as f64
     } else {
-        threshold / n_markers as f64
+        params.signif_threshold as f64 / n_markers as f64
     };
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
@@ -81,11 +82,16 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
         writeln!(output, "{}", header_columns.join("\t"))?;
     }
 
+    let fasta_groups = vec![
+        (groups.group1.clone(), &mask_g1),
+        (groups.group2.clone(), &mask_g2),
+    ];
+
     for mut marker in candidate_markers {
         if (marker.p as f32) < corrected_threshold as f32 {
             marker.p_corrected = stats::bonferroni_correct(marker.p, effective_n_markers);
             if params.output_fasta {
-                marker.write_as_fasta(&mut output, params.min_depth as u32)?;
+                marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)?;
             } else {
                 marker.write_as_table(&mut output)?;
             }

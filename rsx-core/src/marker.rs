@@ -3,7 +3,7 @@
 
 //! Marker: a DNA sequence with per-individual depth counts.
 
-use crate::bitset::BitsetRow;
+use crate::bitset::{BitsetRow, GroupMask};
 use std::io::{self, Write};
 
 /// A single RAD-seq marker with its depth across all individuals.
@@ -15,11 +15,8 @@ pub struct Marker {
     pub sequence: String,
     /// Depth of this marker in each individual (ordered by table columns).
     pub individual_depths: Vec<u16>,
-    /// Count of individuals per group where marker depth >= min_depth.
-    /// Kept for backward compatibility and FASTA output.
-    pub group_counts: ahash::AHashMap<String, u32>,
     /// Bitset: bit `i` set iff individual `i` has depth >= min_depth.
-    /// Used for fast group counting via popcount.
+    /// Group counting via `presence.count_masked(&group_mask)`.
     pub presence: BitsetRow,
     /// Total number of individuals where marker is present (depth >= min_depth).
     pub n_individuals: u32,
@@ -36,7 +33,6 @@ impl Marker {
             id: String::new(),
             sequence: String::new(),
             individual_depths: vec![0; n_individuals as usize],
-            group_counts: ahash::AHashMap::new(),
             presence: BitsetRow::new(n_individuals),
             n_individuals: 0,
             p: 0.0,
@@ -52,9 +48,6 @@ impl Marker {
         }
         for d in &mut self.individual_depths {
             *d = 0;
-        }
-        for v in self.group_counts.values_mut() {
-            *v = 0;
         }
         self.presence.clear();
         self.n_individuals = 0;
@@ -72,14 +65,22 @@ impl Marker {
         writeln!(w)
     }
 
-    /// Write this marker in FASTA format:
+    /// Write this marker in FASTA format with group counts computed from bitset.
     /// `>id_group1:count_group2:count_p:pval_pcorr:pcorr_mindepth:md`
     /// followed by the sequence on the next line.
-    pub fn write_as_fasta<W: Write>(&self, w: &mut W, min_depth: u32) -> io::Result<()> {
+    pub fn write_as_fasta_bitset<W: Write>(
+        &self,
+        w: &mut W,
+        min_depth: u32,
+        group_names: &[(String, &GroupMask)],
+    ) -> io::Result<()> {
         write!(w, ">{}", self.id)?;
-        // Sort group names for deterministic output
-        let mut groups: Vec<(&String, &u32)> = self.group_counts.iter().collect();
-        groups.sort_by_key(|(k, _)| k.as_str());
+        // Sort by group name for deterministic output
+        let mut groups: Vec<(&str, u32)> = group_names
+            .iter()
+            .map(|(name, mask)| (name.as_str(), self.presence.count_masked(mask)))
+            .collect();
+        groups.sort_by_key(|(k, _)| *k);
         for (group, count) in groups {
             write!(w, "_{group}:{count}")?;
         }
@@ -114,18 +115,38 @@ mod tests {
     }
 
     #[test]
-    fn test_marker_fasta_output() {
-        let mut m = Marker::new(2);
+    fn test_marker_fasta_bitset_output() {
+        let mut m = Marker::new(4);
         m.id = "1".to_string();
         m.sequence = "GATTACA".to_string();
-        m.group_counts.insert("M".to_string(), 5);
-        m.group_counts.insert("F".to_string(), 1);
+        // Set presence: individuals 0,1,2 present (3 males), individual 3 present (1 female)
+        m.presence.set(0);
+        m.presence.set(1);
+        m.presence.set(2);
+        m.presence.set(3);
         m.p = 0.001;
         m.p_corrected = 0.01;
+
+        let mask_m = GroupMask::from_columns(
+            &["".into(), "".into(), "M".into(), "M".into(), "M".into(), "F".into()],
+            "M",
+            4,
+        );
+        let mask_f = GroupMask::from_columns(
+            &["".into(), "".into(), "M".into(), "M".into(), "M".into(), "F".into()],
+            "F",
+            4,
+        );
+
+        let group_names = vec![
+            ("M".to_string(), &mask_m),
+            ("F".to_string(), &mask_f),
+        ];
+
         let mut buf = Vec::new();
-        m.write_as_fasta(&mut buf, 5).unwrap();
+        m.write_as_fasta_bitset(&mut buf, 5, &group_names).unwrap();
         let output = String::from_utf8(buf).unwrap();
-        assert!(output.starts_with(">1_F:1_M:5_p:0.001_pcorr:0.01_mindepth:5\n"));
+        assert!(output.contains(">1_F:1_M:3_p:0.001_pcorr:0.01_mindepth:5\n"));
         assert!(output.contains("GATTACA\n"));
     }
 
@@ -134,10 +155,13 @@ mod tests {
         let mut m = Marker::new(2);
         m.id = "42".to_string();
         m.individual_depths = vec![10, 5];
+        m.presence.set(0);
+        m.presence.set(1);
         m.n_individuals = 2;
         m.reset(false);
         assert!(m.id.is_empty());
         assert_eq!(m.individual_depths, vec![0, 0]);
         assert_eq!(m.n_individuals, 0);
+        assert_eq!(m.presence.count_total(), 0);
     }
 }

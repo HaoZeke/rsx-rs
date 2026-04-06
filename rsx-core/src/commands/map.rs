@@ -5,6 +5,7 @@
 //!
 //! Uses minimap2 for short-read alignment (replacing the C++ BWA-MEM integration).
 
+use crate::bitset::GroupMask;
 use crate::marker::AlignedMarker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
@@ -97,10 +98,11 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
 
+    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
+    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
+
     let mut aligned_markers: Vec<AlignedMarker> = Vec::new();
     let mut n_markers: u64 = 0;
-    let g1_key = groups.group1.clone();
-    let g2_key = groups.group2.clone();
 
     stream.for_each(|marker| {
         if marker.n_individuals > 0 {
@@ -147,8 +149,8 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
             .map_or(String::new(), |v| v.to_string());
         let position = best.target_start as i64;
 
-        let g1 = *marker.group_counts.get(&g1_key).unwrap_or(&0);
-        let g2 = *marker.group_counts.get(&g2_key).unwrap_or(&0);
+        let g1 = marker.presence.count_masked(&mask_g1);
+        let g2 = marker.presence.count_masked(&mask_g2);
 
         aligned_markers.push(AlignedMarker {
             id: marker.id.clone(),

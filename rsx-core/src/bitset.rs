@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_group_mask_from_columns() {
-        let columns: Vec<String> = vec![
+        let _columns: Vec<String> = vec![
             "id".into(), "sequence".into(),
             "ind1".into(), "ind2".into(), "ind3".into(), "ind4".into(),
         ];

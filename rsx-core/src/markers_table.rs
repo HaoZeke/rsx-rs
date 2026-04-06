@@ -3,9 +3,9 @@
 
 //! Streaming markers table parser.
 //!
-//! Provides both inline (single-thread) and channel-based (two-thread) modes.
-//! Inline mode is faster for analysis commands; channel mode available for
-//! pipelines that benefit from decoupled parsing.
+//! Inline single-thread parser with bitset presence tracking.
+//! Group counting uses popcount on pre-computed group masks instead of
+//! HashMap lookups -- eliminating all hashing from the hot path.
 
 use crate::io::table_io::{TableHeader, fast_parse_u16};
 use crate::marker::Marker;
@@ -34,12 +34,10 @@ impl Default for ParserConfig {
 }
 
 /// Inline markers table iterator -- parses directly in the calling thread.
-/// No channel overhead, no cloning. The marker is yielded by reference
-/// via a callback to avoid allocation.
 pub struct MarkersTableStream {
     pub header: TableHeader,
+    /// Per-column group labels (indices 0,1 = id,sequence; 2+ = individuals).
     pub groups: Vec<String>,
-    group_names: Vec<String>,
     config: ParserConfig,
     path: std::path::PathBuf,
 }
@@ -67,16 +65,9 @@ impl MarkersTableStream {
             Vec::new()
         };
 
-        let group_names: Vec<String> = if let Some(pm) = popmap {
-            pm.group_counts.keys().cloned().collect()
-        } else {
-            Vec::new()
-        };
-
         Ok(MarkersTableStream {
             header,
             groups,
-            group_names,
             config,
             path: path.to_path_buf(),
         })
@@ -104,34 +95,20 @@ impl MarkersTableStream {
                 break;
             }
             if !line_buf.starts_with(b"#") {
-                break; // First data line
+                break;
             }
         }
 
-        let compute_groups = self.config.compute_groups && !self.groups.is_empty();
         let n_individuals = self.header.n_individuals;
-
         let mut marker = Marker::new(n_individuals);
-        for gn in &self.group_names {
-            marker.group_counts.insert(gn.clone(), 0);
-        }
-
         let mut temp = Vec::with_capacity(256);
         let mut field_n: usize = 0;
 
-        // Process any data line we already read
         if !line_buf.is_empty() {
             for &byte in &line_buf {
-                process_byte(
-                    byte, &mut marker, &mut temp, &mut field_n,
-                    &self.config, compute_groups, &self.groups, &mut f,
-                );
+                process_byte(byte, &mut marker, &mut temp, &mut field_n, &self.config, &mut f);
             }
-            // Simulate newline if not present
-            process_byte(
-                b'\n', &mut marker, &mut temp, &mut field_n,
-                &self.config, compute_groups, &self.groups, &mut f,
-            );
+            process_byte(b'\n', &mut marker, &mut temp, &mut field_n, &self.config, &mut f);
         }
 
         let mut buffer = [0u8; BUF_SIZE];
@@ -141,57 +118,49 @@ impl MarkersTableStream {
                 break;
             }
             for &byte in &buffer[..bytes_read] {
-                process_byte(
-                    byte, &mut marker, &mut temp, &mut field_n,
-                    &self.config, compute_groups, &self.groups, &mut f,
-                );
+                process_byte(byte, &mut marker, &mut temp, &mut field_n, &self.config, &mut f);
             }
         }
 
         Ok(())
     }
 
-    /// Collect all markers into a Vec. Use `for_each` when possible to avoid
-    /// allocation.
+    /// Collect all markers into a Vec.
     pub fn collect(&self) -> std::io::Result<Vec<Marker>> {
         let mut markers = Vec::new();
         self.for_each(|m| markers.push(m.clone()))?;
         Ok(markers)
     }
 
-    /// Iterate over all markers (allocates -- prefer `for_each`).
+    /// Iterate over all markers (allocates).
     pub fn iter(&self) -> impl Iterator<Item = Marker> {
         self.collect().unwrap_or_default().into_iter()
     }
 }
 
 #[inline(always)]
-#[allow(clippy::too_many_arguments)]
 fn process_byte<F>(
     byte: u8,
     marker: &mut Marker,
     temp: &mut Vec<u8>,
     field_n: &mut usize,
     config: &ParserConfig,
-    compute_groups: bool,
-    groups: &[String],
     f: &mut F,
 ) where
     F: FnMut(&Marker),
 {
     match byte {
         b'\t' => {
-            handle_field(marker, temp, *field_n, config, compute_groups, groups);
+            handle_field(marker, temp, *field_n, config);
             temp.clear();
             *field_n += 1;
         }
         b'\n' => {
             if *field_n >= 2 {
-                handle_field(marker, temp, *field_n, config, compute_groups, groups);
+                handle_field(marker, temp, *field_n, config);
             }
             temp.clear();
             *field_n = 0;
-
             f(marker);
             marker.reset(!config.store_sequence);
         }
@@ -208,8 +177,6 @@ fn handle_field(
     temp: &[u8],
     field_n: usize,
     config: &ParserConfig,
-    compute_groups: bool,
-    groups: &[String],
 ) {
     match field_n {
         0 => {
@@ -230,17 +197,7 @@ fn handle_field(
             if idx < marker.individual_depths.len() {
                 marker.individual_depths[idx] = depth;
                 if depth >= config.min_depth {
-                    // Set presence bit for fast popcount-based group counting
                     marker.presence.set(idx);
-                    // Also update legacy group_counts for commands that need it
-                    if compute_groups
-                        && field_n < groups.len()
-                        && !groups[field_n].is_empty()
-                    {
-                        if let Some(count) = marker.group_counts.get_mut(&groups[field_n]) {
-                            *count += 1;
-                        }
-                    }
                     marker.n_individuals += 1;
                 }
             }

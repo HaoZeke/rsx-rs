@@ -3,6 +3,7 @@
 
 //! `subset` command: extract a filtered subset of markers.
 
+use crate::bitset::GroupMask;
 use crate::marker::Marker;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
@@ -50,15 +51,16 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
     let header_columns = stream.header.columns.clone();
 
+    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
+    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
+
     let mut filtered_markers: Vec<Marker> = Vec::new();
     let mut n_markers: u64 = 0;
-    let g1_key = groups.group1.clone();
-    let g2_key = groups.group2.clone();
 
     stream.for_each(|marker| {
         if marker.n_individuals > 0 { n_markers += 1; }
-        let g1 = *marker.group_counts.get(&g1_key).unwrap_or(&0);
-        let g2 = *marker.group_counts.get(&g2_key).unwrap_or(&0);
+        let g1 = marker.presence.count_masked(&mask_g1);
+        let g2 = marker.presence.count_masked(&mask_g2);
         if g1 >= params.min_group1 && g1 <= params.max_group1
             && g2 >= params.min_group2 && g2 <= params.max_group2
             && marker.n_individuals >= params.min_individuals
@@ -86,10 +88,15 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
         writeln!(output, "{}", header_columns.join("\t"))?;
     }
 
+    let fasta_groups = vec![
+        (groups.group1.clone(), &mask_g1),
+        (groups.group2.clone(), &mask_g2),
+    ];
+
     for mut marker in filtered_markers {
         marker.p_corrected = stats::bonferroni_correct(marker.p, effective_n_markers);
         if params.output_fasta {
-            marker.write_as_fasta(&mut output, params.min_depth as u32)?;
+            marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)?;
         } else {
             marker.write_as_table(&mut output)?;
         }

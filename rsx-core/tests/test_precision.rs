@@ -143,12 +143,12 @@ fn test_bonferroni_identity() {
 // === Bitset correctness tests ===
 
 #[test]
-fn test_bitset_matches_hashmap_counts() {
+fn test_bitset_group_counts_consistent() {
     use rsx_core::bitset::GroupMask;
     use rsx_core::markers_table::{MarkersTableStream, ParserConfig};
     use rsx_core::popmap::Popmap;
 
-    let dir = test_dir().join("bitset_vs_hashmap");
+    let dir = test_dir().join("bitset_consistency");
     std::fs::create_dir_all(&dir).unwrap();
 
     for n_ind in [10u16, 20, 40, 100, 200] {
@@ -166,27 +166,38 @@ fn test_bitset_matches_hashmap_counts() {
         let mask_m = GroupMask::from_columns(&stream.groups, "M", stream.header.n_individuals);
         let mask_f = GroupMask::from_columns(&stream.groups, "F", stream.header.n_individuals);
 
+        let expected_m = mask_m.count();
+        let expected_f = mask_f.count();
+        let half = n_ind / 2;
+
+        // Verify masks have the right number of bits
+        assert_eq!(expected_m, half as u32,
+            "n_ind={n_ind}: mask_m count {expected_m} != expected {half}");
+        assert_eq!(expected_f, (n_ind - half) as u32,
+            "n_ind={n_ind}: mask_f count {expected_f} != expected {}", n_ind - half);
+
         let mut marker_idx = 0u32;
         stream
             .for_each(|marker| {
-                let bitset_m = marker.presence.count_masked(&mask_m);
-                let bitset_f = marker.presence.count_masked(&mask_f);
-                let hashmap_m = *marker.group_counts.get("M").unwrap_or(&0);
-                let hashmap_f = *marker.group_counts.get("F").unwrap_or(&0);
-                let bitset_total = marker.presence.count_total();
+                let g1 = marker.presence.count_masked(&mask_m);
+                let g2 = marker.presence.count_masked(&mask_f);
+                let total = marker.presence.count_total();
 
-                assert_eq!(
-                    bitset_m, hashmap_m,
-                    "n_ind={n_ind} marker={marker_idx}: bitset M={bitset_m} != hashmap M={hashmap_m}"
-                );
-                assert_eq!(
-                    bitset_f, hashmap_f,
-                    "n_ind={n_ind} marker={marker_idx}: bitset F={bitset_f} != hashmap F={hashmap_f}"
-                );
-                assert_eq!(
-                    bitset_total, marker.n_individuals,
-                    "n_ind={n_ind} marker={marker_idx}: bitset total={bitset_total} != n_ind={}", marker.n_individuals
-                );
+                // Group counts must sum to total (no individual in both groups)
+                assert_eq!(g1 + g2, total,
+                    "n_ind={n_ind} marker={marker_idx}: g1={g1} + g2={g2} != total={total}");
+
+                // n_individuals must equal bitset total
+                assert_eq!(total, marker.n_individuals,
+                    "n_ind={n_ind} marker={marker_idx}: bitset total={total} != n_individuals={}",
+                    marker.n_individuals);
+
+                // Group counts must not exceed group size
+                assert!(g1 <= expected_m,
+                    "n_ind={n_ind} marker={marker_idx}: g1={g1} > group_size={expected_m}");
+                assert!(g2 <= expected_f,
+                    "n_ind={n_ind} marker={marker_idx}: g2={g2} > group_size={expected_f}");
+
                 marker_idx += 1;
             })
             .unwrap();
