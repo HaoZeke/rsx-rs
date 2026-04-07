@@ -51,6 +51,10 @@ rsx signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.
 
 Additional flags: =-a= outputs FASTA instead of table format.
 
+Uses two-pass streaming: pass 1 counts markers for Bonferroni, pass 2
+writes qualifying markers directly to output. O(n_individuals) memory
+regardless of table size.
+
 ** freq
 
 Compute marker frequency distribution.
@@ -71,6 +75,11 @@ rsx depth -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-f 0.75]
 |------+---------+-------------|
 | =-f= | 0.75    | Min fraction of individuals for a marker to count |
 
+Auto-detects large files (> 2GB) and switches to streaming mode with
+external sort for exact median. Sparse optimization: only non-zero
+depths are sorted (3.3x reduction for typical RAD-seq data). See
+=scripts/sympy/sparse_median_proof.py= for the mathematical proof.
+
 ** map
 
 Align markers to a reference genome.
@@ -86,7 +95,12 @@ rsx map -t <table.tsv> -p <popmap.tsv> -g <genome.fa> -o <output.tsv> \
 | =-q= | 20      | Minimum mapping quality |
 | =-Q= | 0.1     | Minimum marker frequency |
 
-Uses minimap2 with =sr= (short-read) preset.
+Uses minimap2 with =sr= (short-read) preset. Two-pass streaming:
+pass 1 counts markers, pass 2 aligns and writes directly. Only
+available when built with the =map= feature (default on, not on Windows).
+
+Note: the minimap2 genome index can be large (e.g. 21GB for salmon
+genomes). This is intrinsic to the aligner, not rsx.
 
 ** subset
 
@@ -97,6 +111,8 @@ rsx subset -t <table.tsv> -p <popmap.tsv> -o <output.tsv> \
   [-d 5] [-G M,F] [-m min_g1] [-M max_g1] [-n min_g2] [-N max_g2] \
   [-i min_ind] [-I max_ind] [-S 0.05] [-C] [-a]
 #+end_src
+
+Two-pass streaming like signif. O(n_individuals) memory.
 
 ** merge
 
@@ -125,3 +141,47 @@ The algorithm:
 Handles 75M+ unique sequences across hundreds of samples without OOM.
 Adjust =-B= to trade memory for fewer temp files (higher) or less RAM
 (lower).
+
+Optional Parquet output (requires =--features parquet-io=):
+
+#+begin_src bash
+rsx merge -o <output.parquet> --output-parquet <table1.tsv> <table2.tsv>
+#+end_src
+
+Parquet uses ZSTD compression with nullable u16 depth columns. Sparse
+zeros stored as null for efficient RLE encoding.
+
+** pca
+
+Streaming PCA of the depth matrix (Tucker mode-2 decomposition).
+
+#+begin_src bash
+rsx pca -t <table.tsv> -o <output_dir/> [-d 5] [-r 10]
+#+end_src
+
+| Flag | Default | Description                              |
+|------+---------+------------------------------------------|
+| =-t= |         | Markers depth table                      |
+| =-o= |         | Output directory                         |
+| =-d= | 1       | Minimum depth                            |
+| =-r= | all     | Number of principal components to output |
+
+Computes principal components by streaming the Gram matrix X^T X
+(n_individuals x n_individuals) and eigendecomposing it. This is
+mathematically equivalent to Tucker HOSVD mode-2 decomposition.
+
+Memory: O(n_individuals^2) = 320KB for 200 individuals, regardless of
+the number of markers. Works on arbitrarily large tables.
+
+Output files:
+- =eigenvalues.tsv=: component, eigenvalue, variance_fraction, cumulative
+- =loadings.tsv=: individual x component loading matrix
+- =summary.txt=: total variance, top components
+
+Use cases:
+- *Sex signal detection*: PC1 separates M/F if sex-linked markers exist
+- *Sample QC*: outlier individuals on PC2-3 indicate sequencing problems
+- *Population structure*: loadings reveal confounding with sex signal
+
+See =scripts/sympy/tucker_covariance_proof.py= for the mathematical
+proof that this gives exact Tucker mode-2 factors.

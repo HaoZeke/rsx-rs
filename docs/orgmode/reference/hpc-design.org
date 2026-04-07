@@ -137,10 +137,44 @@ fn process_mpi(params: &ProcessParams) {
 }
 #+end_src
 
+** Streaming architecture
+
+All commands operate in bounded memory regardless of input size:
+
+*** Two-pass streaming (signif, subset, map)
+
+Bonferroni correction requires knowing n_markers before output.
+Two passes over the mmap'd table:
+1. Pass 1: count n_markers (fast, no sequence parsing)
+2. Pass 2: compute p-values with known threshold, write directly
+
+*** External sort-merge (merge, depth streaming)
+
+For datasets exceeding RAM: chunked sort with lz4 temp files + k-way
+merge via BinaryHeap. The depth command sorts only non-zero entries
+(sparse optimization, 3.3x I/O reduction for 70% sparse data).
+
+Proof: =scripts/sympy/sparse_median_proof.py=
+
+*** Streaming Tucker via Gram eigendecomposition (pca)
+
+For an (m x n) depth matrix where m >> n (75M markers, 200 individuals):
+- Stream rows, accumulate X^T X (n x n = 200 x 200 = 320KB)
+- Eigendecompose X^T X (Jacobi rotation, instant for 200x200)
+- Eigenvectors = right singular vectors of X = Tucker mode-2 factors
+
+This is mathematically exact (not an approximation):
+  SVD: X = U S V^T
+  Gram: X^T X = V S^2 V^T
+  Therefore: eigvecs(X^T X) = V = Tucker_U2
+
+Proof: =scripts/sympy/tucker_covariance_proof.py=
+
 ** Precision validation
 
-A formal analysis showing the mixed-precision approach is numerically
-equivalent to the all-f64 path within the tolerance of the original C++
-implementation (which uses =float= for p-values internally and =kf_gammap=
-for the CDF). See =rsx-core/tests/test_precision.rs= for the validation
-suite.
+Formal analyses showing mathematical equivalences:
+- Mixed-precision (f32 chi-squared, f64 CDF): =rsx-core/tests/test_precision.rs=
+- erfc identity for chi-squared CDF: =scripts/sympy/chi2_cdf_derivation.py=
+- Sparse median equivalence: =scripts/sympy/sparse_median_proof.py=
+- Gram eigendecomposition = Tucker HOSVD: =scripts/sympy/tucker_covariance_proof.py=
+- Sollya minimax erfc polynomial: =scripts/sollya/erfc_minimax.sollya=

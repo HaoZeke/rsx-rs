@@ -69,8 +69,42 @@ rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv -d 5 -G M,F
 rsx map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -d 5 -G M,F
 #+end_src
 
+*** Step 6: Merge multiple tables
+
+#+begin_src bash
+rsx merge -o combined.tsv pop1_markers.tsv pop2_markers.tsv pop3_markers.tsv
+#+end_src
+
+Uses bounded-memory external sort (~500MB) for arbitrarily large datasets.
+
+*** Step 7: Streaming PCA
+
+#+begin_src bash
+rsx pca -t combined.tsv -o pca_results/ -d 5 -r 10
+#+end_src
+
+Produces eigenvalues, loadings, and summary in the output directory.
+PC1 typically separates males and females for sex-linked markers.
+
 ** Output format
 
 All outputs are tab-separated with an optional =#source:= comment line.
 The format is identical to the original C++ RADSex tool, so existing
 R scripts (e.g. ChromSex) work without modification.
+
+** Memory guarantees
+
+All commands operate in bounded memory regardless of input size:
+
+| Command         | Memory                |
+|-----------------+-----------------------|
+| distrib, freq   | O(n_individuals)      |
+| signif, subset  | O(n_individuals)      |
+| map             | O(genome_index)       |
+| depth (small)   | O(n_markers * n_ind)  |
+| depth (> 2GB)   | O(buffer_size)        |
+| merge           | O(buffer_size)        |
+| pca             | O(n_individuals^2)    |
+
+For 200 individuals and 75M markers, typical peak memory is < 500MB
+(except map which loads the minimap2 genome index).

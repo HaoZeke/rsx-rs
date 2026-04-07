@@ -11,11 +11,16 @@ data. Drop-in CLI replacement with C FFI for language bindings.
 ** Features
 
 - All 7 original commands: =process=, =distrib=, =signif=, =depth=, =freq=, =map=, =subset=
+- =merge= command: external sort-merge for 75M+ sequence tables
+- =pca= command: streaming Tucker/PCA in O(n_individuals^2) memory
 - Byte-identical output to C++ RADSex (when groups specified explicitly)
+- Bounded-memory streaming: all commands work on 50GB+ tables
 - Parallel file processing via [[https://docs.rs/rayon][rayon]]
 - minimap2 alignment (replaces BWA-MEM)
+- Optional Parquet output for merge (=--features parquet-io=)
 - C API with cbindgen for R/Python/C++ integration
-- Cross-platform: Linux, macOS (Intel + Apple Silicon), Windows
+- Cross-platform: Linux, macOS (Intel + Apple Silicon), Windows (without map)
+- SymPy/Sollya mathematical proofs for all optimizations
 
 ** Quick start
 

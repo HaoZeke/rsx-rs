@@ -5,6 +5,14 @@ All notable changes to rsx-rs are documented here.
 ## [Unreleased]
 
 ### Added
+- **`rsx pca` command**: streaming PCA/Tucker mode-2 decomposition of the
+  depth matrix. Computes Gram matrix X^T X streaming (O(n_ind^2) memory),
+  eigendecomposes for exact Tucker mode-2 factors. Use cases: sex signal
+  detection, sample QC, population structure analysis.
+  SymPy proof: `scripts/sympy/tucker_covariance_proof.py`.
+- **Sparse external sort for depth**: only non-zero depths sorted (zeros
+  tracked by count), 3.3x I/O reduction for 70% sparse RAD-seq data.
+  SymPy proof: `scripts/sympy/sparse_median_proof.py`.
 - **Bounded-memory streaming for ALL commands.** No command accumulates
   O(n_markers) data in memory regardless of input size.
   - signif/subset: two-pass streaming with Bonferroni count in pass 1
