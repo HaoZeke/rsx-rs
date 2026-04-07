@@ -33,25 +33,30 @@ markers, 10% female-biased, 80% common. FASTQ files gzip-compressed.
 
 | Command | Small (1K) | Medium (10K) | Large (100K) | Average |
 |---------+------------+--------------+--------------+---------|
-| process | 3.6x       | 2.5x         | --           | 3.1x    |
-| freq    | 4.0x       | 2.0x         | 1.9x         | 2.6x    |
-| depth   | 4.3x       | 2.6x         | 2.9x         | 3.3x    |
-| distrib | 5.3x       | 3.9x         | 2.5x         | 3.9x    |
-| signif  | 3.2x       | 1.9x         | 2.1x         | 2.4x    |
-| subset  | 4.0x       | 2.0x         | 2.3x         | 2.8x    |
-| map     | 2.1x       | 1.6x         | --           | 1.9x    |
+| process | 1.8x       | 1.5x         | --           | 1.7x    |
+| freq    | 4.0x       | 2.5x         | 2.6x         | 3.0x    |
+| depth   | 5.3x       | 5.0x         | 3.6x         | 4.6x    |
+| distrib | 5.0x       | 2.7x         | 2.4x         | 3.4x    |
+| signif  | 5.0x       | 1.6x         | 1.4x         | 2.7x    |
+| subset  | 5.3x       | 1.9x         | 1.4x         | 2.9x    |
+| map     | 2.0x       | 1.8x         | --           | 1.9x    |
+
+signif/subset large-scale slowdown vs previous: two-pass streaming
+reads the file twice for Bonferroni correction. The trade-off is
+bounded O(n_individuals) memory instead of O(n_markers) accumulation.
 
 *** Per-scale average speedup
 
 | Scale  | Average speedup |
 |--------+-----------------|
-| Small  | 3.8x            |
+| Small  | 4.1x            |
 | Medium | 2.4x            |
 | Large  | 2.3x            |
 
 *** Overall
 
-*Rust is 2.19x faster* across all 19 benchmarks (1.896s vs 0.864s total).
+*Rust is 2.0x faster* across all 19 benchmarks (1.558s vs 0.780s total).
+All commands operate in bounded memory (< 500MB for any input size).
 
 *** Microbenchmarks (criterion)
 

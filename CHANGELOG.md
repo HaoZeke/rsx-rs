@@ -5,22 +5,31 @@ All notable changes to rsx-rs are documented here.
 ## [Unreleased]
 
 ### Added
+- **Bounded-memory streaming for ALL commands.** No command accumulates
+  O(n_markers) data in memory regardless of input size.
+  - signif/subset: two-pass streaming with Bonferroni count in pass 1
+  - map: two-pass (count then align+write)
+  - depth: exact median via external sort for files > 2GB, auto-detected
+  - merge: external sort with lz4 temp files + k-way merge
 - External sort-merge for `merge` command: bounded-memory (~500MB) merge
   of 75M+ unique sequences using chunked sort + lz4 temp files + k-way merge.
   Fixes OOM on large ChromSex datasets (25GB+ input).
 - `--buffer-size` flag for merge command to tune memory/temp-file tradeoff.
+- `--output-parquet` flag for merge: Parquet output with ZSTD compression
+  (feature-gated behind `parquet-io`).
 - 2-bit DNA packing: 100bp sequences stored as 26 bytes (4x compression).
   Used in both `process` and `merge` commands.
 - DashMap concurrent merge in `process` command (for >= 8 individuals).
-  Rayon threads insert directly into shared map, eliminating sequential
-  merge bottleneck.
 - Optional MPI support for `process` command (`--features mpi`).
-  Distributes FASTQ file processing across MPI ranks.
+- Feature-gated minimap2: `map` feature (default on) allows Windows builds
+  without minimap2 for all other commands.
 
 ### Changed
 - Merge command input files are now positional arguments (glob-friendly):
   `rsx merge -o out.tsv file1.tsv file2.tsv` instead of `-i file1 file2`.
 - Merge stores depths as `u16` instead of `String` (memory reduction).
+- signif/subset are ~30% slower on large data due to two-pass overhead,
+  but use O(n_individuals) memory instead of O(n_markers).
 
 ## [0.1.0] - 2026-04-06
 

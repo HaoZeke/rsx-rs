@@ -95,6 +95,44 @@ unique sequences across hundreds of samples). Algorithm:
 Memory: O(buffer_size), not O(total_sequences). Default buffer: 2M
 entries (~400MB). Temp files: lz4-compressed sorted chunks on disk.
 
+** Bounded-memory streaming (all commands)
+
+All commands operate in bounded memory regardless of input size.
+
+*** Two-pass streaming (signif, subset, map)
+
+Commands requiring Bonferroni correction use two passes over the
+mmap'd table:
+
+1. *Pass 1*: count =n_markers= (fast path, no sequence parsing)
+2. Compute =corrected_threshold = threshold / n_markers=
+3. *Pass 2*: re-mmap same file (kernel page cache, zero I/O),
+   compute p-values, write qualifying markers directly to output
+
+Memory: O(n_individuals) for bitset masks + output buffer.
+No =Vec<Marker>= accumulation.
+
+The =map= command builds the minimap2 index between passes (~100-300MB),
+then aligns and writes in pass 2.
+
+*** External sort for depth
+
+The =depth= command computes exact per-individual median via external
+sort when the input exceeds 2GB:
+
+1. Stream markers, emit =(individual_idx, depth)= pairs to buffer
+2. When buffer full: sort by =(individual_idx, depth)=, write lz4 temp
+3. K-way merge: depths per individual are contiguous and sorted
+4. Pick middle element for exact median
+
+Memory: O(buffer_size), default 200MB. Auto-detected by file size.
+
+*** Streaming accumulators (distrib, freq)
+
+=distrib= and =freq= use fixed-size accumulators (O(n_individuals^2) and
+O(n_individuals) respectively) that do not grow with n_markers. These
+are inherently streaming.
+
 ** Statistics
 
 - Chi-squared with Yates continuity correction (exact port of C++ =stats.cpp=)
