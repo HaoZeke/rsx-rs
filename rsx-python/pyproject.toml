@@ -23,7 +23,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/HaoZeke/rsx-rs"
 Repository = "https://github.com/HaoZeke/rsx-rs"
-Documentation = "https://github.com/HaoZeke/rsx-rs/tree/main/docs"
+Documentation = "https://rsx.rgoswami.me"
 
 [project.scripts]
 pyrsx = "pyrsx.cli:main"

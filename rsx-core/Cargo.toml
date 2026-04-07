@@ -6,6 +6,7 @@ rust-version = "1.85"
 license = "GPL-3.0-or-later"
 description = "Core library for RADSex: sex-determination analysis from RAD-Sequencing data"
 repository = "https://github.com/HaoZeke/rsx-rs"
+documentation = "https://rsx.rgoswami.me"
 keywords = ["bioinformatics", "rad-seq", "sex-determination", "genomics", "ffi"]
 categories = ["science", "api-bindings"]
 
