@@ -214,6 +214,331 @@ pub fn find_median(data: &mut [u16]) -> u16 {
     }
 }
 
+// ========================================================================
+// Alternative statistical tests
+// ========================================================================
+
+/// G-test (log-likelihood ratio) for 2x2 table.
+/// Better asymptotic properties than chi-squared.
+pub fn g_test(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
+    let a = n_g1 as f64;
+    let b = (total_g1 - n_g1) as f64;
+    let c = n_g2 as f64;
+    let d = (total_g2 - n_g2) as f64;
+    let n = (total_g1 + total_g2) as f64;
+
+    let mut g = 0.0f64;
+    let expected = |_obs: f64, col_total: f64, row_total: f64| -> f64 {
+        row_total * col_total / n
+    };
+
+    let row1 = a + c;
+    let row2 = b + d;
+    let col1 = a + b;
+    let col2 = c + d;
+
+    for &(obs, rt, ct) in &[(a, row1, col1), (b, row2, col1), (c, row1, col2), (d, row2, col2)] {
+        if obs > 0.0 {
+            let exp = expected(obs, ct, rt);
+            if exp > 0.0 {
+                g += obs * (obs / exp).ln();
+            }
+        }
+    }
+    g *= 2.0;
+
+    // P-value: same chi-squared CDF with df=1
+    if g.is_nan() || g <= 0.0 { 1.0 } else { chi_squared_p(g).clamp(1e-16, 1.0) }
+}
+
+/// Fisher's exact test for 2x2 table (one-sided, more extreme).
+/// Uses hypergeometric probability. Better than chi-squared for small n.
+pub fn fisher_exact(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
+    let a = n_g1;
+    let b = total_g1 - n_g1;
+    let c = n_g2;
+    let d = total_g2 - n_g2;
+    let n = total_g1 + total_g2;
+    let row1 = a + c;
+    let col1 = a + b;
+
+    // P(table) = C(row1,a) * C(row2,b) / C(n, col1)
+    // Sum probabilities of all tables as or more extreme
+    let log_p_observed = log_hypergeometric(a, b, c, d, n, row1, col1);
+
+    let min_a = col1.saturating_sub(n - row1);
+    let max_a = row1.min(col1);
+
+    let mut p_sum = 0.0f64;
+    for a_i in min_a..=max_a {
+        let b_i = col1 - a_i;
+        let c_i = row1 - a_i;
+        let d_i = (n - row1) - b_i;
+        let log_p = log_hypergeometric(a_i, b_i, c_i, d_i, n, row1, col1);
+        if log_p <= log_p_observed + 1e-10 {
+            p_sum += log_p.exp();
+        }
+    }
+
+    p_sum.clamp(1e-16, 1.0)
+}
+
+fn log_hypergeometric(a: u32, b: u32, c: u32, d: u32, n: u32, row1: u32, col1: u32) -> f64 {
+    let col2 = n - col1;
+    let row2 = n - row1;
+    lfact(row1) + lfact(row2) + lfact(col1) + lfact(col2)
+        - lfact(n) - lfact(a) - lfact(b) - lfact(c) - lfact(d)
+}
+
+fn lfact(n: u32) -> f64 {
+    libm::lgamma((n + 1) as f64)
+}
+
+// ========================================================================
+// Benjamini-Hochberg FDR
+// ========================================================================
+
+/// Apply Benjamini-Hochberg FDR correction to a vector of p-values.
+/// Returns adjusted p-values (q-values). Controls FDR at the given level.
+pub fn benjamini_hochberg(p_values: &[f64]) -> Vec<f64> {
+    let m = p_values.len();
+    if m == 0 {
+        return Vec::new();
+    }
+
+    // Sort indices by p-value
+    let mut indices: Vec<usize> = (0..m).collect();
+    indices.sort_by(|&a, &b| p_values[a].partial_cmp(&p_values[b]).unwrap());
+
+    let mut q_values = vec![0.0f64; m];
+    let mut cummin = f64::INFINITY;
+
+    for (rank_rev, &idx) in indices.iter().rev().enumerate() {
+        let rank = m - rank_rev; // 1-based rank from sorted order
+        let adjusted = p_values[idx] * m as f64 / rank as f64;
+        cummin = cummin.min(adjusted);
+        q_values[idx] = cummin.min(1.0);
+    }
+
+    q_values
+}
+
+// ========================================================================
+// Bayesian methods
+// ========================================================================
+
+/// Bayes Factor for independence in a 2x2 contingency table.
+/// BF > 1: evidence for association. BF > 10: strong evidence.
+/// Gunel & Dickey (1974). doi:10.2307/2334738
+pub fn bayes_factor_2x2(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
+    let a = n_g1 as f64;
+    let b = (total_g1 - n_g1) as f64;
+    let c = n_g2 as f64;
+    let d = (total_g2 - n_g2) as f64;
+    let n = a + b + c + d;
+
+    // Log BF using Gunel-Dickey formula with uniform prior on cell probabilities
+    let log_bf = libm::lgamma(a + 0.5) + libm::lgamma(b + 0.5)
+        + libm::lgamma(c + 0.5) + libm::lgamma(d + 0.5)
+        + libm::lgamma(2.0)
+        - libm::lgamma(n + 2.0)
+        - libm::lgamma(a + 1.0) - libm::lgamma(b + 1.0)
+        - libm::lgamma(c + 1.0) - libm::lgamma(d + 1.0)
+        + lfact((a + b) as u32) + lfact((c + d) as u32)
+        + lfact((a + c) as u32) + lfact((b + d) as u32)
+        - lfact(n as u32);
+
+    log_bf.exp()
+}
+
+/// Posterior probability that a marker is sex-linked (empirical Bayes).
+/// Uses a Beta-Binomial conjugate model.
+/// pi: prior probability of sex-linkage (estimated from data or set to 0.01).
+/// p_sex: assumed frequency in the linked sex (e.g., 0.9).
+pub fn posterior_sex_linked(
+    n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32,
+    pi: f64, p_sex: f64,
+) -> f64 {
+    let ll_linked = binom_logpmf(n_g1, total_g1, p_sex)
+        + binom_logpmf(n_g2, total_g2, 1.0 - p_sex);
+    let ll_null = binom_logpmf(n_g1, total_g1, 0.5)
+        + binom_logpmf(n_g2, total_g2, 0.5);
+
+    let log_odds = ll_linked - ll_null + (pi / (1.0 - pi)).ln();
+
+    // Posterior = 1 / (1 + exp(-log_odds))
+    if log_odds > 20.0 {
+        1.0 // overflow guard
+    } else if log_odds < -20.0 {
+        0.0
+    } else {
+        1.0 / (1.0 + (-log_odds).exp())
+    }
+}
+
+fn binom_logpmf(k: u32, n: u32, p: f64) -> f64 {
+    if p <= 0.0 || p >= 1.0 {
+        if (p <= 0.0 && k == 0) || (p >= 1.0 && k == n) {
+            return 0.0;
+        }
+        return f64::NEG_INFINITY;
+    }
+    lfact(n) - lfact(k) - lfact(n - k)
+        + k as f64 * p.ln()
+        + (n - k) as f64 * (1.0 - p).ln()
+}
+
+/// Empirical Bayes EM: estimate pi (fraction of sex-linked markers) from data.
+/// Returns (pi, posteriors) after convergence.
+/// group_counts: Vec of (n_g1, n_g2) for each marker.
+pub fn empirical_bayes_em(
+    group_counts: &[(u32, u32)],
+    total_g1: u32,
+    total_g2: u32,
+    p_sex: f64,
+    max_iter: usize,
+) -> (f64, Vec<f64>) {
+    let m = group_counts.len();
+    let mut pi = 0.01f64; // initial estimate
+    let mut posteriors = vec![0.0f64; m];
+
+    for _iter in 0..max_iter {
+        // E-step: compute posteriors
+        for (i, &(n_g1, n_g2)) in group_counts.iter().enumerate() {
+            posteriors[i] = posterior_sex_linked(n_g1, n_g2, total_g1, total_g2, pi, p_sex);
+        }
+
+        // M-step: update pi
+        let new_pi: f64 = posteriors.iter().sum::<f64>() / m as f64;
+        if (new_pi - pi).abs() < 1e-8 {
+            pi = new_pi;
+            break;
+        }
+        pi = new_pi;
+    }
+
+    // Final E-step with converged pi
+    for (i, &(n_g1, n_g2)) in group_counts.iter().enumerate() {
+        posteriors[i] = posterior_sex_linked(n_g1, n_g2, total_g1, total_g2, pi, p_sex);
+    }
+
+    (pi, posteriors)
+}
+
+// ========================================================================
+// Logistic regression (population-aware, Newton-Raphson)
+// ========================================================================
+
+/// Logistic regression: fit y ~ X using IRLS (Newton-Raphson).
+/// X: n x p design matrix (row-major), y: n binary outcomes (0/1).
+/// Returns coefficient vector beta (length p).
+pub fn logistic_regression(x: &[f64], y: &[f64], n: usize, p: usize, max_iter: usize) -> Vec<f64> {
+    let mut beta = vec![0.0f64; p];
+
+    for _iter in 0..max_iter {
+        // Compute predictions: mu = sigmoid(X @ beta)
+        let mut mu = vec![0.0f64; n];
+        for i in 0..n {
+            let mut eta = 0.0;
+            for j in 0..p {
+                eta += x[i * p + j] * beta[j];
+            }
+            mu[i] = 1.0 / (1.0 + (-eta).exp());
+            // Clamp to avoid log(0)
+            mu[i] = mu[i].clamp(1e-10, 1.0 - 1e-10);
+        }
+
+        // Gradient: X^T @ (y - mu)
+        let mut grad = vec![0.0f64; p];
+        for j in 0..p {
+            for i in 0..n {
+                grad[j] += x[i * p + j] * (y[i] - mu[i]);
+            }
+        }
+
+        // Hessian: -X^T @ W @ X where W = diag(mu * (1 - mu))
+        let mut hessian = vec![0.0f64; p * p];
+        for i in 0..n {
+            let w = mu[i] * (1.0 - mu[i]);
+            for j1 in 0..p {
+                for j2 in 0..p {
+                    hessian[j1 * p + j2] -= x[i * p + j1] * w * x[i * p + j2];
+                }
+            }
+        }
+
+        // Solve: delta = -H^{-1} @ grad (using Gaussian elimination for small p)
+        let delta = solve_linear(&hessian, &grad, p);
+
+        // Update beta
+        let mut max_delta = 0.0f64;
+        for j in 0..p {
+            beta[j] -= delta[j];
+            max_delta = max_delta.max(delta[j].abs());
+        }
+
+        if max_delta < 1e-8 {
+            break;
+        }
+    }
+
+    beta
+}
+
+/// Solve Ax = b via Gaussian elimination (for small p x p systems).
+fn solve_linear(a: &[f64], b: &[f64], n: usize) -> Vec<f64> {
+    let mut aug = vec![0.0f64; n * (n + 1)];
+    for i in 0..n {
+        for j in 0..n {
+            aug[i * (n + 1) + j] = a[i * n + j];
+        }
+        aug[i * (n + 1) + n] = b[i];
+    }
+
+    // Forward elimination
+    for col in 0..n {
+        // Partial pivoting
+        let mut max_row = col;
+        for row in (col + 1)..n {
+            if aug[row * (n + 1) + col].abs() > aug[max_row * (n + 1) + col].abs() {
+                max_row = row;
+            }
+        }
+        if max_row != col {
+            for j in 0..=n {
+                aug.swap(col * (n + 1) + j, max_row * (n + 1) + j);
+            }
+        }
+
+        let pivot = aug[col * (n + 1) + col];
+        if pivot.abs() < 1e-15 {
+            continue;
+        }
+
+        for row in (col + 1)..n {
+            let factor = aug[row * (n + 1) + col] / pivot;
+            for j in col..=n {
+                aug[row * (n + 1) + j] -= factor * aug[col * (n + 1) + j];
+            }
+        }
+    }
+
+    // Back substitution
+    let mut x = vec![0.0f64; n];
+    for i in (0..n).rev() {
+        let pivot = aug[i * (n + 1) + i];
+        if pivot.abs() < 1e-15 {
+            continue;
+        }
+        x[i] = aug[i * (n + 1) + n];
+        for j in (i + 1)..n {
+            x[i] -= aug[i * (n + 1) + j] * x[j];
+        }
+        x[i] /= pivot;
+    }
+    x
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
