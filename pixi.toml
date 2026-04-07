@@ -22,14 +22,29 @@ cargo-nextest = "*"
 python = ">=3.11"
 pip = "*"
 emacs = "*"
-sphinx = ">=8"
+sphinx = ">=7,<9"
+pandoc = ">=3.1,<4"
 
 [feature.docs.pypi-dependencies]
-shibuya = "*"
+shibuya = ">=2026.1.9, <2027"
+sphinxcontrib-rust = ">=1.0.0, <2"
+sphinx-rustdoc-postprocess = ">=0.1.0, <0.2"
 
 [feature.docs.tasks]
+setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen", description = "Install sphinx-rustdocgen for Rust API docs" }
 mkrst = { cmd = "emacs --batch --load docs/export.el", description = "Export orgmode docs to RST" }
-site = { cmd = "sphinx-build docs/source docs/_build" }
+site = { cmd = "sphinx-build docs/source docs/_build -b html", depends-on = ["mkrst", "setup-rustdocgen"] }
+
+[feature.python.dependencies]
+python = ">=3.11"
+
+[feature.python.pypi-dependencies]
+maturin = ">=1.0, <2"
+pytest = ">=8"
+
+[feature.python.tasks]
+build-python = { cmd = "cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release" }
+test-python = { cmd = "pytest rsx-python/tests/", depends-on = ["build-python"] }
 
 [feature.mpi.dependencies]
 mpich = "*"
@@ -41,4 +56,5 @@ build-mpi = { cmd = "MPICC=$CONDA_PREFIX/bin/mpicc CC=$CONDA_PREFIX/bin/mpicc C_
 [environments]
 default = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
+python = { features = ["python"], solve-group = "default" }
 mpi = { features = ["dev", "mpi"], solve-group = "default" }

@@ -1,8 +1,14 @@
 project = "rsx-rs"
-copyright = "2024, Rohit Goswami"
+copyright = "2024--present, rsx-rs developers"
 author = "Rohit Goswami"
+release = "0.1.0"
 
-extensions = []
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinxcontrib_rust",
+    "sphinx_rustdoc_postprocess",
+]
 
 templates_path = ["_templates"]
 exclude_patterns = []
@@ -12,4 +18,12 @@ html_static_path = ["_static"]
 
 html_theme_options = {
     "github_url": "https://github.com/HaoZeke/rsx-rs",
+}
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+}
+
+rust_crates = {
+    "rsx_core": {"source": "rsx-core/"},
 }
