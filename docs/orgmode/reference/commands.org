@@ -46,14 +46,32 @@ rsx distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0
 Extract markers significantly associated with a group.
 
 #+begin_src bash
-rsx signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C] [-a]
+rsx signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] \
+  [--correction bonferroni|fdr|none] [--test chisq|fisher|gtest] [--bayes] [-a]
 #+end_src
 
-Additional flags: =-a= outputs FASTA instead of table format.
+| Flag           | Default     | Description                                    |
+|----------------+-------------+------------------------------------------------|
+| =--correction= | bonferroni  | Multiple testing: bonferroni, fdr, none        |
+| =--test=       | chisq       | Statistical test: chisq, fisher, gtest         |
+| =--bayes=      |             | Add Bayes Factor + posterior P(sex-linked) cols |
+| =-a=           |             | Output FASTA instead of table                  |
 
-Uses two-pass streaming: pass 1 counts markers for Bonferroni, pass 2
-writes qualifying markers directly to output. O(n_individuals) memory
-regardless of table size.
+Two-pass streaming: pass 1 counts markers, pass 2 writes directly.
+O(n_individuals) memory. FDR correction collects p-values first (uses
+more memory but still bounded).
+
+** process
+
+#+begin_src bash
+rsx process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth] [-k kmer_size]
+#+end_src
+
+Optional =-k= / =--kmer-dedup=: group markers by canonical k-mer of the
+given size before output. Collapses sequencing error variants, reducing
+the number of markers tested (more statistical power). The k-mer
+deduplication keeps the representative marker with highest total depth
+from each group.
 
 ** freq
 

@@ -29,6 +29,9 @@ enum Commands {
         /// Minimum depth in at least one individual to retain a marker
         #[arg(short = 'd', long = "min-depth", default_value = "1")]
         min_depth: u16,
+        /// Deduplicate markers by canonical k-mer of this size (optional)
+        #[arg(short = 'k', long = "kmer-dedup")]
+        kmer_dedup: Option<usize>,
     },
 
     /// Compute the distribution of markers between group1 and group2
@@ -250,12 +253,14 @@ fn main() {
             output_file,
             threads,
             min_depth,
+            kmer_dedup,
         } => {
             let params = commands::process::ProcessParams {
                 input_dir_path: input_dir,
                 output_file_path: output_file,
                 n_threads: threads,
                 min_depth,
+                kmer_dedup,
             };
             // Use MPI if available (feature-gated), else single-node rayon
             #[cfg(feature = "mpi")]

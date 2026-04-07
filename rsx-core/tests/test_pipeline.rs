@@ -253,6 +253,7 @@ fn test_process_command() {
         output_file_path: output.to_str().unwrap().to_string(),
         n_threads: 2,
         min_depth: 1,
+        kmer_dedup: None,
     })
     .unwrap();
 
@@ -312,6 +313,7 @@ fn test_full_pipeline() {
         output_file_path: markers_table.to_str().unwrap().to_string(),
         n_threads: 2,
         min_depth: 1,
+        kmer_dedup: None,
     })
     .unwrap();
     assert!(markers_table.exists());

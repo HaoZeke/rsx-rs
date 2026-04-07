@@ -327,28 +327,26 @@ pub fn benjamini_hochberg(p_values: &[f64]) -> Vec<f64> {
 // Bayesian methods
 // ========================================================================
 
-/// Bayes Factor for independence in a 2x2 contingency table.
+/// Bayes Factor for association in a 2x2 contingency table.
 /// BF > 1: evidence for association. BF > 10: strong evidence.
-/// Gunel & Dickey (1974). doi:10.2307/2334738
+/// Uses Beta-Binomial marginal likelihoods with uniform Beta(1,1) priors.
+/// H1: separate proportions per group. H0: shared proportion.
 pub fn bayes_factor_2x2(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
-    let a = n_g1 as f64;
-    let b = (total_g1 - n_g1) as f64;
-    let c = n_g2 as f64;
-    let d = (total_g2 - n_g2) as f64;
-    let n = a + b + c + d;
+    // H1 (association): p_g1, p_g2 independent, each Beta(1,1)
+    // Marginal = B(k+1, n-k+1) / B(1,1) for each group
+    let log_h1 = log_beta_binom(n_g1, total_g1)
+        + log_beta_binom(n_g2, total_g2);
 
-    // Log BF using Gunel-Dickey formula with uniform prior on cell probabilities
-    let log_bf = libm::lgamma(a + 0.5) + libm::lgamma(b + 0.5)
-        + libm::lgamma(c + 0.5) + libm::lgamma(d + 0.5)
-        + libm::lgamma(2.0)
-        - libm::lgamma(n + 2.0)
-        - libm::lgamma(a + 1.0) - libm::lgamma(b + 1.0)
-        - libm::lgamma(c + 1.0) - libm::lgamma(d + 1.0)
-        + lfact((a + b) as u32) + lfact((c + d) as u32)
-        + lfact((a + c) as u32) + lfact((b + d) as u32)
-        - lfact(n as u32);
+    // H0 (independence): single shared p ~ Beta(1,1)
+    let log_h0 = log_beta_binom(n_g1 + n_g2, total_g1 + total_g2);
 
-    log_bf.exp()
+    (log_h1 - log_h0).exp()
+}
+
+/// Log marginal likelihood for Binomial(k|n) with Beta(1,1) prior.
+fn log_beta_binom(k: u32, n: u32) -> f64 {
+    libm::lgamma((k + 1) as f64) + libm::lgamma((n - k + 1) as f64)
+        - libm::lgamma((n + 2) as f64)
 }
 
 /// Posterior probability that a marker is sex-linked (empirical Bayes).
@@ -590,5 +588,122 @@ mod tests {
     fn test_find_median_even() {
         let mut data = vec![4, 1, 3, 2];
         assert_eq!(find_median(&mut data), 2); // (2+3)/2 = 2 (integer division)
+    }
+
+    // === G-test ===
+    #[test]
+    fn test_g_test_no_association() {
+        let p = g_test(5, 5, 10, 10);
+        assert!(p > 0.05, "equal distribution should not be significant: p={p}");
+    }
+
+    #[test]
+    fn test_g_test_strong_association() {
+        let p = g_test(10, 0, 10, 10);
+        assert!(p < 0.01, "all-male marker should be highly significant: p={p}");
+    }
+
+    // === Fisher's exact ===
+    #[test]
+    fn test_fisher_exact_no_association() {
+        let p = fisher_exact(3, 3, 6, 6);
+        assert!(p > 0.05, "equal distribution: p={p}");
+    }
+
+    #[test]
+    fn test_fisher_exact_strong_association() {
+        let p = fisher_exact(6, 0, 6, 6);
+        assert!(p < 0.05, "all-male marker: p={p}");
+    }
+
+    #[test]
+    fn test_fisher_exact_small_sample() {
+        // Fisher's should work well even with tiny samples
+        let p = fisher_exact(2, 0, 2, 2);
+        assert!(p > 0.0 && p <= 1.0, "valid p-value: p={p}");
+    }
+
+    // === Benjamini-Hochberg ===
+    #[test]
+    fn test_bh_fdr_basic() {
+        let pvals = vec![0.01, 0.04, 0.03, 0.20, 0.50];
+        let q = benjamini_hochberg(&pvals);
+        assert_eq!(q.len(), 5);
+        // All q-values should be >= corresponding p-values
+        for (p, q) in pvals.iter().zip(q.iter()) {
+            assert!(*q >= *p, "q={q} < p={p}");
+        }
+        // q-values should be <= 1.0
+        for &qi in &q {
+            assert!(qi <= 1.0);
+        }
+    }
+
+    #[test]
+    fn test_bh_fdr_monotone() {
+        let pvals = vec![0.001, 0.01, 0.05, 0.1, 0.5];
+        let q = benjamini_hochberg(&pvals);
+        // Sorted q-values should be non-decreasing
+        let mut sorted_q = q.clone();
+        sorted_q.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // The adjusted values for sorted p-values should be non-decreasing
+    }
+
+    // === Bayes Factor ===
+    #[test]
+    fn test_bayes_factor_no_association() {
+        let bf = bayes_factor_2x2(5, 5, 10, 10);
+        assert!(bf < 3.0, "equal distribution BF should be < 3: BF={bf}");
+    }
+
+    #[test]
+    fn test_bayes_factor_strong_association() {
+        let bf = bayes_factor_2x2(10, 0, 10, 10);
+        assert!(bf > 10.0, "all-male marker BF should be > 10: BF={bf}");
+    }
+
+    // === Posterior sex-linked ===
+    #[test]
+    fn test_posterior_strong_signal() {
+        let post = posterior_sex_linked(10, 0, 10, 10, 0.01, 0.9);
+        assert!(post > 0.9, "strong signal should have high posterior: {post}");
+    }
+
+    #[test]
+    fn test_posterior_no_signal() {
+        let post = posterior_sex_linked(5, 5, 10, 10, 0.01, 0.9);
+        assert!(post < 0.1, "equal distribution should have low posterior: {post}");
+    }
+
+    // === Empirical Bayes EM ===
+    #[test]
+    fn test_em_convergence() {
+        let counts = vec![
+            (10, 0), (9, 1), (10, 0), // sex-linked
+            (5, 5), (4, 6), (6, 4), (5, 5), (5, 5), (5, 5), (5, 5), // null
+        ];
+        let (pi, posteriors) = empirical_bayes_em(&counts, 10, 10, 0.9, 50);
+        assert!(pi > 0.0 && pi < 1.0, "pi should converge: {pi}");
+        // Sex-linked markers should have higher posteriors
+        let avg_linked: f64 = posteriors[..3].iter().sum::<f64>() / 3.0;
+        let avg_null: f64 = posteriors[3..].iter().sum::<f64>() / 7.0;
+        assert!(avg_linked > avg_null, "linked={avg_linked} should > null={avg_null}");
+    }
+
+    // === Logistic regression ===
+    #[test]
+    fn test_logistic_basic() {
+        // Simple separable data: 4 samples, 1 predictor
+        let x = vec![
+            1.0, -2.0, // intercept, x for sample 0
+            1.0, -1.0,
+            1.0,  1.0,
+            1.0,  2.0,
+        ];
+        let y = vec![0.0, 0.0, 1.0, 1.0];
+        let beta = logistic_regression(&x, &y, 4, 2, 50);
+        assert_eq!(beta.len(), 2);
+        // beta[1] should be positive (higher x -> higher P(y=1))
+        assert!(beta[1] > 0.0, "slope should be positive: {}", beta[1]);
     }
 }

@@ -17,6 +17,9 @@ pub struct ProcessParams {
     pub output_file_path: String,
     pub n_threads: u32,
     pub min_depth: u16,
+    /// If set, group markers by canonical k-mer of this size before output.
+    /// Collapses sequencing error variants. Optional (default: disabled).
+    pub kmer_dedup: Option<usize>,
 }
 
 /// Run the `process` command.
@@ -36,7 +39,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     #[cfg(feature = "parallel")]
-    let global = {
+    let mut global = {
         use rayon::prelude::*;
 
         rayon::ThreadPoolBuilder::new()
@@ -98,7 +101,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     #[cfg(not(feature = "parallel"))]
-    let global = {
+    let mut global = {
         let mut global: ahash::AHashMap<Vec<u8>, Vec<u16>> = ahash::AHashMap::new();
         for f in &input_files {
             match count_sequences(&f.path) {
@@ -119,6 +122,35 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         }
         global
     };
+
+    // Optional k-mer deduplication: group markers by canonical k-mer
+    if let Some(k) = params.kmer_dedup {
+        log::info!("K-mer deduplication (k={}): grouping {} markers", k, global.len());
+        let sequences: Vec<Vec<u8>> = global.keys()
+            .map(|packed| crate::io::seq_reader::unpack_2bit(packed))
+            .collect();
+        let groups = crate::kmer::group_by_kmer(&sequences, k);
+        let n_before = global.len();
+        let n_groups = groups.len();
+        log::info!(
+            "K-mer dedup: {} markers -> {} groups ({:.1}% reduction)",
+            n_before, n_groups, (1.0 - n_groups as f64 / n_before as f64) * 100.0
+        );
+        // For each group, keep the representative with highest total depth
+        let keys: Vec<Vec<u8>> = global.keys().cloned().collect();
+        let mut keep: ahash::AHashSet<usize> = ahash::AHashSet::new();
+        for (_hash, indices) in &groups {
+            let best = indices.iter().copied().max_by_key(|&i| {
+                global.get(&keys[i]).map(|d| d.iter().map(|&v| v as u64).sum::<u64>()).unwrap_or(0)
+            });
+            if let Some(b) = best {
+                keep.insert(b);
+            }
+        }
+        let kept_keys: ahash::AHashSet<Vec<u8>> = keep.iter().map(|&i| keys[i].clone()).collect();
+        global.retain(|k, _| kept_keys.contains(k));
+        log::info!("K-mer dedup: retained {} markers", global.len());
+    }
 
     // Write output (unpack 2-bit keys back to ASCII for TSV)
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);

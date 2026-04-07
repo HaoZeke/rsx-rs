@@ -45,6 +45,7 @@ pub unsafe extern "C" fn rsx_process(
             output_file_path: output_path,
             n_threads,
             min_depth: min_depth as u16,
+            kmer_dedup: None,
         };
 
         match crate::commands::process::run(&params) {
