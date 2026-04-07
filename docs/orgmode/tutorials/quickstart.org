@@ -90,7 +90,7 @@ PC1 typically separates males and females for sex-linked markers.
 
 All outputs are tab-separated with an optional =#source:= comment line.
 The format is identical to the original C++ RADSex tool, so existing
-R scripts (e.g. ChromSex) work without modification.
+R scripts work without modification.
 
 ** Memory guarantees
 

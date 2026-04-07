@@ -1,21 +1,21 @@
-#+TITLE: ChromSex Integration
+#+TITLE: R Integration
 #+AUTHOR: Rohit Goswami
 
-* Integrating with ChromSex
+* Integrating with R analysis pipelines
 
-ChromSex is an R package for analyzing sex chromosome evolution in
-salmonid fish. It consumes RADSex output files.
+rsx output files (TSV) can be loaded directly by R analysis pipelines
+that consume RADSex-format data.
 
 ** Drop-in replacement
 
 rsx-rs produces byte-identical output to C++ RADSex when groups are
-specified explicitly (=-G M,F=). The existing ChromSex R functions
+specified explicitly (=-G M,F=). The existing your R pipeline R functions
 (=load_radsex_distribution=, =load_radsex_alignment=, =extract_signif_markers=)
 work without any changes.
 
-** Adding to ChromSex pixi.toml
+** Adding to your R pipeline pixi.toml
 
-The =build-rsx= task in ChromSex's =pixi.toml= builds rsx-rs from source:
+The =build-rsx= task in your R pipeline's =pixi.toml= builds rsx-rs from source:
 
 #+begin_src toml
 build-rsx = """bash -c 'if ! command -v rsx >/dev/null 2>&1; then \
@@ -24,7 +24,7 @@ build-rsx = """bash -c 'if ! command -v rsx >/dev/null 2>&1; then \
   cp target/release/rsx ~/.local/bin/rsx; fi'"""
 #+end_src
 
-** Running from ChromSex
+** Running from your R pipeline
 
 Use =system()= or =processx::run()= to call radsex from R:
 

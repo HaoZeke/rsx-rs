@@ -179,7 +179,7 @@ Output files:
 - =summary.txt=: total variance, top components
 
 Use cases:
-- *Sex signal detection*: tests whether PC1 separates M/F. On ChromSex
+- *Sex signal detection*: tests whether PC1 separates M/F. On real-world
   RAD-seq data, the answer is no -- sex-linked markers are only 0.03% of
   the depth matrix, drowned by library size and population effects.
   This negative finding justifies targeted methods (FST, chi-squared).

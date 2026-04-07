@@ -21,7 +21,7 @@ All notable changes to rsx-rs are documented here.
   - merge: external sort with lz4 temp files + k-way merge
 - External sort-merge for `merge` command: bounded-memory (~500MB) merge
   of 75M+ unique sequences using chunked sort + lz4 temp files + k-way merge.
-  Fixes OOM on large ChromSex datasets (25GB+ input).
+  Fixes OOM on large RAD-seq datasets (25GB+ input).
 - `--buffer-size` flag for merge command to tune memory/temp-file tradeoff.
 - `--output-parquet` flag for merge: Parquet output with ZSTD compression
   (feature-gated behind `parquet-io`).
