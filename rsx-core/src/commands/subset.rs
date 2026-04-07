@@ -9,6 +9,7 @@ use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
+use crate::test_method::compute_p;
 use std::io::Write;
 use std::path::Path;
 
@@ -18,7 +19,9 @@ pub struct SubsetParams {
     pub output_file_path: String,
     pub min_depth: u16,
     pub signif_threshold: f32,
-    pub disable_correction: bool,
+    pub correction: crate::test_method::CorrectionMethod,
+    pub test_method: crate::test_method::TestMethod,
+    pub output_bayes: bool,
     pub output_fasta: bool,
     pub group1: String,
     pub group2: String,
@@ -53,7 +56,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream1 = MarkersTableStream::open(table_path, Some(&popmap), config1)?;
     let n_markers = stream1.count_markers()?;
 
-    let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
+    let effective_n_markers = if matches!(params.correction, crate::test_method::CorrectionMethod::None) { 1u64 } else { n_markers };
 
     // Pass 2: filter and write directly
     log::info!("subset pass 2: filtering and writing");
@@ -82,7 +85,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
             groups.group2, params.min_group2, params.max_group2,
             params.min_individuals, params.max_individuals,
             params.signif_threshold,
-            !params.disable_correction, effective_n_markers)?;
+            !matches!(params.correction, crate::test_method::CorrectionMethod::None), effective_n_markers)?;
         writeln!(output, "{}", header_columns.join("\t"))?;
     }
 
@@ -101,7 +104,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
                 && marker.n_individuals >= params.min_individuals
                 && marker.n_individuals <= params.max_individuals
             {
-                let p = stats::p_association(g1, g2, total_g1, total_g2);
+                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
                 let p_corr = stats::bonferroni_correct(p, effective_n_markers);
 
                 if params.output_fasta {

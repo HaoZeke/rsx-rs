@@ -17,3 +17,4 @@ pub mod markers_table;
 pub mod popmap;
 pub mod stats;
 pub mod status;
+pub mod test_method;

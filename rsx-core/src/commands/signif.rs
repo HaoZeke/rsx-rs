@@ -3,14 +3,15 @@
 
 //! `signif` command: extract markers significantly associated with a group.
 //!
-//! Two-pass streaming: O(n_individuals) memory, not O(n_markers).
-//! Pass 1: count markers for Bonferroni correction.
-//! Pass 2: re-read table, compute p-values, write qualifying markers directly.
+//! Supports chi-squared (default), Fisher's exact, and G-test.
+//! Correction: Bonferroni (default), Benjamini-Hochberg FDR, or none.
+//! Optional: Bayes Factor and posterior P(sex-linked) output.
 
 use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
+use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -20,8 +21,10 @@ pub struct SignifParams {
     pub output_file_path: String,
     pub min_depth: u16,
     pub signif_threshold: f32,
-    pub disable_correction: bool,
+    pub correction: CorrectionMethod,
+    pub test_method: TestMethod,
     pub output_fasta: bool,
+    pub output_bayes: bool,
     pub group1: String,
     pub group2: String,
 }
@@ -39,7 +42,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    // Pass 1: count markers for Bonferroni (no sequence needed, fast path)
+    // Pass 1: count markers
     log::info!("signif pass 1: counting markers");
     let config1 = ParserConfig {
         store_sequence: false,
@@ -50,14 +53,22 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     let n_markers = stream1.count_markers()?;
     log::info!("signif pass 1: {} markers", n_markers);
 
-    let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
-    let corrected_threshold = if params.disable_correction {
-        params.signif_threshold as f64
-    } else {
-        params.signif_threshold as f64 / n_markers as f64
+    // For FDR correction, we need all p-values first (two-pass with collection)
+    // For Bonferroni/none, we can stream directly
+    let threshold = params.signif_threshold as f64;
+
+    let corrected_threshold = match params.correction {
+        CorrectionMethod::Bonferroni => threshold / n_markers as f64,
+        CorrectionMethod::None => threshold,
+        CorrectionMethod::Fdr => threshold, // applied post-hoc
     };
 
-    // Pass 2: re-read, compute, write directly (no Vec accumulation)
+    let effective_n_markers = match params.correction {
+        CorrectionMethod::Bonferroni => n_markers,
+        CorrectionMethod::None | CorrectionMethod::Fdr => 1,
+    };
+
+    // Pass 2: compute + write
     log::info!("signif pass 2: filtering and writing");
     let config2 = ParserConfig {
         store_sequence: true,
@@ -76,12 +87,28 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 
+    let test_name = match params.test_method {
+        TestMethod::ChiSquared => "chisq",
+        TestMethod::Fisher => "fisher",
+        TestMethod::GTest => "gtest",
+    };
+    let corr_name = match params.correction {
+        CorrectionMethod::Bonferroni => "bonferroni",
+        CorrectionMethod::Fdr => "fdr",
+        CorrectionMethod::None => "none",
+    };
+
     if !params.output_fasta {
         writeln!(output,
-            "#source:rsx-signif;min_depth:{};signif_threshold:{};bonferroni:{};n_markers:{}",
-            params.min_depth, params.signif_threshold,
-            !params.disable_correction, effective_n_markers)?;
-        writeln!(output, "{}", header_columns.join("\t"))?;
+            "#source:rsx-signif;min_depth:{};signif_threshold:{};correction:{};test:{};n_markers:{}",
+            params.min_depth, params.signif_threshold, corr_name, test_name, n_markers)?;
+
+        if params.output_bayes {
+            writeln!(output, "{}\tBayes_Factor\tPosterior_SexLinked",
+                header_columns.join("\t"))?;
+        } else {
+            writeln!(output, "{}", header_columns.join("\t"))?;
+        }
     }
 
     let fasta_groups = vec![
@@ -89,27 +116,84 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
         (groups.group2.clone(), &mask_g2),
     ];
 
-    stream2.for_each(|marker| {
-        if marker.n_individuals > 0 {
-            let g1 = marker.presence.count_masked(&mask_g1);
-            let g2 = marker.presence.count_masked(&mask_g2);
-            let p = stats::p_association(g1, g2, total_g1, total_g2);
+    // For FDR: collect p-values first, then apply BH, then write
+    if matches!(params.correction, CorrectionMethod::Fdr) {
+        // Collect all p-values and marker data
+        let mut p_values: Vec<f64> = Vec::new();
+        // Store minimal marker data for FDR output
+        struct FdrEntry {
+            seq: Vec<u8>,
+            depths: Vec<u16>,
+            g1: u32,
+            g2: u32,
+        }
+        let mut marker_data: Vec<FdrEntry> = Vec::new();
 
-            if (p as f32) < corrected_threshold as f32 {
-                let p_corr = stats::bonferroni_correct(p, effective_n_markers);
-                // Write directly -- no cloning, no accumulation
-                if params.output_fasta {
-                    // For FASTA we need a mutable marker for p/p_corrected
-                    let mut m = marker.clone();
-                    m.p = p;
-                    m.p_corrected = p_corr;
-                    let _ = m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+        stream2.for_each(|marker| {
+            if marker.n_individuals > 0 {
+                let g1 = marker.presence.count_masked(&mask_g1);
+                let g2 = marker.presence.count_masked(&mask_g2);
+                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
+                p_values.push(p);
+                // Store minimal data for output
+                marker_data.push(FdrEntry {
+                    seq: marker.sequence.as_bytes().to_vec(),
+                    depths: marker.individual_depths.clone(),
+                    g1, g2,
+                });
+            }
+        })?;
+
+        let q_values = stats::benjamini_hochberg(&p_values);
+
+        for (i, (_, &q)) in p_values.iter().zip(q_values.iter()).enumerate() {
+            if q < threshold {
+                let entry = &marker_data[i];
+                let seq_str = std::str::from_utf8(&entry.seq).unwrap_or("?");
+                write!(output, "{}\t{}", i, seq_str)?;
+                for &d in &entry.depths {
+                    write!(output, "\t{d}")?;
+                }
+                if params.output_bayes {
+                    let bf = stats::bayes_factor_2x2(entry.g1, entry.g2, total_g1, total_g2);
+                    let post = stats::posterior_sex_linked(entry.g1, entry.g2, total_g1, total_g2, 0.01, 0.9);
+                    writeln!(output, "\t{:.4}\t{:.4}", bf, post)?;
                 } else {
-                    let _ = marker.write_as_table(&mut output);
+                    writeln!(output)?;
                 }
             }
         }
-    })?;
+    } else {
+        // Bonferroni or none: stream directly
+        stream2.for_each(|marker| {
+            if marker.n_individuals > 0 {
+                let g1 = marker.presence.count_masked(&mask_g1);
+                let g2 = marker.presence.count_masked(&mask_g2);
+                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
+
+                if (p as f32) < corrected_threshold as f32 {
+                    let p_corr = stats::bonferroni_correct(p, effective_n_markers);
+
+                    if params.output_fasta {
+                        let mut m = marker.clone();
+                        m.p = p;
+                        m.p_corrected = p_corr;
+                        let _ = m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+                    } else if params.output_bayes {
+                        let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
+                        let post = stats::posterior_sex_linked(g1, g2, total_g1, total_g2, 0.01, 0.9);
+                        write!(output, "{}\t{}", marker.id, marker.sequence).ok();
+                        for &d in &marker.individual_depths {
+                            write!(output, "\t{d}").ok();
+                        }
+                        writeln!(output, "\t{:.4}\t{:.4}", bf, post).ok();
+                    } else {
+                        let _ = marker.write_as_table(&mut output);
+                    }
+                }
+            }
+        })?;
+    }
 
     Ok(())
 }

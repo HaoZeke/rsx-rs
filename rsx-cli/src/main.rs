@@ -76,12 +76,18 @@ enum Commands {
         /// P-value significance threshold
         #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
         signif_threshold: f32,
-        /// Disable Bonferroni correction
-        #[arg(short = 'C', long = "disable-correction")]
-        disable_correction: bool,
+        /// Multiple testing correction: bonferroni (default), fdr, none
+        #[arg(long = "correction", default_value = "bonferroni")]
+        correction: String,
+        /// Statistical test: chisq (default), fisher, gtest
+        #[arg(long = "test", default_value = "chisq")]
+        test_method: String,
         /// Output in FASTA format instead of table format
         #[arg(short = 'a', long = "output-fasta")]
         output_fasta: bool,
+        /// Include Bayes Factor and posterior P(sex-linked) in output
+        #[arg(long = "bayes")]
+        output_bayes: bool,
     },
 
     /// Compute marker frequencies in all individuals
@@ -274,7 +280,9 @@ fn main() {
                 output_file_path: output_file,
                 min_depth,
                 signif_threshold,
-                disable_correction,
+                correction: if disable_correction { rsx_core::test_method::CorrectionMethod::None } else { rsx_core::test_method::CorrectionMethod::Bonferroni },
+                test_method: rsx_core::test_method::TestMethod::ChiSquared,
+                output_bayes: false,
                 group1: g1,
                 group2: g2,
             })
@@ -287,18 +295,26 @@ fn main() {
             min_depth,
             ref groups,
             signif_threshold,
-            disable_correction,
+            correction,
+            test_method,
             output_fasta,
+            output_bayes,
         } => {
             let (g1, g2) = extract_groups(groups);
+            let corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
+                .unwrap_or_else(|e| { log::error!("{e}"); std::process::exit(1); });
+            let test = rsx_core::test_method::TestMethod::parse_str(&test_method)
+                .unwrap_or_else(|e| { log::error!("{e}"); std::process::exit(1); });
             commands::signif::run(&commands::signif::SignifParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
                 output_file_path: output_file,
                 min_depth,
                 signif_threshold,
-                disable_correction,
+                correction: corr,
+                test_method: test,
                 output_fasta,
+                output_bayes,
                 group1: g1,
                 group2: g2,
             })
@@ -360,7 +376,9 @@ fn main() {
                 min_quality,
                 min_frequency,
                 signif_threshold,
-                disable_correction,
+                correction: if disable_correction { rsx_core::test_method::CorrectionMethod::None } else { rsx_core::test_method::CorrectionMethod::Bonferroni },
+                test_method: rsx_core::test_method::TestMethod::ChiSquared,
+                output_bayes: false,
                 group1: g1,
                 group2: g2,
             })
@@ -389,7 +407,9 @@ fn main() {
                 output_file_path: output_file,
                 min_depth,
                 signif_threshold,
-                disable_correction,
+                correction: if disable_correction { rsx_core::test_method::CorrectionMethod::None } else { rsx_core::test_method::CorrectionMethod::Bonferroni },
+                test_method: rsx_core::test_method::TestMethod::ChiSquared,
+                output_bayes: false,
                 output_fasta,
                 group1: g1,
                 group2: g2,

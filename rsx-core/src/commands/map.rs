@@ -26,7 +26,9 @@ pub struct MapParams {
     pub min_quality: u32,
     pub min_frequency: f32,
     pub signif_threshold: f32,
-    pub disable_correction: bool,
+    pub correction: crate::test_method::CorrectionMethod,
+    pub test_method: crate::test_method::TestMethod,
+    pub output_bayes: bool,
     pub group1: String,
     pub group2: String,
 }
@@ -89,8 +91,8 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     let n_markers = stream1.count_markers()?;
     log::info!("map pass 1: {} markers", n_markers);
 
-    let effective_n_markers = if params.disable_correction { 1u64 } else { n_markers };
-    let signif_threshold = if params.disable_correction {
+    let effective_n_markers = if matches!(params.correction, crate::test_method::CorrectionMethod::None) { 1u64 } else { n_markers };
+    let signif_threshold = if matches!(params.correction, crate::test_method::CorrectionMethod::None) {
         params.signif_threshold as f64
     } else {
         params.signif_threshold as f64 / n_markers as f64
@@ -125,7 +127,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         output,
         "#source:rsx-map;min_depth:{};min_qual:{};min_freq:{};signif_threshold:{};bonferroni:{};n_markers:{}",
         params.min_depth, params.min_quality, params.min_frequency,
-        Cg(signif_threshold), !params.disable_correction, effective_n_markers
+        Cg(signif_threshold), !matches!(params.correction, crate::test_method::CorrectionMethod::None), effective_n_markers
     )?;
     writeln!(output, "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif")?;
 

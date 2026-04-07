@@ -234,7 +234,9 @@ fn test_distrib_exact_output() {
         output_file_path: output.to_str().unwrap().to_string(),
         min_depth: 1,
         signif_threshold: 0.05,
-        disable_correction: false,
+        correction: rsx_core::test_method::CorrectionMethod::Bonferroni,
+        test_method: rsx_core::test_method::TestMethod::ChiSquared,
+        output_bayes: false,
         group1: "M".to_string(),
         group2: "F".to_string(),
     })
