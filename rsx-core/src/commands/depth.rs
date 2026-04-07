@@ -110,21 +110,24 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
     let n_individuals = stream.header.n_individuals as usize;
     let min_individuals = (params.min_frequency * stream.header.n_individuals as f32) as u32;
 
-    // Online accumulators for reads/markers/min/max/sum/count (O(n_ind))
+    // Online accumulators: O(n_individuals) memory
     let mut ind_markers: Vec<u64> = vec![0; n_individuals];
     let mut ind_reads: Vec<u64> = vec![0; n_individuals];
-    let mut ind_count: Vec<u64> = vec![0; n_individuals];
+    let mut ind_total: Vec<u64> = vec![0; n_individuals];  // total retained (including zeros)
+    let mut ind_nonzero: Vec<u64> = vec![0; n_individuals]; // non-zero retained count
     let mut ind_sum: Vec<u64> = vec![0; n_individuals];
     let mut ind_min: Vec<u16> = vec![u16::MAX; n_individuals];
     let mut ind_max: Vec<u16> = vec![0; n_individuals];
 
-    // Buffer (individual_idx: u16, depth: u16) pairs for external sort
+    // SPARSE external sort: only buffer NON-ZERO (individual, depth) pairs.
+    // Zeros tracked by count (ind_total - ind_nonzero) for exact median.
+    // This reduces sort size by ~70% for typical RAD-seq data.
     const BUFFER_ENTRIES: usize = 50_000_000; // 50M entries * 4 bytes = 200MB
     let mut buffer: Vec<(u16, u16)> = Vec::with_capacity(BUFFER_ENTRIES);
     let temp_dir = tempfile::TempDir::new()?;
     let mut chunk_paths: Vec<std::path::PathBuf> = Vec::new();
 
-    log::info!("depth streaming: pass 1 - reading + sorting");
+    log::info!("depth streaming: reading + sparse sorting (zeros skipped)");
 
     let mut flush_err: Option<Box<dyn std::error::Error>> = None;
 
@@ -140,18 +143,23 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
                 ind_reads[i] += d as u64;
             }
             if retained {
-                ind_count[i] += 1;
+                ind_total[i] += 1;
                 ind_sum[i] += d as u64;
-                if d < ind_min[i] { ind_min[i] = d; }
-                if d > ind_max[i] { ind_max[i] = d; }
+                if d > 0 {
+                    // Only sort non-zero depths (sparse optimization)
+                    ind_nonzero[i] += 1;
+                    if d < ind_min[i] { ind_min[i] = d; }
+                    if d > ind_max[i] { ind_max[i] = d; }
 
-                buffer.push((i as u16, d));
-                if buffer.len() >= BUFFER_ENTRIES {
-                    match flush_depth_chunk(&mut buffer, &temp_dir, chunk_paths.len()) {
-                        Ok(p) => chunk_paths.push(p),
-                        Err(e) => { flush_err = Some(e); return; }
+                    buffer.push((i as u16, d));
+                    if buffer.len() >= BUFFER_ENTRIES {
+                        match flush_depth_chunk(&mut buffer, &temp_dir, chunk_paths.len()) {
+                            Ok(p) => chunk_paths.push(p),
+                            Err(e) => { flush_err = Some(e); return; }
+                        }
                     }
                 }
+                // d == 0: tracked by ind_total - ind_nonzero, not stored
             }
         }
     })?;
@@ -168,7 +176,7 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
 
     log::info!("depth streaming: {} chunks written", chunk_paths.len());
 
-    if ind_count.contains(&0) {
+    if ind_total.contains(&0) {
         return Err(format!(
             "No markers were present in at least {}% of all individuals ({}/{} individuals)",
             (params.min_frequency * 100.0) as u32, min_individuals, n_individuals
@@ -190,21 +198,32 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         }
     }
 
+    // Compute median accounting for implicit zeros.
+    // The full sorted sequence for individual i is:
+    //   [0, 0, ..., 0 (n_zeros times), sorted_nonzero_1, sorted_nonzero_2, ...]
+    // The median position is ind_total[i] / 2.
+    // If median_pos < n_zeros, median = 0 (already initialized).
+    // Otherwise, we need position (median_pos - n_zeros) in the sorted non-zeros.
     let mut medians: Vec<u16> = vec![0; n_individuals];
-    let mut current_ind: u16 = 0;
-    let mut current_pos: u64 = 0;
+    let mut nonzero_pos: Vec<u64> = vec![0; n_individuals]; // position within sorted non-zeros
+    let median_targets: Vec<i64> = (0..n_individuals)
+        .map(|i| {
+            let n_zeros = ind_total[i] - ind_nonzero[i];
+            let median_pos = ind_total[i] / 2;
+            if median_pos < n_zeros {
+                -1 // median is 0, already set
+            } else {
+                (median_pos - n_zeros) as i64 // target position in non-zero stream
+            }
+        })
+        .collect();
 
     while let Some(top) = heap.pop() {
-        if top.ind != current_ind {
-            current_ind = top.ind;
-            current_pos = 0;
+        let i = top.ind as usize;
+        if median_targets[i] >= 0 && nonzero_pos[i] == median_targets[i] as u64 {
+            medians[i] = top.dep;
         }
-
-        let target = ind_count[current_ind as usize] / 2;
-        if current_pos == target {
-            medians[current_ind as usize] = top.dep;
-        }
-        current_pos += 1;
+        nonzero_pos[i] += 1;
 
         if let Some((ind, dep)) = readers[top.chunk].next_pair()? {
             heap.push(DepthHeapEntry { ind, dep, chunk: top.chunk });
@@ -220,10 +239,15 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
     for i in 0..n_individuals {
         let individual_name = &header_cols[i + 2];
         let group = popmap.get_group(individual_name).unwrap_or("");
-        let avg = ind_sum[i].checked_div(ind_count[i]).unwrap_or(0);
+        let avg = ind_sum[i].checked_div(ind_total[i]).unwrap_or(0);
+        // Fix min for individuals where all retained depths are zero
+        let min_d = if ind_nonzero[i] == 0 { 0 } else { ind_min[i] };
+        // If any zeros exist and min_nonzero > 0, the true min is 0
+        let min_d = if ind_total[i] > ind_nonzero[i] { 0 } else { min_d };
+
         writeln!(output, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             individual_name, group, ind_reads[i], ind_markers[i],
-            ind_count[i], ind_min[i], ind_max[i], medians[i], avg)?;
+            ind_total[i], min_d, ind_max[i], medians[i], avg)?;
     }
     Ok(())
 }
