@@ -84,7 +84,11 @@ impl Marker {
         for (group, count) in groups {
             write!(w, "_{group}:{count}")?;
         }
-        writeln!(w, "_p:{}_pcorr:{}_mindepth:{min_depth}", self.p, self.p_corrected)?;
+        writeln!(
+            w,
+            "_p:{}_pcorr:{}_mindepth:{min_depth}",
+            self.p, self.p_corrected
+        )?;
         writeln!(w, "{}", self.sequence)
     }
 }
@@ -128,20 +132,31 @@ mod tests {
         m.p_corrected = 0.01;
 
         let mask_m = GroupMask::from_columns(
-            &["".into(), "".into(), "M".into(), "M".into(), "M".into(), "F".into()],
+            &[
+                "".into(),
+                "".into(),
+                "M".into(),
+                "M".into(),
+                "M".into(),
+                "F".into(),
+            ],
             "M",
             4,
         );
         let mask_f = GroupMask::from_columns(
-            &["".into(), "".into(), "M".into(), "M".into(), "M".into(), "F".into()],
+            &[
+                "".into(),
+                "".into(),
+                "M".into(),
+                "M".into(),
+                "M".into(),
+                "F".into(),
+            ],
             "F",
             4,
         );
 
-        let group_names = vec![
-            ("M".to_string(), &mask_m),
-            ("F".to_string(), &mask_f),
-        ];
+        let group_names = vec![("M".to_string(), &mask_m), ("F".to_string(), &mask_f)];
 
         let mut buf = Vec::new();
         m.write_as_fasta_bitset(&mut buf, 5, &group_names).unwrap();

@@ -37,7 +37,12 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream = MarkersTableStream::open(table_path, None, config)?;
     let n = stream.header.n_individuals as usize;
 
-    log::info!("PCA: streaming {} individuals, building {}x{} Gram matrix", n, n, n);
+    log::info!(
+        "PCA: streaming {} individuals, building {}x{} Gram matrix",
+        n,
+        n,
+        n
+    );
 
     // Accumulate Gram matrix C = X^T X and mean vector
     let mut gram = vec![0.0f64; n * n]; // row-major n x n
@@ -150,12 +155,21 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
         let ev = eigenvalues[idx].max(0.0);
         let frac = if total_var > 0.0 { ev / total_var } else { 0.0 };
         cumulative += frac;
-        writeln!(f, "  PC{}: {:.4} variance ({:.1}% cumulative)", k + 1, frac, cumulative * 100.0)?;
+        writeln!(
+            f,
+            "  PC{}: {:.4} variance ({:.1}% cumulative)",
+            k + 1,
+            frac,
+            cumulative * 100.0
+        )?;
     }
 
     log::info!(
         "PCA done: {} markers, {} individuals, {} components -> {}",
-        n_markers, n, r, params.output_dir
+        n_markers,
+        n,
+        r,
+        params.output_dir
     );
 
     Ok(())

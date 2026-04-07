@@ -11,8 +11,8 @@
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::Popmap;
 use crate::stats;
-use std::collections::BinaryHeap;
 use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
 
@@ -68,14 +68,19 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     if depths.iter().any(|d| d.is_empty()) {
         return Err(format!(
             "No markers were present in at least {}% of all individuals ({}/{} individuals)",
-            (params.min_frequency * 100.0) as u32, min_individuals, n_individuals
-        ).into());
+            (params.min_frequency * 100.0) as u32,
+            min_individuals,
+            n_individuals
+        )
+        .into());
     }
 
     let header_cols = &stream.header.columns;
     let mut output = std::fs::File::create(&params.output_file_path)?;
-    writeln!(output,
-        "Sample\tGroup\tReads\tMarkers\tRetained\tMin_depth\tMax_depth\tMedian_depth\tAverage_depth")?;
+    writeln!(
+        output,
+        "Sample\tGroup\tReads\tMarkers\tRetained\tMin_depth\tMax_depth\tMedian_depth\tAverage_depth"
+    )?;
 
     for i in 0..n_individuals {
         let individual_name = &header_cols[i + 2];
@@ -87,9 +92,19 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
         let total: u64 = depths[i].iter().map(|&d| d as u64).sum();
         let median_d = stats::find_median(&mut depths[i]);
         let avg_d = total / size;
-        writeln!(output, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            individual_name, group, individual_reads_count[i],
-            individual_markers_count[i], size, min_d, max_d, median_d, avg_d)?;
+        writeln!(
+            output,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            individual_name,
+            group,
+            individual_reads_count[i],
+            individual_markers_count[i],
+            size,
+            min_d,
+            max_d,
+            median_d,
+            avg_d
+        )?;
     }
     Ok(())
 }
@@ -113,7 +128,7 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
     // Online accumulators: O(n_individuals) memory
     let mut ind_markers: Vec<u64> = vec![0; n_individuals];
     let mut ind_reads: Vec<u64> = vec![0; n_individuals];
-    let mut ind_total: Vec<u64> = vec![0; n_individuals];  // total retained (including zeros)
+    let mut ind_total: Vec<u64> = vec![0; n_individuals]; // total retained (including zeros)
     let mut ind_nonzero: Vec<u64> = vec![0; n_individuals]; // non-zero retained count
     let mut ind_sum: Vec<u64> = vec![0; n_individuals];
     let mut ind_min: Vec<u16> = vec![u16::MAX; n_individuals];
@@ -148,14 +163,21 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
                 if d > 0 {
                     // Only sort non-zero depths (sparse optimization)
                     ind_nonzero[i] += 1;
-                    if d < ind_min[i] { ind_min[i] = d; }
-                    if d > ind_max[i] { ind_max[i] = d; }
+                    if d < ind_min[i] {
+                        ind_min[i] = d;
+                    }
+                    if d > ind_max[i] {
+                        ind_max[i] = d;
+                    }
 
                     buffer.push((i as u16, d));
                     if buffer.len() >= BUFFER_ENTRIES {
                         match flush_depth_chunk(&mut buffer, &temp_dir, chunk_paths.len()) {
                             Ok(p) => chunk_paths.push(p),
-                            Err(e) => { flush_err = Some(e); return; }
+                            Err(e) => {
+                                flush_err = Some(e);
+                                return;
+                            }
                         }
                     }
                 }
@@ -179,22 +201,30 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
     if ind_total.contains(&0) {
         return Err(format!(
             "No markers were present in at least {}% of all individuals ({}/{} individuals)",
-            (params.min_frequency * 100.0) as u32, min_individuals, n_individuals
-        ).into());
+            (params.min_frequency * 100.0) as u32,
+            min_individuals,
+            n_individuals
+        )
+        .into());
     }
 
     // K-way merge the sorted (individual_idx, depth) pairs
     // Scan: for each individual, depths are contiguous and sorted -> pick median
     log::info!("depth streaming: merging for exact median");
 
-    let mut readers: Vec<DepthChunkReader> = chunk_paths.iter()
+    let mut readers: Vec<DepthChunkReader> = chunk_paths
+        .iter()
         .map(|p| DepthChunkReader::open(p))
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut heap: BinaryHeap<DepthHeapEntry> = BinaryHeap::new();
     for (idx, r) in readers.iter_mut().enumerate() {
         if let Some((ind, dep)) = r.next_pair()? {
-            heap.push(DepthHeapEntry { ind, dep, chunk: idx });
+            heap.push(DepthHeapEntry {
+                ind,
+                dep,
+                chunk: idx,
+            });
         }
     }
 
@@ -226,15 +256,21 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         nonzero_pos[i] += 1;
 
         if let Some((ind, dep)) = readers[top.chunk].next_pair()? {
-            heap.push(DepthHeapEntry { ind, dep, chunk: top.chunk });
+            heap.push(DepthHeapEntry {
+                ind,
+                dep,
+                chunk: top.chunk,
+            });
         }
     }
 
     // Write output
     let header_cols = &stream.header.columns;
     let mut output = std::fs::File::create(&params.output_file_path)?;
-    writeln!(output,
-        "Sample\tGroup\tReads\tMarkers\tRetained\tMin_depth\tMax_depth\tMedian_depth\tAverage_depth")?;
+    writeln!(
+        output,
+        "Sample\tGroup\tReads\tMarkers\tRetained\tMin_depth\tMax_depth\tMedian_depth\tAverage_depth"
+    )?;
 
     for i in 0..n_individuals {
         let individual_name = &header_cols[i + 2];
@@ -243,11 +279,25 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         // Fix min for individuals where all retained depths are zero
         let min_d = if ind_nonzero[i] == 0 { 0 } else { ind_min[i] };
         // If any zeros exist and min_nonzero > 0, the true min is 0
-        let min_d = if ind_total[i] > ind_nonzero[i] { 0 } else { min_d };
+        let min_d = if ind_total[i] > ind_nonzero[i] {
+            0
+        } else {
+            min_d
+        };
 
-        writeln!(output, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            individual_name, group, ind_reads[i], ind_markers[i],
-            ind_total[i], min_d, ind_max[i], medians[i], avg)?;
+        writeln!(
+            output,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            individual_name,
+            group,
+            ind_reads[i],
+            ind_markers[i],
+            ind_total[i],
+            min_d,
+            ind_max[i],
+            medians[i],
+            avg
+        )?;
     }
     Ok(())
 }
@@ -312,7 +362,9 @@ impl PartialEq for DepthHeapEntry {
 }
 impl Eq for DepthHeapEntry {}
 impl PartialOrd for DepthHeapEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 impl Ord for DepthHeapEntry {
     fn cmp(&self, other: &Self) -> Ordering {

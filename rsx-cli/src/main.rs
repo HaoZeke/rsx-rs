@@ -264,9 +264,13 @@ fn main() {
             };
             // Use MPI if available (feature-gated), else single-node rayon
             #[cfg(feature = "mpi")]
-            { commands::process_mpi::run_mpi(&params) }
+            {
+                commands::process_mpi::run_mpi(&params)
+            }
             #[cfg(not(feature = "mpi"))]
-            { commands::process::run(&params) }
+            {
+                commands::process::run(&params)
+            }
         }
 
         Commands::Distrib {
@@ -285,7 +289,11 @@ fn main() {
                 output_file_path: output_file,
                 min_depth,
                 signif_threshold,
-                correction: if disable_correction { rsx_core::test_method::CorrectionMethod::None } else { rsx_core::test_method::CorrectionMethod::Bonferroni },
+                correction: if disable_correction {
+                    rsx_core::test_method::CorrectionMethod::None
+                } else {
+                    rsx_core::test_method::CorrectionMethod::Bonferroni
+                },
                 test_method: rsx_core::test_method::TestMethod::ChiSquared,
                 output_bayes: false,
                 group1: g1,
@@ -307,9 +315,15 @@ fn main() {
         } => {
             let (g1, g2) = extract_groups(groups);
             let corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
-                .unwrap_or_else(|e| { log::error!("{e}"); std::process::exit(1); });
-            let test = rsx_core::test_method::TestMethod::parse_str(&test_method)
-                .unwrap_or_else(|e| { log::error!("{e}"); std::process::exit(1); });
+                .unwrap_or_else(|e| {
+                    log::error!("{e}");
+                    std::process::exit(1);
+                });
+            let test =
+                rsx_core::test_method::TestMethod::parse_str(&test_method).unwrap_or_else(|e| {
+                    log::error!("{e}");
+                    std::process::exit(1);
+                });
             commands::signif::run(&commands::signif::SignifParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
@@ -347,7 +361,10 @@ fn main() {
                 .unwrap_or(0);
             let streaming = file_size > 2_000_000_000;
             if streaming {
-                log::info!("Large file ({}GB), using streaming mode", file_size / 1_000_000_000);
+                log::info!(
+                    "Large file ({}GB), using streaming mode",
+                    file_size / 1_000_000_000
+                );
             }
             commands::depth::run(&commands::depth::DepthParams {
                 markers_table_path: markers_table,
@@ -381,7 +398,11 @@ fn main() {
                 min_quality,
                 min_frequency,
                 signif_threshold,
-                correction: if disable_correction { rsx_core::test_method::CorrectionMethod::None } else { rsx_core::test_method::CorrectionMethod::Bonferroni },
+                correction: if disable_correction {
+                    rsx_core::test_method::CorrectionMethod::None
+                } else {
+                    rsx_core::test_method::CorrectionMethod::Bonferroni
+                },
                 test_method: rsx_core::test_method::TestMethod::ChiSquared,
                 output_bayes: false,
                 group1: g1,
@@ -412,7 +433,11 @@ fn main() {
                 output_file_path: output_file,
                 min_depth,
                 signif_threshold,
-                correction: if disable_correction { rsx_core::test_method::CorrectionMethod::None } else { rsx_core::test_method::CorrectionMethod::Bonferroni },
+                correction: if disable_correction {
+                    rsx_core::test_method::CorrectionMethod::None
+                } else {
+                    rsx_core::test_method::CorrectionMethod::Bonferroni
+                },
                 test_method: rsx_core::test_method::TestMethod::ChiSquared,
                 output_bayes: false,
                 output_fasta,

@@ -56,8 +56,9 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             let dm: DashMap<Vec<u8>, Vec<u16>, ahash::RandomState> =
                 DashMap::with_hasher(ahash::RandomState::new());
 
-            input_files.par_iter().for_each(|f| {
-                match count_sequences(&f.path) {
+            input_files
+                .par_iter()
+                .for_each(|f| match count_sequences(&f.path) {
                     Ok(counts) => {
                         let idx = individual_indices[&f.individual_name];
                         for (packed_seq, count) in counts {
@@ -69,8 +70,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                         log::info!("Finished processing individual {}", f.individual_name);
                     }
                     Err(e) => log::error!("Error processing {}: {e}", f.path.display()),
-                }
-            });
+                });
 
             // Convert to AHashMap for uniform output path
             dm.into_iter().collect::<ahash::AHashMap<_, _>>()
@@ -125,8 +125,13 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 
     // Optional k-mer deduplication: group markers by canonical k-mer
     if let Some(k) = params.kmer_dedup {
-        log::info!("K-mer deduplication (k={}): grouping {} markers", k, global.len());
-        let sequences: Vec<Vec<u8>> = global.keys()
+        log::info!(
+            "K-mer deduplication (k={}): grouping {} markers",
+            k,
+            global.len()
+        );
+        let sequences: Vec<Vec<u8>> = global
+            .keys()
             .map(|packed| crate::io::seq_reader::unpack_2bit(packed))
             .collect();
         let groups = crate::kmer::group_by_kmer(&sequences, k);
@@ -134,14 +139,19 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         let n_groups = groups.len();
         log::info!(
             "K-mer dedup: {} markers -> {} groups ({:.1}% reduction)",
-            n_before, n_groups, (1.0 - n_groups as f64 / n_before as f64) * 100.0
+            n_before,
+            n_groups,
+            (1.0 - n_groups as f64 / n_before as f64) * 100.0
         );
         // For each group, keep the representative with highest total depth
         let keys: Vec<Vec<u8>> = global.keys().cloned().collect();
         let mut keep: ahash::AHashSet<usize> = ahash::AHashSet::new();
         for (_hash, indices) in &groups {
             let best = indices.iter().copied().max_by_key(|&i| {
-                global.get(&keys[i]).map(|d| d.iter().map(|&v| v as u64).sum::<u64>()).unwrap_or(0)
+                global
+                    .get(&keys[i])
+                    .map(|d| d.iter().map(|&v| v as u64).sum::<u64>())
+                    .unwrap_or(0)
             });
             if let Some(b) = best {
                 keep.insert(b);

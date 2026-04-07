@@ -3,8 +3,8 @@
 
 //! Python bindings for rsx via PyO3.
 
-use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 /// Process demultiplexed reads into a marker depth table.
 #[pyfunction]
@@ -118,9 +118,7 @@ fn depth(
     output_file: &str,
     min_frequency: f32,
 ) -> PyResult<()> {
-    let file_size = std::fs::metadata(table_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let file_size = std::fs::metadata(table_path).map(|m| m.len()).unwrap_or(0);
     rsx_core::commands::depth::run(&rsx_core::commands::depth::DepthParams {
         markers_table_path: table_path.to_string(),
         popmap_file_path: popmap_path.to_string(),

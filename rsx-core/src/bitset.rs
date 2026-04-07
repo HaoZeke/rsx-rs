@@ -124,12 +124,16 @@ mod tests {
         row.set(6);
 
         // Mask: individuals 0-4 are group1
-        let mut mask = GroupMask { words: vec![0u64; 1] };
+        let mut mask = GroupMask {
+            words: vec![0u64; 1],
+        };
         mask.words[0] = 0b11111; // bits 0-4
         assert_eq!(row.count_masked(&mask), 3); // 0,1,2 match
 
         // Mask: individuals 5-9 are group2
-        let mut mask2 = GroupMask { words: vec![0u64; 1] };
+        let mut mask2 = GroupMask {
+            words: vec![0u64; 1],
+        };
         mask2.words[0] = 0b1111100000; // bits 5-9
         assert_eq!(row.count_masked(&mask2), 2); // 5,6 match
     }
@@ -155,7 +159,9 @@ mod tests {
 
         // Mask first 100
         let n_words = (200 + 63) / 64;
-        let mut mask = GroupMask { words: vec![0u64; n_words] };
+        let mut mask = GroupMask {
+            words: vec![0u64; n_words],
+        };
         for i in 0..100 {
             mask.words[i / 64] |= 1u64 << (i % 64);
         }
@@ -165,12 +171,20 @@ mod tests {
     #[test]
     fn test_group_mask_from_columns() {
         let _columns: Vec<String> = vec![
-            "id".into(), "sequence".into(),
-            "ind1".into(), "ind2".into(), "ind3".into(), "ind4".into(),
+            "id".into(),
+            "sequence".into(),
+            "ind1".into(),
+            "ind2".into(),
+            "ind3".into(),
+            "ind4".into(),
         ];
         let groups: Vec<String> = vec![
-            "".into(), "".into(),
-            "M".into(), "M".into(), "F".into(), "F".into(),
+            "".into(),
+            "".into(),
+            "M".into(),
+            "M".into(),
+            "F".into(),
+            "F".into(),
         ];
 
         let mask_m = GroupMask::from_columns(&groups, "M", 4);

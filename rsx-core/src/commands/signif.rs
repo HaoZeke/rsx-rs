@@ -11,7 +11,7 @@ use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
-use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
+use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
 use std::io::Write;
 use std::path::Path;
 
@@ -79,10 +79,14 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     let header_columns = stream2.header.columns.clone();
 
     let mask_g1 = GroupMask::from_columns(
-        &stream2.groups, &groups.group1, stream2.header.n_individuals,
+        &stream2.groups,
+        &groups.group1,
+        stream2.header.n_individuals,
     );
     let mask_g2 = GroupMask::from_columns(
-        &stream2.groups, &groups.group2, stream2.header.n_individuals,
+        &stream2.groups,
+        &groups.group2,
+        stream2.header.n_individuals,
     );
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
@@ -99,13 +103,18 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if !params.output_fasta {
-        writeln!(output,
+        writeln!(
+            output,
             "#source:rsx-signif;min_depth:{};signif_threshold:{};correction:{};test:{};n_markers:{}",
-            params.min_depth, params.signif_threshold, corr_name, test_name, n_markers)?;
+            params.min_depth, params.signif_threshold, corr_name, test_name, n_markers
+        )?;
 
         if params.output_bayes {
-            writeln!(output, "{}\tBayes_Factor\tPosterior_SexLinked",
-                header_columns.join("\t"))?;
+            writeln!(
+                output,
+                "{}\tBayes_Factor\tPosterior_SexLinked",
+                header_columns.join("\t")
+            )?;
         } else {
             writeln!(output, "{}", header_columns.join("\t"))?;
         }
@@ -139,7 +148,8 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
                 marker_data.push(FdrEntry {
                     seq: marker.sequence.as_bytes().to_vec(),
                     depths: marker.individual_depths.clone(),
-                    g1, g2,
+                    g1,
+                    g2,
                 });
             }
         })?;
@@ -156,7 +166,9 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 if params.output_bayes {
                     let bf = stats::bayes_factor_2x2(entry.g1, entry.g2, total_g1, total_g2);
-                    let post = stats::posterior_sex_linked(entry.g1, entry.g2, total_g1, total_g2, 0.01, 0.9);
+                    let post = stats::posterior_sex_linked(
+                        entry.g1, entry.g2, total_g1, total_g2, 0.01, 0.9,
+                    );
                     writeln!(output, "\t{:.4}\t{:.4}", bf, post)?;
                 } else {
                     writeln!(output)?;
@@ -178,10 +190,15 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
                         let mut m = marker.clone();
                         m.p = p;
                         m.p_corrected = p_corr;
-                        let _ = m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+                        let _ = m.write_as_fasta_bitset(
+                            &mut output,
+                            params.min_depth as u32,
+                            &fasta_groups,
+                        );
                     } else if params.output_bayes {
                         let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
-                        let post = stats::posterior_sex_linked(g1, g2, total_g1, total_g2, 0.01, 0.9);
+                        let post =
+                            stats::posterior_sex_linked(g1, g2, total_g1, total_g2, 0.01, 0.9);
                         write!(output, "{}\t{}", marker.id, marker.sequence).ok();
                         for &d in &marker.individual_depths {
                             write!(output, "\t{d}").ok();

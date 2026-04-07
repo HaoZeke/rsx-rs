@@ -3,7 +3,7 @@
 
 //! C-compatible type constructors and destructors.
 
-use crate::status::{rsx_status_t, catch_unwind, set_last_error};
+use crate::status::{catch_unwind, rsx_status_t, set_last_error};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
@@ -59,9 +59,7 @@ pub unsafe extern "C" fn rsx_popmap_free(popmap: *mut rsx_popmap_t) {
 /// # Safety
 /// `popmap` must be a valid handle from `rsx_popmap_load`.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn rsx_popmap_n_individuals(
-    popmap: *const rsx_popmap_t,
-) -> u16 {
+pub unsafe extern "C" fn rsx_popmap_n_individuals(popmap: *const rsx_popmap_t) -> u16 {
     if popmap.is_null() {
         return 0;
     }

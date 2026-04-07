@@ -23,22 +23,56 @@ fn create_precision_markers(dir: &std::path::Path, n_ind: u16) -> PathBuf {
 
     let half = n_ind / 2;
     for m in 0..n_markers {
-        let seq: String = (0..16).map(|i| ["A", "T", "C", "G"][(m * 7 + i) % 4]).collect();
+        let seq: String = (0..16)
+            .map(|i| ["A", "T", "C", "G"][(m * 7 + i) % 4])
+            .collect();
         write!(f, "{m}\t{seq}").unwrap();
         for j in 0..n_ind {
             let d = match m {
                 // All present (should give p=1)
                 0..=9 => 10,
                 // Male-only (j < half)
-                10..=19 => if j < half { 15 } else { 0 },
+                10..=19 => {
+                    if j < half {
+                        15
+                    } else {
+                        0
+                    }
+                }
                 // Female-only (j >= half)
-                20..=29 => if j >= half { 20 } else { 0 },
+                20..=29 => {
+                    if j >= half {
+                        20
+                    } else {
+                        0
+                    }
+                }
                 // Gradient: increasing male presence
-                30..=49 => if j < half && (j as u32) < (m as u32).saturating_sub(30) { 8 } else { 0 },
+                30..=49 => {
+                    if j < half && (j as u32) < (m as u32).saturating_sub(30) {
+                        8
+                    } else {
+                        0
+                    }
+                }
                 // Gradient: decreasing female presence
-                50..=69 => if j >= half && (j as u32).saturating_sub(half as u32) < (m as u32).saturating_sub(50) { 12 } else { 0 },
+                50..=69 => {
+                    if j >= half
+                        && (j as u32).saturating_sub(half as u32) < (m as u32).saturating_sub(50)
+                    {
+                        12
+                    } else {
+                        0
+                    }
+                }
                 // Mixed presence at various thresholds
-                _ => if (m as u32 + j as u32) % 3 == 0 { 5 } else { 0 },
+                _ => {
+                    if (m as u32 + j as u32) % 3 == 0 {
+                        5
+                    } else {
+                        0
+                    }
+                }
             };
             write!(f, "\t{d}").unwrap();
         }
@@ -122,10 +156,7 @@ fn test_p_value_symmetry() {
     // p(g1=10, g2=0) should equal p(g1=0, g2=10) with same totals
     let p1 = stats::p_association(10, 0, 20, 20);
     let p2 = stats::p_association(0, 10, 20, 20);
-    assert!(
-        (p1 - p2).abs() < 1e-15,
-        "asymmetry: p1={p1}, p2={p2}"
-    );
+    assert!((p1 - p2).abs() < 1e-15, "asymmetry: p1={p1}, p2={p2}");
 }
 
 #[test]
@@ -171,10 +202,16 @@ fn test_bitset_group_counts_consistent() {
         let half = n_ind / 2;
 
         // Verify masks have the right number of bits
-        assert_eq!(expected_m, half as u32,
-            "n_ind={n_ind}: mask_m count {expected_m} != expected {half}");
-        assert_eq!(expected_f, (n_ind - half) as u32,
-            "n_ind={n_ind}: mask_f count {expected_f} != expected {}", n_ind - half);
+        assert_eq!(
+            expected_m, half as u32,
+            "n_ind={n_ind}: mask_m count {expected_m} != expected {half}"
+        );
+        assert_eq!(
+            expected_f,
+            (n_ind - half) as u32,
+            "n_ind={n_ind}: mask_f count {expected_f} != expected {}",
+            n_ind - half
+        );
 
         let mut marker_idx = 0u32;
         stream
@@ -184,19 +221,28 @@ fn test_bitset_group_counts_consistent() {
                 let total = marker.presence.count_total();
 
                 // Group counts must sum to total (no individual in both groups)
-                assert_eq!(g1 + g2, total,
-                    "n_ind={n_ind} marker={marker_idx}: g1={g1} + g2={g2} != total={total}");
+                assert_eq!(
+                    g1 + g2,
+                    total,
+                    "n_ind={n_ind} marker={marker_idx}: g1={g1} + g2={g2} != total={total}"
+                );
 
                 // n_individuals must equal bitset total
-                assert_eq!(total, marker.n_individuals,
+                assert_eq!(
+                    total, marker.n_individuals,
                     "n_ind={n_ind} marker={marker_idx}: bitset total={total} != n_individuals={}",
-                    marker.n_individuals);
+                    marker.n_individuals
+                );
 
                 // Group counts must not exceed group size
-                assert!(g1 <= expected_m,
-                    "n_ind={n_ind} marker={marker_idx}: g1={g1} > group_size={expected_m}");
-                assert!(g2 <= expected_f,
-                    "n_ind={n_ind} marker={marker_idx}: g2={g2} > group_size={expected_f}");
+                assert!(
+                    g1 <= expected_m,
+                    "n_ind={n_ind} marker={marker_idx}: g1={g1} > group_size={expected_m}"
+                );
+                assert!(
+                    g2 <= expected_f,
+                    "n_ind={n_ind} marker={marker_idx}: g2={g2} > group_size={expected_f}"
+                );
 
                 marker_idx += 1;
             })

@@ -30,10 +30,7 @@ pub fn canonical_kmer_hash(seq: &[u8], k: usize) -> u64 {
 
 /// Group markers by canonical k-mer signature.
 /// Returns a map from group_hash -> list of marker indices.
-pub fn group_by_kmer(
-    sequences: &[Vec<u8>],
-    k: usize,
-) -> ahash::AHashMap<u64, Vec<usize>> {
+pub fn group_by_kmer(sequences: &[Vec<u8>], k: usize) -> ahash::AHashMap<u64, Vec<usize>> {
     let mut groups: ahash::AHashMap<u64, Vec<usize>> = ahash::AHashMap::new();
     for (i, seq) in sequences.iter().enumerate() {
         let hash = canonical_kmer_hash(seq, k);
@@ -116,7 +113,10 @@ mod tests {
         // ATCGATCG and its revcomp CGATCGAT should give the same canonical hash
         let h1 = canonical_kmer_hash(b"ATCGATCG", 4);
         let h2 = canonical_kmer_hash(b"CGATCGAT", 4);
-        assert_eq!(h1, h2, "sequence and its revcomp should have same canonical hash");
+        assert_eq!(
+            h1, h2,
+            "sequence and its revcomp should have same canonical hash"
+        );
     }
 
     #[test]
@@ -150,10 +150,19 @@ mod tests {
             }
         }
         // Identical sequences must be in the same group
-        assert_eq!(seq_to_group[0], seq_to_group[1], "identical seqs 0,1 should group together");
-        assert_eq!(seq_to_group[2], seq_to_group[3], "identical seqs 2,3 should group together");
+        assert_eq!(
+            seq_to_group[0], seq_to_group[1],
+            "identical seqs 0,1 should group together"
+        );
+        assert_eq!(
+            seq_to_group[2], seq_to_group[3],
+            "identical seqs 2,3 should group together"
+        );
         // Different sequences should be in different groups
-        assert_ne!(seq_to_group[0], seq_to_group[2], "different seqs should be in different groups");
+        assert_ne!(
+            seq_to_group[0], seq_to_group[2],
+            "different seqs should be in different groups"
+        );
     }
 
     #[test]

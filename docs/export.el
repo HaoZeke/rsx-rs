@@ -1,5 +1,13 @@
 ;;; export.el --- Export orgmode docs to RST for Sphinx -*- lexical-binding: t -*-
 
+;; Install ox-rst from MELPA if not already available
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
+(unless (package-installed-p 'ox-rst)
+  (package-refresh-contents)
+  (package-install 'ox-rst))
+
 (require 'org)
 (require 'ox-rst)
 

@@ -8,7 +8,7 @@ use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
 use crate::stats::Cg;
-use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
+use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
 use std::io::Write;
 use std::path::Path;
 
@@ -54,12 +54,10 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut n_markers: u64 = 0;
 
     // Pre-compute group masks for popcount-based counting
-    let mask_g1 = GroupMask::from_columns(
-        &stream.groups, &groups.group1, stream.header.n_individuals,
-    );
-    let mask_g2 = GroupMask::from_columns(
-        &stream.groups, &groups.group2, stream.header.n_individuals,
-    );
+    let mask_g1 =
+        GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
+    let mask_g2 =
+        GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
 
     stream.for_each(|marker| {
         if marker.n_individuals > 0 {
@@ -83,22 +81,38 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
     writeln!(
         output,
         "#source:rsx-distrib;min_depth:{};signif_threshold:{};bonferroni:{};n_markers:{}",
-        params.min_depth, Cg(signif_threshold), is_corrected, effective_n_markers
+        params.min_depth,
+        Cg(signif_threshold),
+        is_corrected,
+        effective_n_markers
     )?;
-    writeln!(output, "{}\t{}\tMarkers\tP\tCorrectedP\tSignif\tBias",
-        groups.group1, groups.group2)?;
+    writeln!(
+        output,
+        "{}\t{}\tMarkers\tP\tCorrectedP\tSignif\tBias",
+        groups.group1, groups.group2
+    )?;
 
     for g in 0..=total_g1 {
         for h in 0..=total_g2 {
-            if g + h == 0 { continue; }
+            if g + h == 0 {
+                continue;
+            }
             let count = distribution[g as usize][h as usize];
             let p = compute_p(params.test_method, g, h, total_g1, total_g2);
             let p_corrected = stats::bonferroni_correct(p, effective_n_markers);
             let signif = p < signif_threshold;
             let bias = stats::group_bias(g, total_g1, h, total_g2);
-            writeln!(output, "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                g, h, count, Cg(p), Cg(p_corrected),
-                if signif { "True" } else { "False" }, Cg(bias))?;
+            writeln!(
+                output,
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                g,
+                h,
+                count,
+                Cg(p),
+                Cg(p_corrected),
+                if signif { "True" } else { "False" },
+                Cg(bias)
+            )?;
         }
     }
     Ok(())

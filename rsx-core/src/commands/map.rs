@@ -46,11 +46,7 @@ fn load_contig_lengths(genome_path: &Path) -> std::io::Result<HashMap<String, u6
             if !current_contig.is_empty() {
                 lengths.insert(current_contig.clone(), current_length);
             }
-            current_contig = stripped
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .to_string();
+            current_contig = stripped.split_whitespace().next().unwrap_or("").to_string();
             current_length = 0;
         } else {
             current_length += line.len() as u64;
@@ -75,8 +71,10 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    let min_individuals =
-        std::cmp::max(1, (params.min_frequency * popmap.n_individuals as f32) as u32);
+    let min_individuals = std::cmp::max(
+        1,
+        (params.min_frequency * popmap.n_individuals as f32) as u32,
+    );
 
     let contig_lengths = load_contig_lengths(Path::new(&params.genome_file_path))?;
 
@@ -91,8 +89,18 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     let n_markers = stream1.count_markers()?;
     log::info!("map pass 1: {} markers", n_markers);
 
-    let effective_n_markers = if matches!(params.correction, crate::test_method::CorrectionMethod::None) { 1u64 } else { n_markers };
-    let signif_threshold = if matches!(params.correction, crate::test_method::CorrectionMethod::None) {
+    let effective_n_markers = if matches!(
+        params.correction,
+        crate::test_method::CorrectionMethod::None
+    ) {
+        1u64
+    } else {
+        n_markers
+    };
+    let signif_threshold = if matches!(
+        params.correction,
+        crate::test_method::CorrectionMethod::None
+    ) {
         params.signif_threshold as f64
     } else {
         params.signif_threshold as f64 / n_markers as f64
@@ -116,20 +124,34 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream2 = MarkersTableStream::open(table_path, Some(&popmap), config2)?;
 
     let mask_g1 = GroupMask::from_columns(
-        &stream2.groups, &groups.group1, stream2.header.n_individuals,
+        &stream2.groups,
+        &groups.group1,
+        stream2.header.n_individuals,
     );
     let mask_g2 = GroupMask::from_columns(
-        &stream2.groups, &groups.group2, stream2.header.n_individuals,
+        &stream2.groups,
+        &groups.group2,
+        stream2.header.n_individuals,
     );
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
     writeln!(
         output,
         "#source:rsx-map;min_depth:{};min_qual:{};min_freq:{};signif_threshold:{};bonferroni:{};n_markers:{}",
-        params.min_depth, params.min_quality, params.min_frequency,
-        Cg(signif_threshold), !matches!(params.correction, crate::test_method::CorrectionMethod::None), effective_n_markers
+        params.min_depth,
+        params.min_quality,
+        params.min_frequency,
+        Cg(signif_threshold),
+        !matches!(
+            params.correction,
+            crate::test_method::CorrectionMethod::None
+        ),
+        effective_n_markers
     )?;
-    writeln!(output, "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif")?;
+    writeln!(
+        output,
+        "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif"
+    )?;
 
     let mut n_aligned = 0u64;
 
@@ -151,7 +173,10 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         let mut best_count = 0u32;
 
         for (j, mapping) in mappings.iter().enumerate() {
-            let score = mapping.alignment.as_ref().map_or(0, |a| a.alignment_score.unwrap_or(0));
+            let score = mapping
+                .alignment
+                .as_ref()
+                .map_or(0, |a| a.alignment_score.unwrap_or(0));
             if score > best_score {
                 best_idx = j;
                 best_score = score;
@@ -181,9 +206,15 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         let contig_len = contig_lengths.get(&contig).copied().unwrap_or(0);
 
         let _ = writeln!(
-            output, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            contig, position, contig_len, marker.id,
-            Cg(bias), Cg(p), Cg(p_corrected),
+            output,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            contig,
+            position,
+            contig_len,
+            marker.id,
+            Cg(bias),
+            Cg(p),
+            Cg(p_corrected),
             if signif { "True" } else { "False" }
         );
 

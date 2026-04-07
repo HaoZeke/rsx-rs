@@ -177,7 +177,8 @@ mod tests {
             let packed = pack_2bit(seq);
             let unpacked = unpack_2bit(&packed);
             assert_eq!(
-                &unpacked, seq,
+                &unpacked,
+                seq,
                 "roundtrip failed for {}",
                 std::str::from_utf8(seq).unwrap()
             );

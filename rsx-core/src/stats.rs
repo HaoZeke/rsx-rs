@@ -228,16 +228,19 @@ pub fn g_test(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     let n = (total_g1 + total_g2) as f64;
 
     let mut g = 0.0f64;
-    let expected = |_obs: f64, col_total: f64, row_total: f64| -> f64 {
-        row_total * col_total / n
-    };
+    let expected = |_obs: f64, col_total: f64, row_total: f64| -> f64 { row_total * col_total / n };
 
     let row1 = a + c;
     let row2 = b + d;
     let col1 = a + b;
     let col2 = c + d;
 
-    for &(obs, rt, ct) in &[(a, row1, col1), (b, row2, col1), (c, row1, col2), (d, row2, col2)] {
+    for &(obs, rt, ct) in &[
+        (a, row1, col1),
+        (b, row2, col1),
+        (c, row1, col2),
+        (d, row2, col2),
+    ] {
         if obs > 0.0 {
             let exp = expected(obs, ct, rt);
             if exp > 0.0 {
@@ -248,7 +251,11 @@ pub fn g_test(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     g *= 2.0;
 
     // P-value: same chi-squared CDF with df=1
-    if g.is_nan() || g <= 0.0 { 1.0 } else { chi_squared_p(g).clamp(1e-16, 1.0) }
+    if g.is_nan() || g <= 0.0 {
+        1.0
+    } else {
+        chi_squared_p(g).clamp(1e-16, 1.0)
+    }
 }
 
 /// Fisher's exact test for 2x2 table (one-sided, more extreme).
@@ -287,7 +294,11 @@ fn log_hypergeometric(a: u32, b: u32, c: u32, d: u32, n: u32, row1: u32, col1: u
     let col2 = n - col1;
     let row2 = n - row1;
     lfact(row1) + lfact(row2) + lfact(col1) + lfact(col2)
-        - lfact(n) - lfact(a) - lfact(b) - lfact(c) - lfact(d)
+        - lfact(n)
+        - lfact(a)
+        - lfact(b)
+        - lfact(c)
+        - lfact(d)
 }
 
 fn lfact(n: u32) -> f64 {
@@ -334,8 +345,7 @@ pub fn benjamini_hochberg(p_values: &[f64]) -> Vec<f64> {
 pub fn bayes_factor_2x2(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     // H1 (association): p_g1, p_g2 independent, each Beta(1,1)
     // Marginal = B(k+1, n-k+1) / B(1,1) for each group
-    let log_h1 = log_beta_binom(n_g1, total_g1)
-        + log_beta_binom(n_g2, total_g2);
+    let log_h1 = log_beta_binom(n_g1, total_g1) + log_beta_binom(n_g2, total_g2);
 
     // H0 (independence): single shared p ~ Beta(1,1)
     let log_h0 = log_beta_binom(n_g1 + n_g2, total_g1 + total_g2);
@@ -345,8 +355,7 @@ pub fn bayes_factor_2x2(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f
 
 /// Log marginal likelihood for Binomial(k|n) with Beta(1,1) prior.
 fn log_beta_binom(k: u32, n: u32) -> f64 {
-    libm::lgamma((k + 1) as f64) + libm::lgamma((n - k + 1) as f64)
-        - libm::lgamma((n + 2) as f64)
+    libm::lgamma((k + 1) as f64) + libm::lgamma((n - k + 1) as f64) - libm::lgamma((n + 2) as f64)
 }
 
 /// Posterior probability that a marker is sex-linked (empirical Bayes).
@@ -354,13 +363,15 @@ fn log_beta_binom(k: u32, n: u32) -> f64 {
 /// pi: prior probability of sex-linkage (estimated from data or set to 0.01).
 /// p_sex: assumed frequency in the linked sex (e.g., 0.9).
 pub fn posterior_sex_linked(
-    n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32,
-    pi: f64, p_sex: f64,
+    n_g1: u32,
+    n_g2: u32,
+    total_g1: u32,
+    total_g2: u32,
+    pi: f64,
+    p_sex: f64,
 ) -> f64 {
-    let ll_linked = binom_logpmf(n_g1, total_g1, p_sex)
-        + binom_logpmf(n_g2, total_g2, 1.0 - p_sex);
-    let ll_null = binom_logpmf(n_g1, total_g1, 0.5)
-        + binom_logpmf(n_g2, total_g2, 0.5);
+    let ll_linked = binom_logpmf(n_g1, total_g1, p_sex) + binom_logpmf(n_g2, total_g2, 1.0 - p_sex);
+    let ll_null = binom_logpmf(n_g1, total_g1, 0.5) + binom_logpmf(n_g2, total_g2, 0.5);
 
     let log_odds = ll_linked - ll_null + (pi / (1.0 - pi)).ln();
 
@@ -381,9 +392,7 @@ fn binom_logpmf(k: u32, n: u32, p: f64) -> f64 {
         }
         return f64::NEG_INFINITY;
     }
-    lfact(n) - lfact(k) - lfact(n - k)
-        + k as f64 * p.ln()
-        + (n - k) as f64 * (1.0 - p).ln()
+    lfact(n) - lfact(k) - lfact(n - k) + k as f64 * p.ln() + (n - k) as f64 * (1.0 - p).ln()
 }
 
 /// Empirical Bayes EM: estimate pi (fraction of sex-linked markers) from data.
@@ -594,13 +603,19 @@ mod tests {
     #[test]
     fn test_g_test_no_association() {
         let p = g_test(5, 5, 10, 10);
-        assert!(p > 0.05, "equal distribution should not be significant: p={p}");
+        assert!(
+            p > 0.05,
+            "equal distribution should not be significant: p={p}"
+        );
     }
 
     #[test]
     fn test_g_test_strong_association() {
         let p = g_test(10, 0, 10, 10);
-        assert!(p < 0.01, "all-male marker should be highly significant: p={p}");
+        assert!(
+            p < 0.01,
+            "all-male marker should be highly significant: p={p}"
+        );
     }
 
     // === Fisher's exact ===
@@ -666,28 +681,45 @@ mod tests {
     #[test]
     fn test_posterior_strong_signal() {
         let post = posterior_sex_linked(10, 0, 10, 10, 0.01, 0.9);
-        assert!(post > 0.9, "strong signal should have high posterior: {post}");
+        assert!(
+            post > 0.9,
+            "strong signal should have high posterior: {post}"
+        );
     }
 
     #[test]
     fn test_posterior_no_signal() {
         let post = posterior_sex_linked(5, 5, 10, 10, 0.01, 0.9);
-        assert!(post < 0.1, "equal distribution should have low posterior: {post}");
+        assert!(
+            post < 0.1,
+            "equal distribution should have low posterior: {post}"
+        );
     }
 
     // === Empirical Bayes EM ===
     #[test]
     fn test_em_convergence() {
         let counts = vec![
-            (10, 0), (9, 1), (10, 0), // sex-linked
-            (5, 5), (4, 6), (6, 4), (5, 5), (5, 5), (5, 5), (5, 5), // null
+            (10, 0),
+            (9, 1),
+            (10, 0), // sex-linked
+            (5, 5),
+            (4, 6),
+            (6, 4),
+            (5, 5),
+            (5, 5),
+            (5, 5),
+            (5, 5), // null
         ];
         let (pi, posteriors) = empirical_bayes_em(&counts, 10, 10, 0.9, 50);
         assert!(pi > 0.0 && pi < 1.0, "pi should converge: {pi}");
         // Sex-linked markers should have higher posteriors
         let avg_linked: f64 = posteriors[..3].iter().sum::<f64>() / 3.0;
         let avg_null: f64 = posteriors[3..].iter().sum::<f64>() / 7.0;
-        assert!(avg_linked > avg_null, "linked={avg_linked} should > null={avg_null}");
+        assert!(
+            avg_linked > avg_null,
+            "linked={avg_linked} should > null={avg_null}"
+        );
     }
 
     // === Logistic regression ===
@@ -696,9 +728,7 @@ mod tests {
         // Simple separable data: 4 samples, 1 predictor
         let x = vec![
             1.0, -2.0, // intercept, x for sample 0
-            1.0, -1.0,
-            1.0,  1.0,
-            1.0,  2.0,
+            1.0, -1.0, 1.0, 1.0, 1.0, 2.0,
         ];
         let y = vec![0.0, 0.0, 1.0, 1.0];
         let beta = logistic_regression(&x, &y, 4, 2, 50);

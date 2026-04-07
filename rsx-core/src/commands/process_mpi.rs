@@ -70,10 +70,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
             .collect()
     };
 
-    log::info!(
-        "MPI rank {rank}: processing {} files",
-        my_files.len()
-    );
+    log::info!("MPI rank {rank}: processing {} files", my_files.len());
 
     // Process local files with rayon
     #[cfg(feature = "parallel")]
@@ -86,20 +83,14 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
 
         my_files
             .par_iter()
-            .filter_map(|f| {
-                match count_sequences(&f.path) {
-                    Ok(counts) => {
-                        log::info!(
-                            "MPI rank {}: finished {}",
-                            rank,
-                            f.individual_name
-                        );
-                        Some((f.individual_name.clone(), counts))
-                    }
-                    Err(e) => {
-                        log::error!("MPI rank {}: error {}: {e}", rank, f.path.display());
-                        None
-                    }
+            .filter_map(|f| match count_sequences(&f.path) {
+                Ok(counts) => {
+                    log::info!("MPI rank {}: finished {}", rank, f.individual_name);
+                    Some((f.individual_name.clone(), counts))
+                }
+                Err(e) => {
+                    log::error!("MPI rank {}: error {}: {e}", rank, f.path.display());
+                    None
                 }
             })
             .collect()
@@ -108,13 +99,11 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
     #[cfg(not(feature = "parallel"))]
     let local_results: Vec<(String, ahash::AHashMap<Vec<u8>, u16>)> = my_files
         .iter()
-        .filter_map(|f| {
-            match count_sequences(&f.path) {
-                Ok(counts) => Some((f.individual_name.clone(), counts)),
-                Err(e) => {
-                    log::error!("MPI rank {}: error {}: {e}", rank, f.path.display());
-                    None
-                }
+        .filter_map(|f| match count_sequences(&f.path) {
+            Ok(counts) => Some((f.individual_name.clone(), counts)),
+            Err(e) => {
+                log::error!("MPI rank {}: error {}: {e}", rank, f.path.display());
+                None
             }
         })
         .collect();
@@ -138,7 +127,9 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
     // Gather sizes to rank 0
     let all_sizes = if rank == 0 {
         let mut sizes = vec![0i32; size];
-        world.process_at_rank(0).gather_into_root(&local_len, &mut sizes);
+        world
+            .process_at_rank(0)
+            .gather_into_root(&local_len, &mut sizes);
         sizes
     } else {
         world.process_at_rank(0).gather_into(&local_len);
@@ -194,8 +185,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
         }
 
         // Write output
-        let mut output =
-            std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
+        let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
         writeln!(output, "#Number of markers : {}", global.len())?;
         write!(output, "id\tsequence")?;
         for f in &all_files_sorted {
@@ -226,18 +216,14 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
             elapsed.as_secs() % 60
         );
     } else {
-        world
-            .process_at_rank(0)
-            .gather_varcount_into(&local_bytes);
+        world.process_at_rank(0).gather_varcount_into(&local_bytes);
     }
 
     Ok(())
 }
 
 #[cfg(feature = "mpi")]
-fn serialize_counts(
-    counts: &ahash::AHashMap<Vec<u8>, Vec<(String, u16)>>,
-) -> Vec<u8> {
+fn serialize_counts(counts: &ahash::AHashMap<Vec<u8>, Vec<(String, u16)>>) -> Vec<u8> {
     let mut buf = Vec::new();
     for (seq, entries) in counts {
         buf.extend_from_slice(&(seq.len() as u32).to_le_bytes());

@@ -305,7 +305,9 @@ fn handle_field(marker: &mut Marker, temp: &[u8], field_n: usize, min_depth: u16
         }
         1 => {
             marker.sequence.clear();
-            marker.sequence.push_str(std::str::from_utf8(temp).unwrap_or(""));
+            marker
+                .sequence
+                .push_str(std::str::from_utf8(temp).unwrap_or(""));
         }
         _ => {
             let depth = fast_parse_u16(temp);

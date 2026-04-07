@@ -3,7 +3,7 @@
 
 //! C-compatible wrappers for RADSex commands.
 
-use crate::status::{rsx_status_t, catch_unwind, set_last_error};
+use crate::status::{catch_unwind, rsx_status_t, set_last_error};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 

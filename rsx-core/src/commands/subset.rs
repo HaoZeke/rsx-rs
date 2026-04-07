@@ -56,7 +56,14 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream1 = MarkersTableStream::open(table_path, Some(&popmap), config1)?;
     let n_markers = stream1.count_markers()?;
 
-    let effective_n_markers = if matches!(params.correction, crate::test_method::CorrectionMethod::None) { 1u64 } else { n_markers };
+    let effective_n_markers = if matches!(
+        params.correction,
+        crate::test_method::CorrectionMethod::None
+    ) {
+        1u64
+    } else {
+        n_markers
+    };
 
     // Pass 2: filter and write directly
     log::info!("subset pass 2: filtering and writing");
@@ -69,23 +76,38 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     let header_columns = stream2.header.columns.clone();
 
     let mask_g1 = GroupMask::from_columns(
-        &stream2.groups, &groups.group1, stream2.header.n_individuals,
+        &stream2.groups,
+        &groups.group1,
+        stream2.header.n_individuals,
     );
     let mask_g2 = GroupMask::from_columns(
-        &stream2.groups, &groups.group2, stream2.header.n_individuals,
+        &stream2.groups,
+        &groups.group2,
+        stream2.header.n_individuals,
     );
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 
     if !params.output_fasta {
-        writeln!(output,
+        writeln!(
+            output,
             "#source:rsx-subset;min_depth:{};filters:{}=[{},{}],{}=[{},{}],individuals=[{},{}];signif_threshold:{};bonferroni:{};n_markers:{}",
             params.min_depth,
-            groups.group1, params.min_group1, params.max_group1,
-            groups.group2, params.min_group2, params.max_group2,
-            params.min_individuals, params.max_individuals,
+            groups.group1,
+            params.min_group1,
+            params.max_group1,
+            groups.group2,
+            params.min_group2,
+            params.max_group2,
+            params.min_individuals,
+            params.max_individuals,
             params.signif_threshold,
-            !matches!(params.correction, crate::test_method::CorrectionMethod::None), effective_n_markers)?;
+            !matches!(
+                params.correction,
+                crate::test_method::CorrectionMethod::None
+            ),
+            effective_n_markers
+        )?;
         writeln!(output, "{}", header_columns.join("\t"))?;
     }
 
@@ -99,8 +121,10 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
             let g1 = marker.presence.count_masked(&mask_g1);
             let g2 = marker.presence.count_masked(&mask_g2);
 
-            if g1 >= params.min_group1 && g1 <= params.max_group1
-                && g2 >= params.min_group2 && g2 <= params.max_group2
+            if g1 >= params.min_group1
+                && g1 <= params.max_group1
+                && g2 >= params.min_group2
+                && g2 <= params.max_group2
                 && marker.n_individuals >= params.min_individuals
                 && marker.n_individuals <= params.max_individuals
             {
@@ -111,7 +135,11 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
                     let mut m = marker.clone();
                     m.p = p;
                     m.p_corrected = p_corr;
-                    let _ = m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+                    let _ = m.write_as_fasta_bitset(
+                        &mut output,
+                        params.min_depth as u32,
+                        &fasta_groups,
+                    );
                 } else {
                     let _ = marker.write_as_table(&mut output);
                 }

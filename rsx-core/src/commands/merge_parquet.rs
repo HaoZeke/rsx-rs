@@ -57,14 +57,16 @@ pub fn write_parquet(
     const BATCH_SIZE: usize = 100_000;
     let mut ids: Vec<u64> = Vec::with_capacity(BATCH_SIZE);
     let mut seqs: Vec<String> = Vec::with_capacity(BATCH_SIZE);
-    let mut depth_cols: Vec<Vec<Option<u16>>> =
-        (0..n_samples).map(|_| Vec::with_capacity(BATCH_SIZE)).collect();
+    let mut depth_cols: Vec<Vec<Option<u16>>> = (0..n_samples)
+        .map(|_| Vec::with_capacity(BATCH_SIZE))
+        .collect();
 
     let flush = |writer: &mut ArrowWriter<std::fs::File>,
-                     ids: &mut Vec<u64>,
-                     seqs: &mut Vec<String>,
-                     depth_cols: &mut Vec<Vec<Option<u16>>>,
-                     schema: &Arc<Schema>| -> Result<(), Box<dyn std::error::Error>> {
+                 ids: &mut Vec<u64>,
+                 seqs: &mut Vec<String>,
+                 depth_cols: &mut Vec<Vec<Option<u16>>>,
+                 schema: &Arc<Schema>|
+     -> Result<(), Box<dyn std::error::Error>> {
         if ids.is_empty() {
             return Ok(());
         }

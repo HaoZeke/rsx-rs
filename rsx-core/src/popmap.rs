@@ -87,7 +87,8 @@ impl Popmap {
         {
             return Err(format!(
                 "Groups specified with --groups (\"{}\", \"{}\") were not found in popmap groups ({})",
-                config.group1, config.group2,
+                config.group1,
+                config.group2,
                 self.print_groups(false)
             ));
         }

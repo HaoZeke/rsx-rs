@@ -9,9 +9,9 @@
 
 pub mod bitset;
 pub mod c_api;
-pub mod kmer;
 pub mod commands;
 pub mod io;
+pub mod kmer;
 pub mod marker;
 pub mod markers_table;
 pub mod popmap;
