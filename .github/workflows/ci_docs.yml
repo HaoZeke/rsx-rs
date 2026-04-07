@@ -27,8 +27,13 @@ jobs:
       - name: Convert org to rst
         run: pixi run -e docs mkrst
 
+      - name: Install sphinx-rustdocgen
+        run: pixi run -e docs setup-rustdocgen
+
       - name: Build docs
-        run: pixi run -e docs sphinx-build docs/source docs/build -b html
+        run: |
+          mkdir -p docs/source/_static
+          pixi run -e docs sphinx-build docs/source docs/build -b html
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
