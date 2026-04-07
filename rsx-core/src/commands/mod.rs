@@ -10,6 +10,7 @@ pub mod freq;
 pub mod map;
 pub mod merge;
 pub mod merge_parquet;
+pub mod pca;
 pub mod process;
 pub mod process_mpi;
 pub mod signif;

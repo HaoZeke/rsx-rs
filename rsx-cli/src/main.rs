@@ -209,6 +209,22 @@ enum Commands {
         #[arg(long = "output-parquet")]
         output_parquet: bool,
     },
+
+    /// Streaming PCA of the depth matrix (Tucker mode-2 decomposition)
+    Pca {
+        /// Path to a marker depths table
+        #[arg(short = 't', long = "markers-table")]
+        markers_table: String,
+        /// Output directory for eigenvalues, loadings, summary
+        #[arg(short = 'o', long = "output-dir")]
+        output_dir: String,
+        /// Minimum depth to consider a marker present
+        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        min_depth: u16,
+        /// Number of principal components to output (default: all)
+        #[arg(short = 'r', long = "components")]
+        components: Option<usize>,
+    },
 }
 
 fn extract_groups(groups: &Option<Vec<String>>) -> (String, String) {
@@ -396,6 +412,18 @@ fn main() {
             buffer_size: Some(buffer_size),
             output_file_path: output_file,
             output_parquet,
+        }),
+
+        Commands::Pca {
+            markers_table,
+            output_dir,
+            min_depth,
+            components,
+        } => commands::pca::run(&commands::pca::PcaParams {
+            markers_table_path: markers_table,
+            output_dir,
+            min_depth,
+            n_components: components,
         }),
     };
 
