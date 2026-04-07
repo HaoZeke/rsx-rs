@@ -303,12 +303,23 @@ fn main() {
             popmap,
             output_file,
             min_frequency,
-        } => commands::depth::run(&commands::depth::DepthParams {
-            markers_table_path: markers_table,
-            popmap_file_path: popmap,
-            output_file_path: output_file,
-            min_frequency,
-        }),
+        } => {
+            // Auto-detect streaming: use external sort for files > 2GB
+            let file_size = std::fs::metadata(&markers_table)
+                .map(|m| m.len())
+                .unwrap_or(0);
+            let streaming = file_size > 2_000_000_000;
+            if streaming {
+                log::info!("Large file ({}GB), using streaming mode", file_size / 1_000_000_000);
+            }
+            commands::depth::run(&commands::depth::DepthParams {
+                markers_table_path: markers_table,
+                popmap_file_path: popmap,
+                output_file_path: output_file,
+                min_frequency,
+                streaming,
+            })
+        }
 
         #[cfg(feature = "map")]
         Commands::Map {

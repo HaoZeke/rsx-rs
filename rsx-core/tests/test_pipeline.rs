@@ -113,6 +113,7 @@ fn test_depth_command() {
         popmap_file_path: popmap.to_str().unwrap().to_string(),
         output_file_path: output.to_str().unwrap().to_string(),
         min_frequency: 0.5,
+        streaming: false,
     })
     .unwrap();
 
