@@ -1,0 +1,16 @@
+[package]
+name = "pyrsx"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+description = "Python bindings for rsx: RAD-seq sex determination toolkit"
+repository = "https://github.com/HaoZeke/rsx-rs"
+
+[lib]
+name = "pyrsx"
+crate-type = ["cdylib"]
+
+[dependencies]
+rsx-core = { path = "../rsx-core", features = ["parallel"] }
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }

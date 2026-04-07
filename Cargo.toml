@@ -1,5 +1,5 @@
 [workspace]
-members = ["rsx-core", "rsx-cli"]
+members = ["rsx-core", "rsx-cli", "rsx-python"]
 resolver = "2"
 
 [profile.release]
