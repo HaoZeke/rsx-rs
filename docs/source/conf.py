@@ -8,6 +8,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinxcontrib_rust",
     "sphinx_rustdoc_postprocess",
+    "sphinx_click",
 ]
 
 templates_path = ["_templates"]

@@ -1,11 +1,13 @@
-"""Tests for pyrsx Python bindings."""
+"""Tests for pyrsx Python bindings and CLI."""
 
 import os
 import tempfile
 
 import pytest
+from click.testing import CliRunner
 
 import pyrsx
+from pyrsx.cli import main
 
 
 @pytest.fixture
@@ -172,3 +174,55 @@ def test_invalid_correction(test_data):
             test_data["table"], test_data["popmap"], out,
             correction="invalid_corr"
         )
+
+
+# === CLI tests ===
+
+def test_cli_help():
+    """CLI --help should show all commands."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--help"])
+    assert result.exit_code == 0
+    assert "process" in result.output
+    assert "signif" in result.output
+    assert "pca" in result.output
+    assert "merge" in result.output
+
+
+def test_cli_freq(test_data):
+    """CLI freq command should work."""
+    runner = CliRunner()
+    out = os.path.join(test_data["tmp"], "cli_freq.tsv")
+    result = runner.invoke(main, [
+        "freq", "-t", test_data["table"], "-o", out, "-d", "1",
+    ])
+    assert result.exit_code == 0, result.output
+    assert os.path.exists(out)
+
+
+def test_cli_signif_bayes(test_data):
+    """CLI signif with --bayes and --test fisher."""
+    runner = CliRunner()
+    out = os.path.join(test_data["tmp"], "cli_signif.tsv")
+    result = runner.invoke(main, [
+        "signif",
+        "-t", test_data["table"],
+        "-p", test_data["popmap"],
+        "-o", out,
+        "--correction", "none",
+        "--test", "fisher",
+        "--bayes",
+    ])
+    assert result.exit_code == 0, result.output
+    assert os.path.exists(out)
+
+
+def test_cli_pca(test_data):
+    """CLI pca command."""
+    runner = CliRunner()
+    out_dir = os.path.join(test_data["tmp"], "cli_pca")
+    result = runner.invoke(main, [
+        "pca", "-t", test_data["table"], "-o", out_dir, "-r", "3",
+    ])
+    assert result.exit_code == 0, result.output
+    assert os.path.exists(os.path.join(out_dir, "eigenvalues.tsv"))

@@ -33,3 +33,6 @@ benchmarks/data/*/*.sa
 .claude/
 CLAUDE.md
 .project-ctx.toml
+*.so
+*.dylib
+*.pyd

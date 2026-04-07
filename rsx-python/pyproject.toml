@@ -10,6 +10,7 @@ readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 authors = [{name = "Rohit Goswami", email = "rgoswami@ieee.org"}]
 requires-python = ">=3.9"
+dependencies = ["click>=8"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -24,5 +25,9 @@ Homepage = "https://github.com/HaoZeke/rsx-rs"
 Repository = "https://github.com/HaoZeke/rsx-rs"
 Documentation = "https://github.com/HaoZeke/rsx-rs/tree/main/docs"
 
+[project.scripts]
+pyrsx = "pyrsx.cli:main"
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
+python-source = "python"

@@ -29,6 +29,7 @@ pandoc = ">=3.1,<4"
 shibuya = ">=2026.1.9, <2027"
 sphinxcontrib-rust = ">=1.0.0, <2"
 sphinx-rustdoc-postprocess = ">=0.1.0, <0.2"
+sphinx-click = ">=6.0"
 
 [feature.docs.tasks]
 setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen", description = "Install sphinx-rustdocgen for Rust API docs" }
