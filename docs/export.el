@@ -13,8 +13,9 @@
 
 (defun radsex-export-all ()
   "Export all orgmode files under docs/orgmode/ to RST under docs/source/."
-  (let ((org-dir (expand-file-name "orgmode" default-directory))
-        (rst-dir (expand-file-name "source" default-directory)))
+  (let* ((script-dir (file-name-directory (or load-file-name buffer-file-name)))
+         (org-dir (expand-file-name "orgmode" script-dir))
+         (rst-dir (expand-file-name "source" script-dir)))
     (dolist (org-file (directory-files-recursively org-dir "\\.org$"))
       (let* ((relative (file-relative-name org-file org-dir))
              (rst-file (expand-file-name
