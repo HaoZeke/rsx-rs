@@ -179,9 +179,18 @@ Output files:
 - =summary.txt=: total variance, top components
 
 Use cases:
-- *Sex signal detection*: PC1 separates M/F if sex-linked markers exist
+- *Sex signal detection*: tests whether PC1 separates M/F. On ChromSex
+  RAD-seq data, the answer is no -- sex-linked markers are only 0.03% of
+  the depth matrix, drowned by library size and population effects.
+  This negative finding justifies targeted methods (FST, chi-squared).
 - *Sample QC*: outlier individuals on PC2-3 indicate sequencing problems
-- *Population structure*: loadings reveal confounding with sex signal
+  or batch effects.
+- *Population structure*: on combined multi-population tables, PC1
+  separates populations, not sexes. Confirms per-population analysis
+  is the correct design for sex detection.
+- *Rank estimation*: eigenvalue spectrum reveals effective dimensionality.
+  For RAD-seq depth data, typically 3-5 components explain > 90% of
+  variance (low-rank, driven by restriction site conservation patterns).
 
 See =scripts/sympy/tucker_covariance_proof.py= for the mathematical
 proof that this gives exact Tucker mode-2 factors.

@@ -170,6 +170,12 @@ This is mathematically exact (not an approximation):
 
 Proof: =scripts/sympy/tucker_covariance_proof.py=
 
+On ChromSex data (5 BT populations, 147 individuals, 467K markers):
+- PC1 separates populations, not sexes
+- Sex signal (122/467K = 0.03% of markers) is invisible in unsupervised PCA
+- 3 components explain 92% of variance (low effective rank)
+- This negative finding justifies targeted chi-squared/FST approaches
+
 ** Precision validation
 
 Formal analyses showing mathematical equivalences:
