@@ -7,9 +7,12 @@
 //! sequencing error variants. Reduces the number of markers tested,
 //! increasing statistical power for sex detection.
 
-/// Compute canonical k-mer hash for a DNA sequence.
+/// Compute canonical k-mer hash for a DNA sequence (min-hash over windows).
 /// Canonical = lexicographically smallest of {kmer, revcomp(kmer)}.
-/// Returns a u64 hash of the canonical k-mer set for grouping.
+/// The representative for a sequence is the *minimum* hash among its k-mers.
+/// This is an LSH heuristic for grouping similar sequences (e.g. sequencing errors);
+/// it is *not* guaranteed that two sequences differing by one base will share a group
+/// (see test_group_single_base_error). Use for approximate collapse only.
 pub fn canonical_kmer_hash(seq: &[u8], k: usize) -> u64 {
     if seq.len() < k {
         return hash_bytes(seq);

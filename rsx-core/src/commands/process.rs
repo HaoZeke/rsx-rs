@@ -17,8 +17,9 @@ pub struct ProcessParams {
     pub output_file_path: String,
     pub n_threads: u32,
     pub min_depth: u16,
-    /// If set, group markers by canonical k-mer of this size before output.
-    /// Collapses sequencing error variants. Optional (default: disabled).
+    /// If set, group markers by min-hash of canonical k-mers of this size.
+    /// Heuristic (not exact) collapse of sequencing error variants.
+    /// Optional (default: disabled). See kmer.rs docs for limitations.
     pub kmer_dedup: Option<usize>,
 }
 
