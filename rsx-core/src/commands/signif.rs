@@ -11,7 +11,7 @@ use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
-use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
+use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
 use std::io::Write;
 use std::path::Path;
 

@@ -624,7 +624,10 @@ mod tests {
         let ns = tg1 as f64;
         let nf = tg2 as f64;
         let expected = n * y * y / (ns * nf * na * nb);
-        assert!((chi - expected).abs() < 1e-4, "chi2 mismatch: {chi} vs {expected}");
+        assert!(
+            (chi - expected).abs() < 1e-4,
+            "chi2 mismatch: {chi} vs {expected}"
+        );
     }
 
     #[test]
@@ -699,8 +702,14 @@ mod tests {
         // Strong association with enough tables that naive exp() sum would underflow many terms.
         // With logsumexp the p should still be correctly tiny but > 1e-16.
         let p = fisher_exact(20, 0, 25, 25);
-        assert!(p > 0.0 && p < 1e-6, "strong signal should give very small p, got {p}");
-        assert!(p >= 1e-16, "p should not underflow to the floor incorrectly");
+        assert!(
+            p > 0.0 && p < 1e-6,
+            "strong signal should give very small p, got {p}"
+        );
+        assert!(
+            p >= 1e-16,
+            "p should not underflow to the floor incorrectly"
+        );
     }
 
     // === Benjamini-Hochberg ===
