@@ -131,9 +131,8 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     if matches!(params.correction, CorrectionMethod::Fdr) {
         // Collect all p-values and marker data
         let mut p_values: Vec<f64> = Vec::new();
-        // Store marker data for FDR output. Includes original id (critical for correct TSV).
-        // Note: full materialization of all rows is required for BH ranking before any output;
-        // only the passing markers' data stays hot in RAM after the q filter in practice for typical data.
+        // Store marker data for FDR output, including the original id for TSV identity.
+        // BH ranking requires p-values and row data for the full table.
         struct FdrEntry {
             id: String,
             seq: Vec<u8>,

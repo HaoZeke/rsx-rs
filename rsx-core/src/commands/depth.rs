@@ -4,7 +4,7 @@
 //! `depth` command: compute retained read statistics per individual.
 //!
 //! Two modes:
-//! - Default: exact median via in-memory accumulation (original behavior)
+//! - Default: exact median via in-memory accumulation
 //! - Streaming (--streaming): exact median via external sort of
 //!   (individual, depth) pairs. O(buffer_size) memory.
 
@@ -32,7 +32,7 @@ pub fn run(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-/// Exact mode: accumulates depth vectors for exact median (original behavior).
+/// Exact mode: accumulates depth vectors for exact median.
 /// Works for tables that fit in RAM.
 fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
@@ -278,7 +278,7 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         let individual_name = &header_cols[i + 2];
         let group = popmap.get_group(individual_name).unwrap_or("");
         let avg = ind_sum[i].checked_div(ind_total[i]).unwrap_or(0);
-        // Fix min for individuals where all retained depths are zero
+        // All-zero retained depths have zero as their minimum.
         let min_d = if ind_nonzero[i] == 0 { 0 } else { ind_min[i] };
         // If any zeros exist and min_nonzero > 0, the true min is 0
         let min_d = if ind_total[i] > ind_nonzero[i] {
