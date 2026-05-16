@@ -13,6 +13,14 @@ pixi.lock
 # Build artifacts
 /rsx-core/include/rsx.h
 
+# Generated documentation
+/docs/build/
+/docs/_build/
+/docs/source/index.rst
+/docs/source/howto/
+/docs/source/reference/
+/docs/source/tutorials/
+
 # IDE
 .vscode/
 .idea/
