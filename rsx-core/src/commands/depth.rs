@@ -40,6 +40,7 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let config = ParserConfig {
         store_sequence: false,
+        store_depths: true,
         compute_groups: false,
         min_depth: 1,
     };
@@ -117,6 +118,7 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
 
     let config = ParserConfig {
         store_sequence: false,
+        store_depths: true,
         compute_groups: false,
         min_depth: 1,
     };

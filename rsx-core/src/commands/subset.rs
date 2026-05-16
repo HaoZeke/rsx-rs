@@ -50,6 +50,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("subset pass 1: counting markers");
     let config1 = ParserConfig {
         store_sequence: false,
+        store_depths: false,
         compute_groups: true,
         min_depth: params.min_depth,
     };
@@ -69,6 +70,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("subset pass 2: filtering and writing");
     let config2 = ParserConfig {
         store_sequence: true,
+        store_depths: true,
         compute_groups: true,
         min_depth: params.min_depth,
     };

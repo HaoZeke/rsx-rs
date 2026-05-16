@@ -19,6 +19,7 @@ pub fn run(params: &FreqParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let config = ParserConfig {
         store_sequence: false,
+        store_depths: false,
         compute_groups: false,
         min_depth: params.min_depth,
     };

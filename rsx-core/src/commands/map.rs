@@ -82,6 +82,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("map pass 1: counting markers");
     let config1 = ParserConfig {
         store_sequence: false,
+        store_depths: false,
         compute_groups: true,
         min_depth: params.min_depth,
     };
@@ -118,6 +119,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("map pass 2: aligning and writing");
     let config2 = ParserConfig {
         store_sequence: true,
+        store_depths: false,
         compute_groups: true,
         min_depth: params.min_depth,
     };

@@ -30,6 +30,7 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let config = ParserConfig {
         store_sequence: false,
+        store_depths: true,
         compute_groups: false,
         min_depth: params.min_depth,
     };

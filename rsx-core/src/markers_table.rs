@@ -19,6 +19,7 @@ use std::path::Path;
 /// Configuration for the markers table parser.
 pub struct ParserConfig {
     pub store_sequence: bool,
+    pub store_depths: bool,
     pub compute_groups: bool,
     pub min_depth: u16,
 }
@@ -27,6 +28,7 @@ impl Default for ParserConfig {
     fn default() -> Self {
         ParserConfig {
             store_sequence: true,
+            store_depths: true,
             compute_groups: true,
             min_depth: 1,
         }
@@ -117,7 +119,7 @@ impl MarkersTableStream {
             return Ok(());
         }
 
-        if !self.config.store_sequence && self.config.min_depth <= 1 {
+        if !self.config.store_sequence && !self.config.store_depths && self.config.min_depth <= 1 {
             // FAST PATH: skip id+seq, threshold=1 means just check != "0"
             self.for_each_fast_d1(data, &mut f);
         } else if !self.config.store_sequence {
@@ -131,7 +133,7 @@ impl MarkersTableStream {
         Ok(())
     }
 
-    /// Fast path: min_depth=1, no sequence needed.
+    /// Fast path: min_depth=1, no sequence or depth values needed.
     /// Skip id+seq fields. Check "0" vs non-"0" without integer parse.
     #[inline]
     fn for_each_fast_d1<F>(&self, data: &[u8], f: &mut F)
@@ -229,7 +231,9 @@ impl MarkersTableStream {
                 let depth = fast_parse_u16(field);
 
                 if col < self.n_individuals as usize {
-                    marker.individual_depths[col] = depth;
+                    if self.config.store_depths {
+                        marker.individual_depths[col] = depth;
+                    }
                     if depth >= min_depth {
                         marker.presence.set(col);
                         marker.n_individuals += 1;
@@ -259,13 +263,25 @@ impl MarkersTableStream {
         for &byte in data {
             match byte {
                 b'\t' => {
-                    handle_field(&mut marker, &temp, field_n, min_depth);
+                    handle_field(
+                        &mut marker,
+                        &temp,
+                        field_n,
+                        min_depth,
+                        self.config.store_depths,
+                    );
                     temp.clear();
                     field_n += 1;
                 }
                 b'\n' => {
                     if field_n >= 2 {
-                        handle_field(&mut marker, &temp, field_n, min_depth);
+                        handle_field(
+                            &mut marker,
+                            &temp,
+                            field_n,
+                            min_depth,
+                            self.config.store_depths,
+                        );
                     }
                     temp.clear();
                     field_n = 0;
@@ -280,7 +296,13 @@ impl MarkersTableStream {
         }
 
         if field_n >= 2 {
-            handle_field(&mut marker, &temp, field_n, min_depth);
+            handle_field(
+                &mut marker,
+                &temp,
+                field_n,
+                min_depth,
+                self.config.store_depths,
+            );
             f(&marker);
         }
     }
@@ -297,7 +319,13 @@ impl MarkersTableStream {
 }
 
 #[inline(always)]
-fn handle_field(marker: &mut Marker, temp: &[u8], field_n: usize, min_depth: u16) {
+fn handle_field(
+    marker: &mut Marker,
+    temp: &[u8],
+    field_n: usize,
+    min_depth: u16,
+    store_depths: bool,
+) {
     match field_n {
         0 => {
             marker.id.clear();
@@ -313,7 +341,9 @@ fn handle_field(marker: &mut Marker, temp: &[u8], field_n: usize, min_depth: u16
             let depth = fast_parse_u16(temp);
             let idx = field_n - 2;
             if idx < marker.individual_depths.len() {
-                marker.individual_depths[idx] = depth;
+                if store_depths {
+                    marker.individual_depths[idx] = depth;
+                }
                 if depth >= min_depth {
                     marker.presence.set(idx);
                     marker.n_individuals += 1;

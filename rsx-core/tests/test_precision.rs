@@ -189,6 +189,7 @@ fn test_bitset_group_counts_consistent() {
 
         let config = ParserConfig {
             store_sequence: false,
+            store_depths: false,
             compute_groups: true,
             min_depth: 5,
         };

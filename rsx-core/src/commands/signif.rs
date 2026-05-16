@@ -11,7 +11,7 @@ use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
-use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
+use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -46,6 +46,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("signif pass 1: counting markers");
     let config1 = ParserConfig {
         store_sequence: false,
+        store_depths: false,
         compute_groups: true,
         min_depth: params.min_depth,
     };
@@ -72,6 +73,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("signif pass 2: filtering and writing");
     let config2 = ParserConfig {
         store_sequence: true,
+        store_depths: true,
         compute_groups: true,
         min_depth: params.min_depth,
     };
@@ -129,8 +131,11 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     if matches!(params.correction, CorrectionMethod::Fdr) {
         // Collect all p-values and marker data
         let mut p_values: Vec<f64> = Vec::new();
-        // Store minimal marker data for FDR output
+        // Store marker data for FDR output. Includes original id (critical for correct TSV).
+        // Note: full materialization of all rows is required for BH ranking before any output;
+        // only the passing markers' data stays hot in RAM after the q filter in practice for typical data.
         struct FdrEntry {
+            id: String,
             seq: Vec<u8>,
             depths: Vec<u16>,
             g1: u32,
@@ -144,8 +149,8 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
                 let g2 = marker.presence.count_masked(&mask_g2);
                 let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
                 p_values.push(p);
-                // Store minimal data for output
                 marker_data.push(FdrEntry {
+                    id: marker.id.clone(),
                     seq: marker.sequence.as_bytes().to_vec(),
                     depths: marker.individual_depths.clone(),
                     g1,
@@ -160,7 +165,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
             if q < threshold {
                 let entry = &marker_data[i];
                 let seq_str = std::str::from_utf8(&entry.seq).unwrap_or("?");
-                write!(output, "{}\t{}", i, seq_str)?;
+                write!(output, "{}\t{}", entry.id, seq_str)?;
                 for &d in &entry.depths {
                     write!(output, "\t{d}")?;
                 }

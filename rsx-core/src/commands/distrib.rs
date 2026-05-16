@@ -8,7 +8,7 @@ use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
 use crate::stats::Cg;
-use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
+use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -42,6 +42,7 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let config = ParserConfig {
         store_sequence: false,
+        store_depths: false,
         compute_groups: true,
         min_depth: params.min_depth,
     };
