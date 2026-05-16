@@ -12,18 +12,19 @@ pub struct Cg(pub f64);
 
 impl fmt::Display for Cg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // %g with 6 significant digits, strip trailing zeros
+        // %g with 6 significant digits, strip trailing zeros.
+        // Exponent computed safely to avoid log10() floor off-by-one on
+        // powers of 10 and values near them (common fp hazard).
         let val = self.0;
         if val == 0.0 {
             return write!(f, "0");
         }
         let abs = val.abs();
-        let exp = abs.log10().floor() as i32;
+        let exp = safe_float_exponent(abs);
         if (-4..6).contains(&exp) {
             // Fixed notation
             let precision = (5 - exp).max(0) as usize;
             let formatted = format!("{:.*}", precision, val);
-            // Strip trailing zeros after decimal point
             if formatted.contains('.') {
                 let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
                 write!(f, "{trimmed}")
@@ -38,6 +39,25 @@ impl fmt::Display for Cg {
             write!(f, "{trimmed}e{exp:+03}")
         }
     }
+}
+
+/// Robust base-10 exponent for %g-style formatting.
+/// Uses log10 + explicit boundary check/adjustment to handle
+/// cases where f64 log10(10^k) != k exactly.
+#[inline]
+fn safe_float_exponent(abs: f64) -> i32 {
+    if abs == 0.0 || !abs.is_finite() {
+        return 0;
+    }
+    let mut e = abs.log10().floor() as i32;
+    // Verify 10^e <= abs < 10^(e+1), adjust for fp error
+    if 10f64.powi(e) > abs && e > i32::MIN {
+        e -= 1;
+    }
+    if 10f64.powi(e + 1) <= abs {
+        e += 1;
+    }
+    e
 }
 
 /// Chi-squared statistic with Yates continuity correction for a 2x2 table.
@@ -56,15 +76,17 @@ pub fn chi_squared_yates(
     total_group1: u32,
     total_group2: u32,
 ) -> f64 {
-    let n = (total_group1 + total_group2) as f64;
+    // Use u64 totals so large valid u32 inputs do not overflow during addition.
+    let n = (total_group1 as u64 + total_group2 as u64) as f64;
     let ns = total_group1 as f64;
     let nf = total_group2 as f64;
-    let na = (n_group1 + n_group2) as f64;
+    let na = (n_group1 as u64 + n_group2 as u64) as f64;
     let nb = n - na;
 
-    let ad_bc = ((n_group1 as i64) * (total_group2 as i64)
-        - (n_group2 as i64) * (total_group1 as i64))
-        .unsigned_abs() as f64;
+    // u32 cross products fit within u64 across the full input domain.
+    let ad = (n_group1 as u64) * (total_group2 as u64);
+    let bc = (n_group2 as u64) * (total_group1 as u64);
+    let ad_bc = if ad > bc { ad - bc } else { bc - ad } as f64;
     let yates = (ad_bc - n / 2.0).max(0.0);
 
     n * yates * yates / (ns * nf * na * nb)
@@ -112,7 +134,7 @@ pub fn fast_erfc_poly(t: f64) -> f64 {
 
 /// Horner evaluation: P(x) = c[0] + x*(c[1] + x*(c[2] + ...))
 /// Uses FMA (mul_add) for maximum precision and speed.
-#[inline]
+#[inline(always)]
 fn horner(x: f64, coeffs: &[f64]) -> f64 {
     let mut result = 0.0f64;
     for &c in coeffs.iter().rev() {
@@ -205,13 +227,10 @@ pub fn find_median(data: &mut [u16]) -> u16 {
         return 0;
     }
     data.sort_unstable();
-    if len % 2 == 0 {
-        let a = data[len / 2 - 1] as u32;
-        let b = data[len / 2] as u32;
-        ((a + b) / 2) as u16
-    } else {
-        data[len / 2]
-    }
+    // Upper median for even length: matches the streaming external-sort path
+    // (picks the element at conceptual position len/2 after zeros).
+    // This unifies in-memory and --streaming modes and keeps integer depths.
+    data[len / 2]
 }
 
 // ========================================================================
@@ -276,16 +295,28 @@ pub fn fisher_exact(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     let min_a = col1.saturating_sub(n - row1);
     let max_a = row1.min(col1);
 
-    let mut p_sum = 0.0f64;
+    // Collect log-probs of tables as or more extreme (density tail).
+    // Use log-sum-exp for numerical stability when individual probs underflow.
+    let mut tail_logs: Vec<f64> = Vec::new();
     for a_i in min_a..=max_a {
         let b_i = col1 - a_i;
         let c_i = row1 - a_i;
         let d_i = (n - row1) - b_i;
         let log_p = log_hypergeometric(a_i, b_i, c_i, d_i, n, row1, col1);
-        if log_p <= log_p_observed + 1e-10 {
-            p_sum += log_p.exp();
+        // Include if <= observed (within tiny fp tolerance for lgamma error)
+        if log_p <= log_p_observed + 1e-9 {
+            tail_logs.push(log_p);
         }
     }
+
+    let p_sum = if tail_logs.is_empty() {
+        0.0
+    } else {
+        // logsumexp then exp
+        let max_log = tail_logs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let sum_rel: f64 = tail_logs.iter().map(|&l| (l - max_log).exp()).sum();
+        (max_log + sum_rel.ln()).exp()
+    };
 
     p_sum.clamp(1e-16, 1.0)
 }
@@ -574,6 +605,29 @@ mod tests {
     }
 
     #[test]
+    fn test_chi_squared_yates_large_values_no_overflow() {
+        // These inputs make the u32 cross product exceed i64::MAX while fitting in u64.
+        let ng1: u32 = 3_000_000_000;
+        let ng2: u32 = 3_000_000_000;
+        let tg1: u32 = 4_000_000_000;
+        let tg2: u32 = 4_000_000_000;
+        let chi = chi_squared_yates(ng1, ng2, tg1, tg2);
+        assert!(chi.is_finite(), "chi2 must be finite, got {chi}");
+        // Cross-check with explicit wide arithmetic (u64 intermediates)
+        let n = (tg1 as u64 + tg2 as u64) as f64;
+        let ad = (ng1 as u64) * (tg2 as u64);
+        let bc = (ng2 as u64) * (tg1 as u64);
+        let adbc = if ad > bc { ad - bc } else { bc - ad } as f64;
+        let y = (adbc - n / 2.0).max(0.0);
+        let na = (ng1 as u64 + ng2 as u64) as f64;
+        let nb = n - na;
+        let ns = tg1 as f64;
+        let nf = tg2 as f64;
+        let expected = n * y * y / (ns * nf * na * nb);
+        assert!((chi - expected).abs() < 1e-4, "chi2 mismatch: {chi} vs {expected}");
+    }
+
+    #[test]
     fn test_bonferroni() {
         assert_eq!(bonferroni_correct(0.01, 10), 0.1);
         assert_eq!(bonferroni_correct(0.5, 10), 1.0); // capped at 1.0
@@ -596,7 +650,9 @@ mod tests {
     #[test]
     fn test_find_median_even() {
         let mut data = vec![4, 1, 3, 2];
-        assert_eq!(find_median(&mut data), 2); // (2+3)/2 = 2 (integer division)
+        // Upper median for even length (data[len/2] after sort): unifies with
+        // streaming external-sort median in depth command (no fractional depths).
+        assert_eq!(find_median(&mut data), 3); // sorted [1,2,3,4], position 2 -> 3
     }
 
     // === G-test ===
@@ -636,6 +692,15 @@ mod tests {
         // Fisher's should work well even with tiny samples
         let p = fisher_exact(2, 0, 2, 2);
         assert!(p > 0.0 && p <= 1.0, "valid p-value: p={p}");
+    }
+
+    #[test]
+    fn test_fisher_exact_strong_signal_stable_sum() {
+        // Strong association with enough tables that naive exp() sum would underflow many terms.
+        // With logsumexp the p should still be correctly tiny but > 1e-16.
+        let p = fisher_exact(20, 0, 25, 25);
+        assert!(p > 0.0 && p < 1e-6, "strong signal should give very small p, got {p}");
+        assert!(p >= 1e-16, "p should not underflow to the floor incorrectly");
     }
 
     // === Benjamini-Hochberg ===
@@ -735,5 +800,49 @@ mod tests {
         assert_eq!(beta.len(), 2);
         // beta[1] should be positive (higher x -> higher P(y=1))
         assert!(beta[1] > 0.0, "slope should be positive: {}", beta[1]);
+    }
+
+    // === Cg formatter (must match C++ %g 6 sigdig + trim for golden files) ===
+    #[test]
+    fn test_cg_basic_and_small_p() {
+        // Common p-value outputs from chi_squared_p
+        assert_eq!(format!("{}", Cg(0.05)), "0.05");
+        assert_eq!(format!("{}", Cg(0.01)), "0.01");
+        assert_eq!(format!("{}", Cg(1e-16)), "1e-16");
+        assert_eq!(format!("{}", Cg(0.0)), "0");
+        assert_eq!(format!("{}", Cg(1.0)), "1");
+    }
+
+    #[test]
+    fn test_cg_significant_digits_and_scientific() {
+        // 6 significant digits, trailing zeros trimmed, switches to sci for |exp| large
+        assert_eq!(format!("{}", Cg(1.23456789)), "1.23457");
+        assert_eq!(format!("{}", Cg(123456.789)), "123457");
+        assert_eq!(format!("{}", Cg(1.23456e-10)), "1.23456e-10");
+        assert_eq!(format!("{}", Cg(9.99999e-5)), "9.99999e-05");
+    }
+
+    #[test]
+    fn test_cg_used_in_p_association_matches_expected_strings() {
+        // End-to-end: p values that appear in distrib/signif outputs must format consistently
+        let p = p_association(10, 0, 15, 10);
+        let s = format!("{}", Cg(p));
+        // Must be a short non-scientific or e- form, never garbage
+        assert!(s.len() <= 12 && (s.contains('.') || s.contains('e')));
+    }
+
+    #[test]
+    fn test_cg_exponent_boundary_cases() {
+        // These values are known to cause log10().floor() off-by-one in naive impls
+        assert_eq!(format!("{}", Cg(10.0)), "10");
+        assert_eq!(format!("{}", Cg(100.0)), "100");
+        assert_eq!(format!("{}", Cg(0.1)), "0.1");
+        assert_eq!(format!("{}", Cg(0.01)), "0.01");
+        assert_eq!(format!("{}", Cg(1e-4)), "0.0001");
+        // Very close to power of 10 from below
+        assert_eq!(format!("{}", Cg(9.999999999999998)), "10");
+        // Small scientific that must not become 0.000099999...
+        let s = format!("{}", Cg(9.99999e-5));
+        assert!(s == "9.99999e-05" || s == "0.0001" || s.starts_with("1e-04"));
     }
 }

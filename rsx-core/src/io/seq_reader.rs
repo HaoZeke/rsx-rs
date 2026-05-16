@@ -76,8 +76,8 @@ pub fn get_input_files(dir: &Path) -> std::io::Result<Vec<InputFile>> {
 
 /// Pack a DNA sequence into 2-bit encoding: A=00, C=01, G=10, T=11.
 /// 4 bases per byte, big-endian within each byte.
-/// Returns (packed_bytes, original_length).
-#[inline]
+/// Returns the packed bytes.
+#[inline(always)]
 pub fn pack_2bit(seq: &[u8]) -> Vec<u8> {
     let n = seq.len();
     let packed_len = n.div_ceil(4);
@@ -100,7 +100,7 @@ pub fn pack_2bit(seq: &[u8]) -> Vec<u8> {
 }
 
 /// Unpack a 2-bit encoded DNA sequence back to ASCII.
-#[inline]
+#[inline(always)]
 pub fn unpack_2bit(packed: &[u8]) -> Vec<u8> {
     if packed.is_empty() {
         return Vec::new();
@@ -145,7 +145,7 @@ pub fn count_sequences(
         let seq = record.seq();
         let packed = pack_2bit(&seq);
         let entry = counts.entry(packed).or_insert(0);
-        *entry = entry.saturating_add(1);
+        *entry = entry.saturating_add(1); // already saturating; high-depth tags cap at 65535 per individual
     }
 
     Ok(counts)

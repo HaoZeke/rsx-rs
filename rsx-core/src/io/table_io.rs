@@ -56,11 +56,16 @@ impl TableHeader {
 }
 
 /// Fast integer parsing for non-negative integers (matching C++ `fast_stoi`).
-#[inline]
+/// Saturates at u16::MAX instead of wrapping, to avoid silent corruption on
+/// high-depth tags (>65535 reads of one RAD marker in one individual).
+#[inline(always)]
 pub fn fast_parse_u16(bytes: &[u8]) -> u16 {
     let mut val: u16 = 0;
     for &b in bytes {
-        val = val.wrapping_mul(10).wrapping_add((b - b'0') as u16);
+        if val > u16::MAX / 10 {
+            return u16::MAX;
+        }
+        val = val.saturating_mul(10).saturating_add((b - b'0') as u16);
     }
     val
 }
@@ -75,6 +80,9 @@ mod tests {
         assert_eq!(fast_parse_u16(b"0"), 0);
         assert_eq!(fast_parse_u16(b"42"), 42);
         assert_eq!(fast_parse_u16(b"65535"), 65535);
+        // Saturates instead of wrapping (prevents silent depth corruption)
+        assert_eq!(fast_parse_u16(b"65536"), u16::MAX);
+        assert_eq!(fast_parse_u16(b"999999"), u16::MAX);
     }
 
     #[test]

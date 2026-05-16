@@ -36,7 +36,7 @@ impl BitsetRow {
     }
 
     /// Count bits set in `self & mask` (group count via popcount).
-    #[inline]
+    #[inline(always)]
     pub fn count_masked(&self, mask: &GroupMask) -> u32 {
         debug_assert_eq!(self.words.len(), mask.words.len());
         let mut count = 0u32;
