@@ -122,6 +122,18 @@ fn test_depth_command() {
     // Check that all 5 individuals appear
     assert!(content.contains("ind1\tM"));
     assert!(content.contains("ind5\tF"));
+
+    let ind1 = content
+        .lines()
+        .find(|line| line.starts_with("ind1\t"))
+        .expect("ind1 depth row present");
+    let fields: Vec<&str> = ind1.split('\t').collect();
+    assert_eq!(fields[2], "30", "ind1 retained read count");
+    assert_eq!(fields[3], "3", "ind1 marker count");
+    assert_eq!(fields[4], "4", "ind1 retained marker count");
+    assert_eq!(fields[5], "0", "ind1 minimum retained depth");
+    assert_eq!(fields[6], "15", "ind1 maximum retained depth");
+    assert_eq!(fields[8], "7", "ind1 average retained depth");
 }
 
 #[test]
@@ -296,6 +308,34 @@ fn test_map_command() {
     let content = std::fs::read_to_string(&output).unwrap();
     assert!(content.contains("#source:rsx-map"));
     assert!(content.contains("Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif"));
+}
+
+#[test]
+fn test_pca_command_uses_depth_values() {
+    let dir = test_dir().join("pca");
+    std::fs::create_dir_all(&dir).unwrap();
+    let table = create_test_markers_table(&dir);
+    let output_dir = dir.join("pca_output");
+
+    rsx_core::commands::pca::run(&rsx_core::commands::pca::PcaParams {
+        markers_table_path: table.to_str().unwrap().to_string(),
+        output_dir: output_dir.to_str().unwrap().to_string(),
+        min_depth: 1,
+        n_components: Some(2),
+    })
+    .unwrap();
+
+    let summary = std::fs::read_to_string(output_dir.join("summary.txt")).unwrap();
+    let total_variance = summary
+        .lines()
+        .find_map(|line| line.strip_prefix("Total variance: "))
+        .expect("PCA summary contains total variance")
+        .parse::<f64>()
+        .unwrap();
+    assert!(
+        total_variance > 0.0,
+        "PCA total variance must reflect non-zero depth values"
+    );
 }
 
 #[test]
