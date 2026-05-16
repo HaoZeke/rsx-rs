@@ -86,7 +86,7 @@ pub fn chi_squared_yates(
     // u32 cross products fit within u64 across the full input domain.
     let ad = (n_group1 as u64) * (total_group2 as u64);
     let bc = (n_group2 as u64) * (total_group1 as u64);
-    let ad_bc = if ad > bc { ad - bc } else { bc - ad } as f64;
+    let ad_bc = ad.abs_diff(bc) as f64;
     let yates = (ad_bc - n / 2.0).max(0.0);
 
     n * yates * yates / (ns * nf * na * nb)
@@ -617,7 +617,7 @@ mod tests {
         let n = (tg1 as u64 + tg2 as u64) as f64;
         let ad = (ng1 as u64) * (tg2 as u64);
         let bc = (ng2 as u64) * (tg1 as u64);
-        let adbc = if ad > bc { ad - bc } else { bc - ad } as f64;
+        let adbc = ad.abs_diff(bc) as f64;
         let y = (adbc - n / 2.0).max(0.0);
         let na = (ng1 as u64 + ng2 as u64) as f64;
         let nb = n - na;
