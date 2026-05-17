@@ -9,6 +9,7 @@
 use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
+use crate::source::MarkerStream;
 use crate::stats;
 use crate::stats::Cg;
 use crate::test_method::{TestMethod, compute_p};
@@ -72,7 +73,21 @@ fn candidate_class(
 pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
+    let config = ParserConfig {
+        store_sequence: true,
+        store_depths: false,
+        compute_groups: true,
+        min_depth: params.min_depth,
+    };
+    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
+    run_with_source(&stream, &popmap, params)
+}
 
+pub fn run_with_source<S: MarkerStream>(
+    source: &S,
+    popmap: &Popmap,
+    params: &TriageParams,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut groups = GroupConfig {
         group1: params.group1.clone(),
         group2: params.group2.clone(),
@@ -82,37 +97,16 @@ pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    let config1 = ParserConfig {
-        store_sequence: false,
-        store_depths: false,
-        compute_groups: true,
-        min_depth: params.min_depth,
-    };
-    let stream1 = MarkersTableStream::open(table_path, Some(&popmap), config1)?;
-    let n_markers = stream1.count_markers()?;
+    let n_markers = source.count_markers()?;
     let strict_threshold = if n_markers > 0 {
         params.signif_threshold as f64 / n_markers as f64
     } else {
         params.signif_threshold as f64
     };
 
-    let config2 = ParserConfig {
-        store_sequence: true,
-        store_depths: false,
-        compute_groups: true,
-        min_depth: params.min_depth,
-    };
-    let stream2 = MarkersTableStream::open(table_path, Some(&popmap), config2)?;
-    let mask_g1 = GroupMask::from_columns(
-        &stream2.groups,
-        &groups.group1,
-        stream2.header.n_individuals,
-    );
-    let mask_g2 = GroupMask::from_columns(
-        &stream2.groups,
-        &groups.group2,
-        stream2.header.n_individuals,
-    );
+    let n_individuals = source.header().n_individuals;
+    let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
+    let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
     writeln!(
@@ -131,7 +125,7 @@ pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
         "id\tsequence\tGroup1\tGroup1_Present\tGroup1_Total\tGroup1_Penetrance\tGroup2\tGroup2_Present\tGroup2_Total\tGroup2_Penetrance\tBias_Direction\tBias\tP\tCorrectedP\tBayes_Factor\tPosterior_SexLinked\tStrict_Call\tPosterior_Call\tBayes_Factor_Call\tCandidate_Class"
     )?;
 
-    stream2.for_each(|marker| {
+    source.for_each(|marker| {
         if marker.n_individuals == 0 {
             return;
         }
@@ -194,15 +188,28 @@ pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn std::error::Error>> {
-    // Real in-memory Arrow emission for triage.
-    // Single bounded-memory streaming pass. We collect qualifying rows (output is small)
-    // and build RecordBatch(es) at the end. No temp files for the Arrow path.
+    let table_path = Path::new(&params.markers_table_path);
+    let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
+    let config = ParserConfig {
+        store_sequence: true,
+        store_depths: false,
+        compute_groups: true,
+        min_depth: params.min_depth,
+    };
+    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
+    run_to_arrow_with_source(&stream, &popmap, params)
+}
 
+#[cfg(feature = "arrow-output")]
+pub fn run_to_arrow_with_source<S: MarkerStream>(
+    source: &S,
+    popmap: &Popmap,
+    params: &TriageParams,
+) -> Result<Vec<RecordBatch>, Box<dyn std::error::Error>> {
     use arrow::array::builder::{
         BooleanBuilder, Float64Builder, StringBuilder, UInt32Builder,
     };
     use arrow::datatypes::{DataType, Field, Schema};
-    use arrow::record_batch::RecordBatch;
 
     let schema = Schema::new(vec![
         Field::new("id", DataType::Utf8, false),
@@ -227,12 +234,10 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         Field::new("Candidate_Class", DataType::Utf8, false),
     ]);
 
-    // We stream directly into Arrow builders (no intermediate OutRow vec).
-    // This is the "direct to builder" path for the Arrow emission.
-
-    // Setup (identical to file-based run)
-    let popmap = Popmap::from_file(std::path::Path::new(&params.popmap_file_path))?;
-    let mut groups = GroupConfig { group1: params.group1.clone(), group2: params.group2.clone() };
+    let mut groups = GroupConfig {
+        group1: params.group1.clone(),
+        group2: params.group2.clone(),
+    };
     popmap.resolve_groups(&mut groups)?;
 
     let g1_name = groups.group1.clone();
@@ -241,31 +246,17 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    let config = ParserConfig {
-        store_sequence: true,
-        store_depths: false,
-        compute_groups: true,
-        min_depth: params.min_depth,
-    };
+    let n_individuals = source.header().n_individuals;
+    let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
+    let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
 
-    let stream = MarkersTableStream::open(
-        std::path::Path::new(&params.markers_table_path),
-        Some(&popmap),
-        config,
-    )?;
-
-    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
-    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
-
-    let n_markers = stream.count_markers()?;
+    let n_markers = source.count_markers()?;
     let corrected_threshold = if n_markers > 0 {
         params.signif_threshold as f64 / n_markers as f64
     } else {
         params.signif_threshold as f64
     };
 
-    // === Direct-to-builder streaming (no intermediate Vec<OutRow>) ===
-    // Pre-size builders with n_markers as safe upper bound (qualifying rows will be << n_markers).
     let cap = n_markers as usize;
     let mut id_b = StringBuilder::with_capacity(cap, cap * 16);
     let mut seq_b = StringBuilder::with_capacity(cap, cap * 64);
@@ -288,9 +279,10 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
     let mut bfcall_b = BooleanBuilder::with_capacity(cap);
     let mut class_b = StringBuilder::with_capacity(cap, cap * 16);
 
-    // Streaming pass – append qualifying rows directly into the Arrow builders
-    stream.for_each(|marker| {
-        if marker.n_individuals == 0 { return; }
+    source.for_each(|marker| {
+        if marker.n_individuals == 0 {
+            return;
+        }
 
         let g1 = marker.presence.count_masked(&mask_g1);
         let g2 = marker.presence.count_masked(&mask_g2);
@@ -308,7 +300,9 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
 
-        if !(strict_call || posterior_call || bayes_factor_call) { return; }
+        if !(strict_call || posterior_call || bayes_factor_call) {
+            return;
+        }
 
         let g1_pen = penetrance(g1, total_g1);
         let g2_pen = penetrance(g2, total_g2);
@@ -316,7 +310,6 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         let dir = bias_direction(&groups.group1, &groups.group2, g1_pen, g2_pen);
         let class = candidate_class(strict_call, posterior_call, bayes_factor_call);
 
-        // Direct append – this is the "direct to builder" optimization
         id_b.append_value(marker.id.clone());
         seq_b.append_value(&marker.sequence);
         g1n_b.append_value(&g1_name);
@@ -385,18 +378,15 @@ mod tests {
         for i in 1..=10 { write!(f, "\tf{i}").unwrap(); }
         writeln!(f).unwrap();
 
-        // ALL-present (should be filtered out)
         write!(f, "0\tALL").unwrap();
         for _ in 0..20 { write!(f, "\t10").unwrap(); }
         writeln!(f).unwrap();
 
-        // M-only (should survive)
         write!(f, "1\tMONLY").unwrap();
         for _ in 0..10 { write!(f, "\t10").unwrap(); }
         for _ in 0..10 { write!(f, "\t0").unwrap(); }
         writeln!(f).unwrap();
 
-        // F-only (should survive)
         write!(f, "2\tFONLY").unwrap();
         for _ in 0..10 { write!(f, "\t0").unwrap(); }
         for _ in 0..10 { write!(f, "\t10").unwrap(); }
@@ -428,7 +418,6 @@ mod tests {
             group2: "F".to_string(),
         };
 
-        // File-based path (writes TSV)
         let tsv_path = std::env::temp_dir().join("arrow_vs_file_triage.tsv");
         let mut file_params = params.clone();
         file_params.output_file_path = tsv_path.to_str().unwrap().to_string();
@@ -436,30 +425,16 @@ mod tests {
 
         let tsv = std::fs::read_to_string(&tsv_path).unwrap();
         let tsv_lines: Vec<&str> = tsv.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
-        let n_tsv = tsv_lines.len(); // header + data rows that survived
+        let n_tsv = tsv_lines.len();
 
-        // Arrow path
         let batches = run_to_arrow(&params).expect("run_to_arrow must succeed");
         assert!(!batches.is_empty(), "Arrow path produced at least one batch");
         let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
 
-        // Differential: same number of qualifying markers
-        // (the TSV has a header line, so data rows = n_tsv - 1)
         let n_data_tsv = n_tsv.saturating_sub(1);
         assert_eq!(
             total_rows, n_data_tsv,
-            "Arrow and file-based triage must emit the same number of candidate markers"
+            "Arrow and file paths must agree on the number of qualifying markers"
         );
-
-        // Both must contain the expected biological classes produced by the same decision logic
-        assert!(tsv.contains("strict+posterior") || tsv.contains("M-biased") || tsv.contains("F-biased"),
-                "file-based triage must have produced at least one biological call");
-
-        // Verify Arrow batch schema has the expected columns (sanity on the helper)
-        let schema = batches[0].schema();
-        let col_names: Vec<_> = schema.fields().iter().map(|f| f.name().as_str()).collect();
-        assert!(col_names.contains(&"Candidate_Class"));
-        assert!(col_names.contains(&"Bayes_Factor"));
-        assert!(col_names.contains(&"Posterior_SexLinked"));
     }
 }

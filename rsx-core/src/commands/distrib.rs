@@ -6,6 +6,7 @@
 use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
+use crate::source::MarkerStream;
 use crate::stats;
 use crate::stats::Cg;
 use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
@@ -26,11 +27,27 @@ pub struct DistribParams {
     pub group2: String,
 }
 
-/// Run the `distrib` analysis.
+/// Run `distrib` against the on-disk markers TSV + popmap referenced by `params`.
 pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
 
+    let config = ParserConfig {
+        store_sequence: false,
+        store_depths: false,
+        compute_groups: true,
+        min_depth: params.min_depth,
+    };
+    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
+    run_with_source(&stream, &popmap, params)
+}
+
+/// Run `distrib` against any `MarkerStream`. Caller supplies the `Popmap`.
+pub fn run_with_source<S: MarkerStream>(
+    source: &S,
+    popmap: &Popmap,
+    params: &DistribParams,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut groups = GroupConfig {
         group1: params.group1.clone(),
         group2: params.group2.clone(),
@@ -40,26 +57,15 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    let config = ParserConfig {
-        store_sequence: false,
-        store_depths: false,
-        compute_groups: true,
-        min_depth: params.min_depth,
-    };
-
-    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
-
     let rows = (total_g1 + 1) as usize;
     let cols = (total_g2 + 1) as usize;
 
-    // Pre-compute group masks for popcount-based counting
-    let mask_g1 =
-        GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
-    let mask_g2 =
-        GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
+    let n_individuals = source.header().n_individuals;
+    let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
+    let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
 
     #[cfg(feature = "parallel")]
-    let (distribution, n_markers) = stream.par_fold_reduce(
+    let (distribution, n_markers) = source.par_fold_reduce(
         (vec![vec![0u64; cols]; rows], 0u64),
         |(dist, n), marker| {
             if marker.n_individuals > 0 {
@@ -85,7 +91,7 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut n_markers: u64 = 0;
 
     #[cfg(not(feature = "parallel"))]
-    stream.for_each(|marker| {
+    source.for_each(|marker| {
         if marker.n_individuals > 0 {
             let g1 = marker.presence.count_masked(&mask_g1) as usize;
             let g2 = marker.presence.count_masked(&mask_g2) as usize;

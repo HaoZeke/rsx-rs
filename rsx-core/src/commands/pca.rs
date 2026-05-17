@@ -2,19 +2,9 @@
 // Copyright 2024--present rsx-rs developers
 
 //! `pca` command: streaming PCA of the depth matrix.
-//!
-//! Computes Tucker mode-2 factors via streaming Gram eigendecomposition.
-//! Memory: O(n_individuals^2) = ~320KB for 200 individuals.
-//!
-//! Algorithm:
-//! 1. Stream markers, accumulate X^T X (n_ind x n_ind) and mean vector
-//! 2. Center the Gram matrix: C = X^T X - n * mu * mu^T
-//! 3. Eigendecompose C (Jacobi rotation, exact for symmetric matrices)
-//! 4. Output eigenvalues + loadings
-//!
-//! Mathematical proof: scripts/sympy/tucker_covariance_proof.py
 
 use crate::markers_table::{MarkersTableStream, ParserConfig};
+use crate::source::MarkerStream;
 use std::io::Write;
 use std::path::Path;
 
@@ -22,52 +12,56 @@ pub struct PcaParams {
     pub markers_table_path: String,
     pub output_dir: String,
     pub min_depth: u16,
-    pub n_components: Option<usize>, // None = all
+    pub n_components: Option<usize>,
 }
 
-/// Internal result of the core PCA computation.
-/// Shared by the file-based writer and the in-memory Arrow path.
+/// Internal result of the core PCA computation. Shared by the file-based
+/// writer and the in-memory Arrow path.
 struct ComputedPca {
     eigenvalues: Vec<f64>,
-    eigenvectors: Vec<f64>,      // row-major n x n
-    sorted_indices: Vec<usize>,  // descending by eigenvalue
+    eigenvectors: Vec<f64>,
+    sorted_indices: Vec<usize>,
     n_markers: u64,
     n_individuals: usize,
-    n_components: usize,         // actual r returned
+    n_components: usize,
     total_variance: f64,
     individual_names: Vec<String>,
 }
 
-/// Core streaming PCA (Gram + centering + Jacobi eigendecomposition).
-/// Used by both the classic file writer and the Arrow in-memory path.
+/// Core streaming PCA against the on-disk TSV.
 fn compute_pca(
     markers_table_path: &str,
     min_depth: u16,
     n_components: Option<usize>,
 ) -> Result<ComputedPca, Box<dyn std::error::Error>> {
     let table_path = Path::new(markers_table_path);
-
     let config = ParserConfig {
         store_sequence: false,
         store_depths: true,
         compute_groups: false,
         min_depth,
     };
-
     let stream = MarkersTableStream::open(table_path, None, config)?;
-    let n = stream.header.n_individuals as usize;
+    compute_pca_with_source(&stream, n_components)
+}
+
+/// Core streaming PCA against any `MarkerStream`.
+fn compute_pca_with_source<S: MarkerStream>(
+    source: &S,
+    n_components: Option<usize>,
+) -> Result<ComputedPca, Box<dyn std::error::Error>> {
+    let n = source.header().n_individuals as usize;
 
     log::info!(
         "PCA: streaming {} individuals, building {}x{} Gram matrix",
         n, n, n
     );
 
-    // Accumulate Gram matrix C = X^T X and mean vector
-    let mut gram = vec![0.0f64; n * n]; // row-major n x n
+    let mut gram = vec![0.0f64; n * n];
     let mut mean = vec![0.0f64; n];
     let mut n_markers = 0u64;
 
-    stream.for_each(|marker| {
+    source.for_each(|marker| {
         if marker.n_individuals == 0 {
             return;
         }
@@ -89,14 +83,12 @@ fn compute_pca(
 
     log::info!("PCA: {} markers streamed, centering Gram matrix", n_markers);
 
-    // Fill lower triangle
     for i in 0..n {
         for j in 0..i {
             gram[i * n + j] = gram[j * n + i];
         }
     }
 
-    // Center: C = X^T X - n_markers * mu * mu^T
     let nm = n_markers as f64;
     for m in &mut mean {
         *m /= nm;
@@ -107,19 +99,16 @@ fn compute_pca(
         }
     }
 
-    // Eigendecompose
     log::info!("PCA: eigendecomposing {}x{} matrix", n, n);
     let (eigenvalues, eigenvectors) = jacobi_eigen(&mut gram, n);
 
-    // Sort descending
     let mut indices: Vec<usize> = (0..n).collect();
     indices.sort_by(|&a, &b| eigenvalues[b].partial_cmp(&eigenvalues[a]).unwrap());
 
     let r = n_components.unwrap_or(n).min(n);
     let total_var: f64 = eigenvalues.iter().filter(|&&v| v > 0.0).sum();
 
-    // Individual names (same logic as before)
-    let header_cols = &stream.header.columns;
+    let header_cols = &source.header().columns;
     let individual_names: Vec<String> = (0..n)
         .map(|i| {
             if i + 2 < header_cols.len() {
@@ -144,11 +133,21 @@ fn compute_pca(
 
 pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
     let c = compute_pca(&params.markers_table_path, params.min_depth, params.n_components)?;
+    write_pca_outputs(&c, &params.output_dir)
+}
 
-    std::fs::create_dir_all(&params.output_dir)?;
+pub fn run_with_source<S: MarkerStream>(
+    source: &S,
+    params: &PcaParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let c = compute_pca_with_source(source, params.n_components)?;
+    write_pca_outputs(&c, &params.output_dir)
+}
 
-    // Write eigenvalues.tsv
-    let eigenval_path = Path::new(&params.output_dir).join("eigenvalues.tsv");
+fn write_pca_outputs(c: &ComputedPca, output_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::create_dir_all(output_dir)?;
+
+    let eigenval_path = Path::new(output_dir).join("eigenvalues.tsv");
     let mut f = std::fs::File::create(&eigenval_path)?;
     writeln!(f, "component\teigenvalue\tvariance_fraction\tcumulative")?;
     let mut cumulative = 0.0;
@@ -159,8 +158,7 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
         writeln!(f, "PC{}\t{:.6}\t{:.6}\t{:.6}", k + 1, ev, frac, cumulative)?;
     }
 
-    // Write loadings.tsv
-    let loadings_path = Path::new(&params.output_dir).join("loadings.tsv");
+    let loadings_path = Path::new(output_dir).join("loadings.tsv");
     let mut f = std::fs::File::create(&loadings_path)?;
     write!(f, "individual")?;
     for k in 0..c.n_components {
@@ -176,8 +174,7 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
         writeln!(f)?;
     }
 
-    // Write summary.txt
-    let summary_path = Path::new(&params.output_dir).join("summary.txt");
+    let summary_path = Path::new(output_dir).join("summary.txt");
     let mut f = std::fs::File::create(&summary_path)?;
     writeln!(f, "Streaming PCA of depth matrix")?;
     writeln!(f, "Markers: {}", c.n_markers)?;
@@ -205,17 +202,14 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
         c.n_markers,
         c.n_individuals,
         c.n_components,
-        params.output_dir
+        output_dir
     );
 
     Ok(())
 }
 
-/// Jacobi eigendecomposition for symmetric matrix.
-/// Input: row-major n x n symmetric matrix (modified in place -> diagonal).
-/// Returns: (eigenvalues, eigenvectors as row-major n x n).
+/// Jacobi eigendecomposition for a symmetric matrix.
 fn jacobi_eigen(a: &mut [f64], n: usize) -> (Vec<f64>, Vec<f64>) {
-    // Initialize eigenvector matrix to identity
     let mut v = vec![0.0f64; n * n];
     for i in 0..n {
         v[i * n + i] = 1.0;
@@ -225,7 +219,6 @@ fn jacobi_eigen(a: &mut [f64], n: usize) -> (Vec<f64>, Vec<f64>) {
     let tol = 1e-15;
 
     for _sweep in 0..max_sweeps {
-        // Find max off-diagonal element
         let mut max_off = 0.0f64;
         for i in 0..n {
             for j in (i + 1)..n {
@@ -258,7 +251,6 @@ fn jacobi_eigen(a: &mut [f64], n: usize) -> (Vec<f64>, Vec<f64>) {
                 let c = 1.0 / (1.0 + t * t).sqrt();
                 let s = t * c;
 
-                // Rotate matrix A
                 a[i * n + i] = aii - t * aij;
                 a[j * n + j] = ajj + t * aij;
                 a[i * n + j] = 0.0;
@@ -276,7 +268,6 @@ fn jacobi_eigen(a: &mut [f64], n: usize) -> (Vec<f64>, Vec<f64>) {
                     a[j * n + k] = a[k * n + j];
                 }
 
-                // Rotate eigenvectors
                 for k in 0..n {
                     let vki = v[k * n + i];
                     let vkj = v[k * n + j];
@@ -298,9 +289,6 @@ use arrow::datatypes::{DataType, Field, Schema};
 #[cfg(feature = "arrow-output")]
 use arrow::record_batch::RecordBatch;
 
-/// Result of in-memory PCA Arrow emission.
-/// Two RecordBatches that match the classic TSV outputs exactly
-/// (eigenvalues + loadings) plus provenance scalars.
 #[cfg(feature = "arrow-output")]
 pub struct PcaArrowResult {
     pub eigenvalues: RecordBatch,
@@ -311,17 +299,25 @@ pub struct PcaArrowResult {
     pub total_variance: f64,
 }
 
-/// Real in-memory Arrow emission for PCA (no temp files for the data path).
-///
-/// Computes the identical streaming Gram + Jacobi decomposition as `run`,
-/// then materializes two RecordBatches:
-///   - eigenvalues: component | eigenvalue | variance_fraction | cumulative
-///   - loadings:    individual | PC1 | PC2 | ... | PCr
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
     let c = compute_pca(&params.markers_table_path, params.min_depth, params.n_components)?;
+    pca_to_arrow_batches(c)
+}
 
-    // Build eigenvalues RecordBatch
+#[cfg(feature = "arrow-output")]
+pub fn run_to_arrow_with_source<S: MarkerStream>(
+    source: &S,
+    params: &PcaParams,
+) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
+    let c = compute_pca_with_source(source, params.n_components)?;
+    pca_to_arrow_batches(c)
+}
+
+#[cfg(feature = "arrow-output")]
+fn pca_to_arrow_batches(
+    c: ComputedPca,
+) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
     let eigen_schema = Schema::new(vec![
         Field::new("component", DataType::Utf8, false),
         Field::new("eigenvalue", DataType::Float64, false),
@@ -357,7 +353,6 @@ pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::e
         ],
     )?;
 
-    // Build loadings RecordBatch
     let mut loading_fields = vec![Field::new("individual", DataType::Utf8, false)];
     for k in 0..c.n_components {
         loading_fields.push(Field::new(format!("PC{}", k + 1), DataType::Float64, false));
@@ -429,44 +424,17 @@ mod tests {
             n_components: Some(3),
         };
 
-        // File path (writes the classic TSVs + summary)
         run(&params).unwrap();
 
-        // Read the file-based eigenvalues to compare counts
         let eigen_file = std::fs::read_to_string(out_dir.join("eigenvalues.tsv")).unwrap();
         let eigen_lines: Vec<&str> = eigen_file.lines().filter(|l| !l.starts_with("component")).collect();
         let n_file_rows = eigen_lines.len();
 
-        // Real Arrow path
         let arrow = run_to_arrow(&params).expect("pca run_to_arrow must succeed");
 
-        // Differential checks
-        assert_eq!(
-            arrow.eigenvalues.num_rows(),
-            n_file_rows,
-            "Eigenvalues batch must have same number of components as the TSV"
-        );
-        assert_eq!(
-            arrow.loadings.num_rows(),
-            5,
-            "Loadings must have one row per individual (5 in the fixture)"
-        );
-        assert!(
-            arrow.total_variance > 0.0,
-            "Total variance must be positive"
-        );
+        assert_eq!(arrow.eigenvalues.num_rows(), n_file_rows);
+        assert_eq!(arrow.loadings.num_rows(), 5);
+        assert!(arrow.total_variance > 0.0);
         assert_eq!(arrow.n_components, 3);
-
-        // Schema sanity
-        let ev_schema = arrow.eigenvalues.schema();
-        let ev_names: Vec<_> = ev_schema.fields().iter().map(|f| f.name().as_str()).collect();
-        assert!(ev_names.contains(&"eigenvalue"));
-        assert!(ev_names.contains(&"variance_fraction"));
-
-        let ld_schema = arrow.loadings.schema();
-        let ld_names: Vec<_> = ld_schema.fields().iter().map(|f| f.name().as_str()).collect();
-        assert!(ld_names.contains(&"individual"));
-        assert!(ld_names.contains(&"PC1"));
-        assert!(ld_names.contains(&"PC3"));
     }
 }

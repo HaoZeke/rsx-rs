@@ -4,6 +4,7 @@
 //! `freq` command: compute marker frequency distribution.
 
 use crate::markers_table::{MarkersTableStream, ParserConfig};
+use crate::source::MarkerStream;
 use std::io::Write;
 use std::path::Path;
 
@@ -14,7 +15,7 @@ pub struct FreqParams {
     pub min_depth: u16,
 }
 
-/// Run the `freq` analysis.
+/// Run the `freq` analysis against a TSV path.
 pub fn run(params: &FreqParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let config = ParserConfig {
@@ -23,12 +24,19 @@ pub fn run(params: &FreqParams) -> Result<(), Box<dyn std::error::Error>> {
         compute_groups: false,
         min_depth: params.min_depth,
     };
-
     let stream = MarkersTableStream::open(table_path, None, config)?;
-    let n_individuals = stream.header.n_individuals as usize;
+    run_with_source(&stream, params)
+}
+
+/// Run the `freq` analysis against any `MarkerStream` (TSV, Arrow, Parquet).
+pub fn run_with_source<S: MarkerStream>(
+    source: &S,
+    params: &FreqParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let n_individuals = source.header().n_individuals as usize;
 
     #[cfg(feature = "parallel")]
-    let frequency = stream.par_fold_reduce(
+    let frequency = source.par_fold_reduce(
         vec![0u32; n_individuals + 1],
         |freq, marker| {
             freq[marker.n_individuals as usize] += 1;
@@ -44,7 +52,7 @@ pub fn run(params: &FreqParams) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "parallel"))]
     let mut frequency: Vec<u32> = vec![0; n_individuals + 1];
     #[cfg(not(feature = "parallel"))]
-    stream.for_each(|marker| {
+    source.for_each(|marker| {
         frequency[marker.n_individuals as usize] += 1;
     })?;
 

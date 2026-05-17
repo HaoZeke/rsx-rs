@@ -10,6 +10,7 @@
 
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::Popmap;
+use crate::source::MarkerStream;
 use crate::stats;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -29,33 +30,39 @@ pub fn run(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     if !params.streaming && table_path.metadata().map(|m| m.len()).unwrap_or(0) > 50 * 1024 * 1024 {
         log::warn!("large table detected; streaming mode reduces depth-summary memory use");
     }
-
-    if params.streaming {
-        run_streaming(params)
-    } else {
-        run_exact(params)
-    }
-}
-
-/// Exact mode: accumulates depth vectors for exact median.
-/// Works for tables that fit in RAM.
-fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
-    let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
-
     let config = ParserConfig {
         store_sequence: false,
         store_depths: true,
         compute_groups: false,
         min_depth: 1,
     };
-
     let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
-    let n_individuals = stream.header.n_individuals as usize;
-    let min_individuals = (params.min_frequency * stream.header.n_individuals as f32) as u32;
+    run_with_source(&stream, &popmap, params)
+}
 
-    // Exact mode stores retained depths, so each worker can accumulate
-    // per-individual vectors before the final median sort.
+pub fn run_with_source<S: MarkerStream>(
+    source: &S,
+    popmap: &Popmap,
+    params: &DepthParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if params.streaming {
+        run_streaming_source(source, popmap, params)
+    } else {
+        run_exact_source(source, popmap, params)
+    }
+}
+
+/// Exact mode: accumulates depth vectors for exact median.
+/// Works for tables that fit in RAM.
+fn run_exact_source<S: MarkerStream>(
+    source: &S,
+    popmap: &Popmap,
+    params: &DepthParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let n_individuals = source.header().n_individuals as usize;
+    let min_individuals = (params.min_frequency * source.header().n_individuals as f32) as u32;
+
     #[cfg(feature = "parallel")]
     let (mut depths, individual_markers_count, individual_reads_count) = {
         let init = (
@@ -64,7 +71,7 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
             vec![0u64; n_individuals],
         );
 
-        stream.par_fold_reduce(
+        source.par_fold_reduce(
             init,
             |(depths, markers, reads), marker| {
                 for i in 0..n_individuals {
@@ -96,7 +103,7 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "parallel"))]
     let mut individual_reads_count: Vec<u64> = vec![0; n_individuals];
     #[cfg(not(feature = "parallel"))]
-    stream.for_each(|marker| {
+    source.for_each(|marker| {
         for i in 0..n_individuals {
             let d = marker.individual_depths[i];
             if marker.n_individuals >= min_individuals {
@@ -119,7 +126,7 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
         .into());
     }
 
-    let header_cols = &stream.header.columns;
+    let header_cols = &source.header().columns;
     let mut output = std::fs::File::create(&params.output_file_path)?;
     writeln!(
         output,
@@ -155,34 +162,24 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Streaming mode: exact median via external sort of (individual_idx, depth) pairs.
 /// Memory: O(buffer_size), not O(n_markers * n_individuals).
-fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
-    let table_path = Path::new(&params.markers_table_path);
-    let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
-
-    let config = ParserConfig {
-        store_sequence: false,
-        store_depths: true,
-        compute_groups: false,
-        min_depth: 1,
-    };
-
-    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
-    let n_individuals = stream.header.n_individuals as usize;
-    let min_individuals = (params.min_frequency * stream.header.n_individuals as f32) as u32;
+fn run_streaming_source<S: MarkerStream>(
+    source: &S,
+    popmap: &Popmap,
+    params: &DepthParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let n_individuals = source.header().n_individuals as usize;
+    let min_individuals = (params.min_frequency * source.header().n_individuals as f32) as u32;
 
     // Online accumulators: O(n_individuals) memory
     let mut ind_markers: Vec<u64> = vec![0; n_individuals];
     let mut ind_reads: Vec<u64> = vec![0; n_individuals];
-    let mut ind_total: Vec<u64> = vec![0; n_individuals]; // total retained (including zeros)
-    let mut ind_nonzero: Vec<u64> = vec![0; n_individuals]; // non-zero retained count
+    let mut ind_total: Vec<u64> = vec![0; n_individuals];
+    let mut ind_nonzero: Vec<u64> = vec![0; n_individuals];
     let mut ind_sum: Vec<u64> = vec![0; n_individuals];
     let mut ind_min: Vec<u16> = vec![u16::MAX; n_individuals];
     let mut ind_max: Vec<u16> = vec![0; n_individuals];
 
-    // SPARSE external sort: only buffer NON-ZERO (individual, depth) pairs.
-    // Zeros tracked by count (ind_total - ind_nonzero) for exact median.
-    // This reduces sort size by ~70% for typical RAD-seq data.
-    const BUFFER_ENTRIES: usize = 50_000_000; // 50M entries * 4 bytes = 200MB
+    const BUFFER_ENTRIES: usize = 50_000_000;
     let mut buffer: Vec<(u16, u16)> = Vec::with_capacity(BUFFER_ENTRIES);
     let temp_dir = tempfile::TempDir::new()?;
     let mut chunk_paths: Vec<std::path::PathBuf> = Vec::new();
@@ -191,7 +188,7 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
 
     let mut flush_err: Option<Box<dyn std::error::Error>> = None;
 
-    stream.for_each(|marker| {
+    source.for_each(|marker| {
         if flush_err.is_some() {
             return;
         }
@@ -206,7 +203,6 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
                 ind_total[i] += 1;
                 ind_sum[i] += d as u64;
                 if d > 0 {
-                    // Only sort non-zero depths (sparse optimization)
                     ind_nonzero[i] += 1;
                     if d < ind_min[i] {
                         ind_min[i] = d;
@@ -226,7 +222,6 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
                         }
                     }
                 }
-                // d == 0: tracked by ind_total - ind_nonzero, not stored
             }
         }
     })?;
@@ -253,8 +248,6 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         .into());
     }
 
-    // K-way merge the sorted (individual_idx, depth) pairs
-    // Scan: for each individual, depths are contiguous and sorted -> pick median
     log::info!("depth streaming: merging for exact median");
 
     let mut readers: Vec<DepthChunkReader> = chunk_paths
@@ -273,22 +266,16 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         }
     }
 
-    // Compute median accounting for implicit zeros.
-    // The full sorted sequence for individual i is:
-    //   [0, 0, ..., 0 (n_zeros times), sorted_nonzero_1, sorted_nonzero_2, ...]
-    // The median position is ind_total[i] / 2.
-    // If median_pos < n_zeros, median = 0 (already initialized).
-    // Otherwise, we need position (median_pos - n_zeros) in the sorted non-zeros.
     let mut medians: Vec<u16> = vec![0; n_individuals];
-    let mut nonzero_pos: Vec<u64> = vec![0; n_individuals]; // position within sorted non-zeros
+    let mut nonzero_pos: Vec<u64> = vec![0; n_individuals];
     let median_targets: Vec<i64> = (0..n_individuals)
         .map(|i| {
             let n_zeros = ind_total[i] - ind_nonzero[i];
             let median_pos = ind_total[i] / 2;
             if median_pos < n_zeros {
-                -1 // median is 0, already set
+                -1
             } else {
-                (median_pos - n_zeros) as i64 // target position in non-zero stream
+                (median_pos - n_zeros) as i64
             }
         })
         .collect();
@@ -309,8 +296,7 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         }
     }
 
-    // Write output
-    let header_cols = &stream.header.columns;
+    let header_cols = &source.header().columns;
     let mut output = std::fs::File::create(&params.output_file_path)?;
     writeln!(
         output,
@@ -321,9 +307,7 @@ fn run_streaming(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>>
         let individual_name = &header_cols[i + 2];
         let group = popmap.get_group(individual_name).unwrap_or("");
         let avg = ind_sum[i].checked_div(ind_total[i]).unwrap_or(0);
-        // All-zero retained depths have zero as their minimum.
         let min_d = if ind_nonzero[i] == 0 { 0 } else { ind_min[i] };
-        // If any zeros exist and min_nonzero > 0, the true min is 0
         let min_d = if ind_total[i] > ind_nonzero[i] {
             0
         } else {
@@ -354,7 +338,6 @@ fn flush_depth_chunk(
     temp_dir: &tempfile::TempDir,
     chunk_idx: usize,
 ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    // Sort by (individual_idx, depth) for contiguous per-individual sorted runs
     buffer.sort_unstable();
     let path = temp_dir.path().join(format!("depth_{:04}.lz4", chunk_idx));
     let file = std::fs::File::create(&path)?;
@@ -413,7 +396,6 @@ impl PartialOrd for DepthHeapEntry {
 }
 impl Ord for DepthHeapEntry {
     fn cmp(&self, other: &Self) -> Ordering {
-        // Min-heap: reversed
         other.ind.cmp(&self.ind).then(other.dep.cmp(&self.dep))
     }
 }

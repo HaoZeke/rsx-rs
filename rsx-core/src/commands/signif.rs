@@ -2,14 +2,11 @@
 // Copyright 2024--present rsx-rs developers
 
 //! `signif` command: extract markers significantly associated with a group.
-//!
-//! Supports chi-squared (default), Fisher's exact, and G-test.
-//! Correction: Bonferroni (default), Benjamini-Hochberg FDR, or none.
-//! Optional: Bayes Factor and posterior P(sex-linked) output.
 
 use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
+use crate::source::MarkerStream;
 use crate::stats;
 use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
 use std::io::Write;
@@ -32,7 +29,21 @@ pub struct SignifParams {
 pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
+    let config = ParserConfig {
+        store_sequence: true,
+        store_depths: true,
+        compute_groups: true,
+        min_depth: params.min_depth,
+    };
+    let stream = MarkersTableStream::open(table_path, Some(&popmap), config)?;
+    run_with_source(&stream, &popmap, params)
+}
 
+pub fn run_with_source<S: MarkerStream>(
+    source: &S,
+    popmap: &Popmap,
+    params: &SignifParams,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut groups = GroupConfig {
         group1: params.group1.clone(),
         group2: params.group2.clone(),
@@ -42,54 +53,26 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    // Pass 1: count markers
     log::info!("signif pass 1: counting markers");
-    let config1 = ParserConfig {
-        store_sequence: false,
-        store_depths: false,
-        compute_groups: true,
-        min_depth: params.min_depth,
-    };
-    let stream1 = MarkersTableStream::open(table_path, Some(&popmap), config1)?;
-    let n_markers = stream1.count_markers()?;
+    let n_markers = source.count_markers()?;
     log::info!("signif pass 1: {} markers", n_markers);
 
-    // For FDR correction, we need all p-values first (two-pass with collection)
-    // For Bonferroni/none, we can stream directly
     let threshold = params.signif_threshold as f64;
-
     let corrected_threshold = match params.correction {
         CorrectionMethod::Bonferroni => threshold / n_markers as f64,
         CorrectionMethod::None => threshold,
-        CorrectionMethod::Fdr => threshold, // applied post-hoc
+        CorrectionMethod::Fdr => threshold,
     };
-
     let effective_n_markers = match params.correction {
         CorrectionMethod::Bonferroni => n_markers,
         CorrectionMethod::None | CorrectionMethod::Fdr => 1,
     };
 
-    // Pass 2: compute + write
     log::info!("signif pass 2: filtering and writing");
-    let config2 = ParserConfig {
-        store_sequence: true,
-        store_depths: true,
-        compute_groups: true,
-        min_depth: params.min_depth,
-    };
-    let stream2 = MarkersTableStream::open(table_path, Some(&popmap), config2)?;
-    let header_columns = stream2.header.columns.clone();
-
-    let mask_g1 = GroupMask::from_columns(
-        &stream2.groups,
-        &groups.group1,
-        stream2.header.n_individuals,
-    );
-    let mask_g2 = GroupMask::from_columns(
-        &stream2.groups,
-        &groups.group2,
-        stream2.header.n_individuals,
-    );
+    let header_columns = source.header().columns.clone();
+    let n_individuals = source.header().n_individuals;
+    let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
+    let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 
@@ -127,10 +110,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
         (groups.group2.clone(), &mask_g2),
     ];
 
-    // For FDR: collect p-values first, then apply BH, then write.
     if matches!(params.correction, CorrectionMethod::Fdr) {
-        // Store marker data for FDR output, including the original id for TSV identity.
-        // BH ranking requires p-values and row data for the full table.
         struct FdrEntry {
             id: String,
             seq: Vec<u8>,
@@ -141,7 +121,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
         let mut p_values: Vec<f64> = Vec::new();
         let mut marker_data: Vec<FdrEntry> = Vec::new();
 
-        stream2.for_each(|marker| {
+        source.for_each(|marker| {
             if marker.n_individuals > 0 {
                 let g1 = marker.presence.count_masked(&mask_g1);
                 let g2 = marker.presence.count_masked(&mask_g2);
@@ -179,8 +159,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     } else {
-        // Bonferroni or none: stream qualifying markers in table order.
-        stream2.for_each(|marker| {
+        source.for_each(|marker| {
             if marker.n_individuals > 0 {
                 let g1 = marker.presence.count_masked(&mask_g1);
                 let g2 = marker.presence.count_masked(&mask_g2);
