@@ -52,6 +52,11 @@ mkdir -p "$results_dir"
 read -r -a priors <<< "${RSX_PRIORS:-0.001 0.005 0.01 0.02 0.05 0.1}"
 read -r -a psexes <<< "${RSX_PSEX:-0.8 0.85 0.9 0.95}"
 
+# Literature popmaps label individuals "male"/"female" (lowercase); the
+# legacy synthetic fixtures used "M"/"F". Default to the literature labels
+# and let the caller override via RSX_GROUPS (e.g. RSX_GROUPS=M,F).
+groups="${RSX_GROUPS:-male,female}"
+
 workdir=benchmarks/literature-workdir
 popmap="$workdir/${dataset}/popmap.tsv"
 
@@ -85,7 +90,7 @@ for pi in "${priors[@]}"; do
       --bayes-factor-threshold 10 \
       --prior-probability "$pi" \
       --linked-probability "$p_sex" \
-      --groups M,F
+      --groups "$groups"
   done
 done
 
