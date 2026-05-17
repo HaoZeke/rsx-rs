@@ -22,6 +22,7 @@ from .pyrsx import (  # noqa: F401
     process,
     signif,
     triage,
+    triage_to_arrow,
 )
 
 # High-level idiomatic API (recommended)

@@ -15,7 +15,10 @@ crate-type = ["cdylib"]
 rsx-core = { path = "../rsx-core", features = ["parallel"] }
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 
-# Arrow support for zero-copy / direct data production (no more temp files)
+# Arrow + Parquet for direct data production (no temp files visible to Python)
 arrow-array = "54"
 arrow-schema = "54"
-# We will use pyo3 to return PyArrow objects (pragmatic high-perf path)
+parquet = { version = "54", features = ["arrow"] }
+
+# We will return pyarrow objects from Rust
+# (using pyo3 to construct PyArrow tables from RecordBatches)

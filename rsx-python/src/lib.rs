@@ -209,5 +209,66 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(depth, m)?)?;
     m.add_function(wrap_pyfunction!(merge, m)?)?;
     m.add_function(wrap_pyfunction!(pca, m)?)?;
+
+    // Direct Arrow production (first step toward zero temp files for the high-level API)
+    m.add_function(wrap_pyfunction!(triage_to_arrow, m)?)?;
+
     Ok(())
+}
+
+/// Temporary implementation: runs the existing file-based triage to a temp Parquet,
+/// reads it back in Rust as Arrow RecordBatches, returns a pyarrow.Table,
+/// and cleans up the temp file.
+///
+/// This is the bridge while we convert the core commands to native Arrow producers.
+/// The high-level Python API will call this (and future *_to_arrow functions)
+/// so that from the user's perspective there are **no temp files**.
+#[pyfunction]
+#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
+#[allow(clippy::too_many_arguments)]
+fn triage_to_arrow(
+    py: Python<'_>,
+    table_path: &str,
+    popmap_path: &str,
+    min_depth: u16,
+    posterior_threshold: f64,
+    prior_probability: f64,
+    linked_probability: f64,
+    group1: &str,
+    group2: &str,
+) -> PyResult<PyObject> {
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    // Create a hidden temp Parquet (will be deleted before returning to Python)
+    let output_file = NamedTempFile::new()
+        .map_err(|e| PyRuntimeError::new_err(format!("failed to create temp file: {e}")))?;
+    let output_path = output_file.path().to_string_lossy().to_string();
+
+    // Run the existing file-based triage into the temp Parquet
+    rsx_core::commands::triage::run(&rsx_core::commands::triage::TriageParams {
+        markers_table_path: table_path.to_string(),
+        popmap_file_path: popmap_path.to_string(),
+        output_file_path: output_path.clone(),
+        min_depth,
+        signif_threshold: 0.05,
+        posterior_threshold,
+        bayes_factor_threshold: 10.0,
+        prior_probability,
+        linked_probability,
+        group1: group1.to_string(),
+        group2: group2.to_string(),
+    })
+    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+    // Let Python's pyarrow read the Parquet (very efficient) and give us a real Table
+    let pyarrow = py.import_bound("pyarrow")?;
+    let pyarrow_parquet = pyarrow.getattr("parquet")?;
+    let table = pyarrow_parquet
+        .call_method1("read_table", (output_path.as_str(),))?;
+
+    // Clean up immediately — from the caller's perspective, no temp file ever existed
+    let _ = fs::remove_file(&output_path);
+
+    Ok(table.into())
 }

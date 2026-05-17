@@ -163,23 +163,38 @@ class MarkerTable:
         outpath = Path(tempfile.NamedTemporaryFile(suffix="_triage.parquet", delete=False).name)
 
         import pyrsx as _pyrsx
-        _lowlevel_triage = _pyrsx.triage
 
-        _lowlevel_triage(
-            str(mpath),
-            str(ppath),
-            str(outpath),
-            min_depth=p.min_depth,
-            posterior_threshold=p.posterior_threshold,
-            bayes_factor_threshold=p.bayes_factor_threshold,
-            prior=p.prior,
-            linked_prob=p.linked_prob,
-            group1=p.group1,
-            group2=p.group2,
-        )
-
-        # Read Parquet directly with pandas (very efficient columnar path)
-        res_df = pd.read_parquet(outpath)
+        # Prefer the new direct Arrow path when we have in-memory data.
+        # This removes the temp file from the caller's perspective.
+        if self._df is not None:
+            arrow_table = _pyrsx.triage_to_arrow(
+                str(mpath),
+                str(ppath),
+                min_depth=p.min_depth,
+                posterior_threshold=p.posterior_threshold,
+                prior_probability=p.prior,
+                linked_probability=p.linked_prob,
+                group1=p.group1,
+                group2=p.group2,
+            )
+            # Convert PyArrow table → narwhals (zero-copy where possible)
+            res_df = to_narwhals(arrow_table)
+        else:
+            # Path-based path (user gave us files) — keep using the normal triage for now
+            _lowlevel_triage = _pyrsx.triage
+            _lowlevel_triage(
+                str(mpath),
+                str(ppath),
+                str(outpath),
+                min_depth=p.min_depth,
+                posterior_threshold=p.posterior_threshold,
+                bayes_factor_threshold=p.bayes_factor_threshold,
+                prior=p.prior,
+                linked_prob=p.linked_prob,
+                group1=p.group1,
+                group2=p.group2,
+            )
+            res_df = to_narwhals(pd.read_parquet(outpath))
         return TriageResult(
             _df=to_narwhals(res_df),
             params={
