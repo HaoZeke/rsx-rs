@@ -25,6 +25,11 @@ pub struct DepthParams {
 }
 
 pub fn run(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
+    let table_path = Path::new(&params.markers_table_path);
+    if !params.streaming && table_path.metadata().map(|m| m.len()).unwrap_or(0) > 50 * 1024 * 1024 {
+        log::warn!("large table detected; streaming mode reduces depth-summary memory use");
+    }
+
     if params.streaming {
         run_streaming(params)
     } else {
