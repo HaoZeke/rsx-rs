@@ -1,0 +1,17 @@
+dataset	source	accession	genome	benchmark_role	commands	notes
+cyprinus_carpio	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+danio_aesculapii	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+danio_albolineatus	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+danio_choprae	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+danio_kyathit	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+gadus_morhua	RADSex paper workflow	PRJNA548074	https://osf.io/4qsdw/download	literature panel + mapping	process,distrib,signif,freq,depth,map,subset	RADSex workflow panel dataset with reference genome link; evaluate min-depth 1,2,5,10.
+gymnocorymbus_ternetzi	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+gymnotus_carapo	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+hippocampus_abdominalis	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+lepisosteus_oculatus	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+notothenia_rossii	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+plecoglossus_altivelis	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+poecilia_sphenops	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+sander_vitreus	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+tinca_tinca	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
+oryzias_latipes	RADSex medaka example	PRJNA253959	ftp://ftp.ensembl.org/pub/release-75/fasta/oryzias_latipes/dna/Oryzias_latipes.MEDAKA1.75.dna_sm.toplevel.fa.gz	literature example + mapping	process,distrib,signif,freq,depth,map,subset	Public medaka dataset used in the RADSex example and Wilson et al. 2014; RADSex config uses min-depth 10 for the medaka reanalysis.

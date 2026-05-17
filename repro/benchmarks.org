@@ -10,6 +10,8 @@ Rohit Goswami and Ruhila Goswami, "rsx: a high-performance streaming toolkit for
 ** Replication data
 The exact input data, generated marker tables, and benchmark result CSV used for the numbers in the manuscript are in the repository under `benchmarks/data/` and `benchmarks/results/`. The package script in `repro/benchmarks/` prepares the same layout for DOI deposition.
 
+For literature-derived biological benchmarks, see `repro/literature_benchmarks.org` and `benchmarks/literature_datasets.tsv`.
+
 To use:
 
 1. Use the tracked `benchmarks/data/` and `benchmarks/results/benchmark_results.csv` directly, or prepare a deposition package with `pixi run -e benchmark package-figshare`.

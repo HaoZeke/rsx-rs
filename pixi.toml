@@ -60,6 +60,7 @@ build-mpi = { cmd = "MPICC=$CONDA_PREFIX/bin/mpicc CC=$CONDA_PREFIX/bin/mpicc C_
 [feature.benchmark.dependencies]
 python = ">=3.11"
 bc = "*"
+sra-tools = "*"
 
 [feature.benchmark.tasks]
 generate-data = { cmd = "python benchmarks/generate_data.py --outdir benchmarks/data-regenerated", description = "Regenerate synthetic RAD-seq benchmark data into benchmarks/data-regenerated" }
@@ -67,6 +68,10 @@ build-rsx = { cmd = "cargo build --release", description = "Build the rsx releas
 run-benchmarks = { cmd = "bash benchmarks/run_benchmarks.sh", description = "Run the benchmark suite against benchmarks/data", depends-on = ["build-rsx"] }
 plot-benchmarks = { cmd = "python benchmarks/plot_benchmarks.py --input benchmarks/results/benchmark_results.csv --output docs/figures", description = "Generate benchmark summary and SVG plots from results CSV" }
 check-benchmark-docs = { cmd = "python benchmarks/check_benchmark_docs.py --csv benchmarks/results/benchmark_results.csv --docs docs/orgmode/reference/benchmarks.org", description = "Validate benchmark documentation against the tracked CSV" }
+check-literature-manifest = { cmd = "python benchmarks/check_literature_manifest.py --manifest benchmarks/literature_datasets.tsv", description = "Validate the literature-derived benchmark manifest" }
+literature-metadata = { cmd = "python benchmarks/run_literature_benchmarks.py --manifest benchmarks/literature_datasets.tsv --metadata-only --results benchmarks/results/literature_benchmark_results.csv --summary docs/figures/literature_benchmark_summary.tsv", description = "Query NCBI metadata for the literature benchmark datasets" }
+run-literature-benchmarks = { cmd = "python benchmarks/run_literature_benchmarks.py --manifest benchmarks/literature_datasets.tsv --results benchmarks/results/literature_benchmark_results.csv --summary docs/figures/literature_benchmark_summary.tsv", description = "Download and run the literature-derived benchmark datasets", depends-on = ["build-rsx"] }
+run-literature-medaka = { cmd = "python benchmarks/run_literature_benchmarks.py --manifest benchmarks/literature_datasets.tsv --dataset oryzias_latipes --results benchmarks/results/literature_benchmark_results.csv --summary docs/figures/literature_benchmark_summary.tsv", description = "Download and run the public medaka literature benchmark", depends-on = ["build-rsx"] }
 package-figshare = { cmd = "bash repro/benchmarks/package_for_figshare.sh", description = "Prepare the benchmark data package for DOI deposition" }
 test-package = { cmd = "bash repro/benchmarks/test_package_for_figshare.sh", description = "Validate the benchmark DOI package layout" }
 

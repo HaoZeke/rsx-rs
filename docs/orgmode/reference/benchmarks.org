@@ -70,6 +70,39 @@ All commands operate in bounded memory (< 500MB for any input size).
 | fast_parse_u16         | 4.5 ns | Integer field parsing            |
 | Cg float format        | 193 ns | C++ %g compatible output        |
 
+** Literature-derived benchmark runs
+
+The checked-in synthetic suite is small enough for repeatable repository
+verification. Paper-facing biological benchmark runs download the public
+datasets used by the RADSex literature workflow and run =rsx= against those
+FASTQ files.
+
+The tracked manifest =benchmarks/literature_datasets.tsv= contains:
+
+- 15 fish datasets from the RADSex paper workflow, BioProject
+  =PRJNA548074=, with the published RADSex command set run at minimum
+  depths 1, 2, 5, and 10.
+- The public =oryzias_latipes= medaka example, BioProject =PRJNA253959=,
+  with the RADSex example genome and medaka-specific thresholds.
+
+The RADSex paper workflow describes the literature panel and its
+parameters in its public =data/info.tsv= and =config.yaml=. The medaka
+example gives a published benchmark target for =process=, =distrib=,
+=signif=, and =map= on a public dataset. The executable benchmark task
+queries NCBI SRA metadata, downloads reads with =fastq-dump=, runs the
+command set, and writes measured rows to
+=benchmarks/results/literature_benchmark_results.csv=:
+
+#+begin_src bash
+pixi run -e benchmark run-literature-benchmarks
+#+end_src
+
+For a single public literature dataset:
+
+#+begin_src bash
+pixi run -e benchmark run-literature-medaka
+#+end_src
+
 ** Raw timing data (seconds, median of 3 runs)
 
 | Scale  | Command | C++ (s) | Rust (s) | Speedup |

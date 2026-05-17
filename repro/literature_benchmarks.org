@@ -1,0 +1,86 @@
+* Literature-Derived Benchmark Runs
+
+This workflow downloads the public datasets used by the RADSex literature
+workflow and runs =rsx= on those FASTQ files. The synthetic data in
+=benchmarks/data/= remains a small, tracked performance and packaging check;
+literature-derived benchmarks are the route for claims about behavior on
+published RAD-seq sex determination datasets.
+
+** Primary sources
+
+- RADSex paper workflow:
+  https://github.com/RomainFeron/paper-sexdetermination-radsex
+- RADSex publication DOI: https://doi.org/10.1111/1755-0998.13360
+- RADSex medaka example:
+  https://radsex.readthedocs.io/en/docs/example.html
+- Medaka source publication DOI:
+  https://doi.org/10.1534/genetics.114.169284
+
+** Inputs
+
+The dataset manifest is tracked at
+=benchmarks/literature_datasets.tsv=. It mirrors the RADSex paper workflow's
+=data/info.tsv= source list:
+
+- 15 fish datasets under BioProject =PRJNA548074= from the RADSex paper
+  workflow.
+- =oryzias_latipes= under BioProject =PRJNA253959= from the RADSex
+  medaka example and Wilson et al. 2014.
+- Genome links for datasets where the RADSex workflow specifies mapping
+  inputs.
+
+Validate the source list with:
+
+#+begin_src bash
+pixi run -e benchmark check-literature-manifest
+#+end_src
+
+** Benchmark commands
+
+For the RADSex paper panel, run the command set used by the published
+workflow across minimum depths 1, 2, 5, and 10:
+
+#+begin_src bash
+rsx process
+rsx distrib
+rsx signif
+rsx freq
+rsx depth
+#+end_src
+
+The medaka example additionally provides a published target for =map= and
+=subset= with the example genome and medaka-specific thresholds from the
+RADSex workflow configuration.
+
+** Execution
+
+Run the public medaka benchmark:
+
+#+begin_src bash
+pixi run -e benchmark run-literature-medaka
+#+end_src
+
+Run the full literature panel:
+
+#+begin_src bash
+pixi run -e benchmark run-literature-benchmarks
+#+end_src
+
+The runner writes raw downloads and command outputs under
+=benchmarks/literature-workdir/=, which is intentionally ignored by git. The
+tracked measured outputs are:
+
+- =benchmarks/results/literature_benchmark_results.csv=
+- =docs/figures/literature_benchmark_summary.tsv=
+
+** Reporting split
+
+- Synthetic suite: exact tracked timing CSV, figures, packaging smoke test,
+  and CI-sized regression data.
+- Literature suite: downloaded public biological datasets, measured command
+  timings, marker counts, and output counts from the RADSex workflow
+  parameterization.
+
+The paper should identify which result table comes from which suite.
+Synthetic timings must not be presented as the biological benchmark
+corpus.

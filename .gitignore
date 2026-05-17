@@ -37,6 +37,7 @@ benchmarks/data/*/*.bwt
 benchmarks/data/*/*.pac
 benchmarks/data/*/*.sa
 benchmarks/data-regenerated/
+benchmarks/literature-workdir/
 repro/benchmarks/figshare_package/
 
 # Claude/AI config
