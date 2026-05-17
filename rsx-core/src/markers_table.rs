@@ -133,22 +133,14 @@ impl MarkersTableStream {
         F: FnMut(&Marker),
     {
         let mut marker = Marker::new(self.n_individuals);
-        let mut pos = 0;
 
-        while pos < data.len() {
-            let line_end = memchr::memchr(b'\n', &data[pos..])
-                .map(|p| pos + p)
-                .unwrap_or(data.len());
-
-            let line = strip_cr(&data[pos..line_end]);
-            pos = line_end + 1;
-
+        for_each_line(data, |line| {
             // The second tab starts the depth columns.
             let mut tab_iter = memchr::memchr_iter(b'\t', line);
             let _tab1 = tab_iter.next();
             let tab2 = match tab_iter.next() {
                 Some(p) => p,
-                None => continue,
+                None => return,
             };
 
             for_each_depth_field(line, tab2, |col, field| {
@@ -161,7 +153,7 @@ impl MarkersTableStream {
 
             f(&marker);
             marker.reset(true);
-        }
+        });
     }
 
     /// Medium path: skip id+seq, parse depths for min_depth > 1.
@@ -420,6 +412,34 @@ where
     if field_start < depth_section.len() {
         let field = &depth_section[field_start..];
         f(col, field);
+    }
+}
+
+/// Iterate over lines using `memchr_iter(b'\n')`.
+/// Strips trailing carriage returns from CRLF inputs.
+#[inline]
+fn for_each_line<F>(data: &[u8], mut f: F)
+where
+    F: FnMut(&[u8]),
+{
+    let mut pos = 0;
+
+    for end in memchr::memchr_iter(b'\n', data) {
+        let raw = &data[pos..end];
+        let line = strip_cr(raw);
+        if !line.is_empty() {
+            f(line);
+        }
+        pos = end + 1;
+    }
+
+    // Final line without trailing \n
+    if pos < data.len() {
+        let raw = &data[pos..];
+        let line = strip_cr(raw);
+        if !line.is_empty() {
+            f(line);
+        }
     }
 }
 
