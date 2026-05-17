@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import gzip
+import hashlib
 import os
 import shutil
 import subprocess
@@ -55,6 +56,13 @@ class Sample:
     spots: int
     bases: int
     bytes: int
+
+
+@dataclass(frozen=True)
+class FastqRemote:
+    url: str
+    bytes: int
+    md5: str
 
 
 def read_manifest(path: Path) -> list[Dataset]:
@@ -208,6 +216,54 @@ def write_dataset_metadata(dataset_dir: Path, samples: list[Sample]) -> None:
             )
     for sample in samples:
         (download_dir / f"{sample.name}.accession").write_text(sample.accession)
+
+
+def ena_report_url(accessions: Iterable[str]) -> str:
+    return (
+        "https://www.ebi.ac.uk/ena/portal/api/filereport?"
+        + urllib.parse.urlencode(
+            {
+                "accession": ",".join(accessions),
+                "result": "read_run",
+                "fields": "run_accession,fastq_ftp,fastq_bytes,fastq_md5",
+                "format": "tsv",
+            }
+        )
+    )
+
+
+def normalize_fastq_url(value: str) -> str:
+    if value.startswith(("http://", "https://", "ftp://", "file://")):
+        return value
+    return f"https://{value}"
+
+
+def parse_ena_fastq_report(report: str) -> dict[str, list[FastqRemote]]:
+    rows: dict[str, list[FastqRemote]] = {}
+    reader = csv.DictReader(report.splitlines(), delimiter="\t")
+    for row in reader:
+        accession = row.get("run_accession") or ""
+        fastq_ftp = row.get("fastq_ftp") or ""
+        if not accession or not fastq_ftp:
+            continue
+        urls = fastq_ftp.split(";")
+        sizes = (row.get("fastq_bytes") or "").split(";")
+        md5s = (row.get("fastq_md5") or "").split(";")
+        rows[accession] = [
+            FastqRemote(
+                url=normalize_fastq_url(url),
+                bytes=parse_int(sizes[index] if index < len(sizes) else ""),
+                md5=md5s[index] if index < len(md5s) else "",
+            )
+            for index, url in enumerate(urls)
+            if url
+        ]
+    return rows
+
+
+def fetch_ena_fastq_report(samples: list[Sample], retries: int = 5) -> dict[str, list[FastqRemote]]:
+    report = fetch_text(ena_report_url(sample.accession for sample in samples), retries=retries)
+    return parse_ena_fastq_report(report)
 
 
 def read_dataset_metadata(dataset_dir: Path) -> list[Sample]:
@@ -369,20 +425,54 @@ def run_command(args: list[str], log_path: Path) -> float:
     return time.perf_counter() - start
 
 
+def stream_url_to_handle(remote: FastqRemote, output) -> None:
+    digest = hashlib.md5()
+    total = 0
+    with urllib.request.urlopen(remote.url, timeout=1200) as response:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+            output.write(chunk)
+            total += len(chunk)
+    if remote.bytes and total != remote.bytes:
+        raise RuntimeError(f"{remote.url} expected {remote.bytes} bytes but downloaded {total}")
+    if remote.md5 and digest.hexdigest() != remote.md5:
+        raise RuntimeError(f"{remote.url} failed MD5 validation")
+
+
+def download_fastq_urls(files: list[FastqRemote], output: Path) -> None:
+    if not files:
+        raise RuntimeError(f"no FASTQ URLs available for {output.name}")
+    tmp = output.with_suffix(output.suffix + ".tmp")
+    with tmp.open("wb") as handle:
+        for remote in files:
+            stream_url_to_handle(remote, handle)
+    tmp.replace(output)
+
+
 def download_samples(
     dataset_dir: Path,
     samples: list[Sample],
     fastq_dump: str,
     logs_dir: Path,
     force: bool,
+    method: str,
 ) -> float:
     samples_dir = dataset_dir / "samples"
     samples_dir.mkdir(parents=True, exist_ok=True)
     logs_dir.mkdir(parents=True, exist_ok=True)
+    ena_files: dict[str, list[FastqRemote]] = {}
+    if method == "ena":
+        ena_files = fetch_ena_fastq_report(samples)
     start = time.perf_counter()
     for sample in samples:
         output = samples_dir / f"{sample.name}.fq.gz"
         if output.exists() and output.stat().st_size > 0 and not force:
+            continue
+        if method == "ena":
+            download_fastq_urls(ena_files.get(sample.accession, []), output)
             continue
         tmp = output.with_suffix(output.suffix + ".tmp")
         log_path = logs_dir / f"download_{sample.name}.log"
@@ -569,6 +659,7 @@ def main() -> None:
     parser.add_argument("--metadata-only", action="store_true")
     parser.add_argument("--download-only", action="store_true")
     parser.add_argument("--no-download", action="store_true")
+    parser.add_argument("--download-method", default="ena", choices=["ena", "fastq-dump"])
     parser.add_argument("--append", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--retries", default=5, type=int)
@@ -612,6 +703,7 @@ def main() -> None:
                     resolve_binary(args.fastq_dump),
                     dataset_dir / "logs",
                     args.force,
+                    args.download_method,
                 )
                 writer.write(
                     base

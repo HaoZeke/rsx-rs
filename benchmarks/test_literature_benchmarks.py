@@ -1,12 +1,15 @@
 import tempfile
 import unittest
+from hashlib import md5
 from pathlib import Path
 
 from benchmarks.run_literature_benchmarks import (
     Sample,
     count_data_rows,
+    download_fastq_urls,
     download_samples,
     marker_count_from_table,
+    parse_ena_fastq_report,
     parse_sra_experiment_xml,
     prune_dataset_results,
     summarize_output,
@@ -41,6 +44,10 @@ SRA_XML = """<?xml version="1.0" encoding="UTF-8"?>
 </EXPERIMENT_PACKAGE_SET>
 """
 
+ENA_REPORT = """run_accession\tfastq_ftp\tfastq_bytes\tfastq_md5
+SRR000001\tftp.sra.ebi.ac.uk/vol1/fastq/SRR000/SRR000001/SRR000001.fastq.gz\t4\t098f6bcd4621d373cade4e832627b4f6
+"""
+
 
 class LiteratureBenchmarkTests(unittest.TestCase):
     def test_parse_sra_experiment_xml_extracts_sample_metadata(self):
@@ -67,6 +74,36 @@ class LiteratureBenchmarkTests(unittest.TestCase):
                 "sample\taccession\tsex\tspots\tbases\tbytes",
             )
             self.assertEqual((dataset_dir / ".download" / "danio_sample_1.accession").read_text(), "SRR000001")
+
+    def test_parse_ena_fastq_report_adds_https_urls(self):
+        files = parse_ena_fastq_report(ENA_REPORT)
+
+        self.assertEqual(files["SRR000001"][0].url, "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR000/SRR000001/SRR000001.fastq.gz")
+        self.assertEqual(files["SRR000001"][0].bytes, 4)
+        self.assertEqual(files["SRR000001"][0].md5, "098f6bcd4621d373cade4e832627b4f6")
+
+    def test_download_fastq_urls_validates_md5_and_concatenates_members(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            part1 = root / "part1.fq.gz"
+            part2 = root / "part2.fq.gz"
+            part1.write_bytes(b"test")
+            part2.write_bytes(b"data")
+            output = root / "sample.fq.gz"
+            files = [
+                parse_ena_fastq_report(
+                    "run_accession\tfastq_ftp\tfastq_bytes\tfastq_md5\n"
+                    f"SRR000001\t{part1.as_uri()}\t4\t{md5(b'test').hexdigest()}\n"
+                )["SRR000001"][0],
+                parse_ena_fastq_report(
+                    "run_accession\tfastq_ftp\tfastq_bytes\tfastq_md5\n"
+                    f"SRR000002\t{part2.as_uri()}\t4\t{md5(b'data').hexdigest()}\n"
+                )["SRR000002"][0],
+            ]
+
+            download_fastq_urls(files, output)
+
+            self.assertEqual(output.read_bytes(), b"testdata")
 
     def test_marker_count_from_table_prefers_radsex_header(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -125,6 +162,7 @@ class LiteratureBenchmarkTests(unittest.TestCase):
                 str(fake_fastq_dump),
                 root / "dataset" / "logs",
                 force=False,
+                method="fastq-dump",
             )
 
             self.assertGreaterEqual(elapsed, 0)
