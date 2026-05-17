@@ -207,7 +207,7 @@ def plot_runtime_breakdown(phase_runtime, output_dir: Path, colors: dict[str, st
 
 
 def plot_marker_throughput(frame, output_dir: Path, colors: dict[str, str]) -> None:
-    from plotnine import aes, coord_flip, geom_col, geom_point, ggplot, labs, scale_color_manual, scale_fill_manual
+    from plotnine import aes, coord_flip, geom_col, geom_point, ggplot, labs, scale_color_manual
 
     process = frame[frame["command"] == "process"].copy()
     process["markers_millions"] = process["markers"] / 1_000_000.0
@@ -218,7 +218,6 @@ def plot_marker_throughput(frame, output_dir: Path, colors: dict[str, str]) -> N
         + geom_col(fill=colors["teal"], width=0.7)
         + geom_point(aes(y="markers_per_second_millions", color="'Throughput'"), size=2.5)
         + coord_flip()
-        + scale_fill_manual(values=[colors["teal"]])
         + scale_color_manual(values={"Throughput": colors["magenta"]})
         + labs(x="", y="Markers or markers/s (millions)", color="")
         + base_theme()
@@ -243,7 +242,7 @@ def plot_downstream_times(frame, output_dir: Path, colors: dict[str, str]) -> No
     }
     plot = (
         ggplot(downstream, aes(x="min_depth_numeric", y="elapsed_seconds", color="dataset_label", group="dataset_label"))
-        + geom_line(linewidth=0.7)
+        + geom_line(size=0.7)
         + geom_point(size=1.9)
         + facet_wrap("~ command", scales="free_y")
         + scale_color_manual(values=palette)
