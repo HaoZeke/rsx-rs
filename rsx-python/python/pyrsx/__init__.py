@@ -8,12 +8,14 @@ from .pyrsx import (
     pca,
     process,
     signif,
+    triage,
 )
 
 __all__ = [
     "process",
     "distrib",
     "signif",
+    "triage",
     "freq",
     "depth",
     "merge",
