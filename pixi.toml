@@ -44,6 +44,7 @@ site = { cmd = "sphinx-build docs/source docs/_build -b html", depends-on = ["mk
 
 [feature.python.dependencies]
 python = ">=3.11"
+pip = "*"
 
 [feature.python.pypi-dependencies]
 maturin = ">=1.0, <2"
