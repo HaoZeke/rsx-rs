@@ -107,6 +107,24 @@ def test_signif_bayes(test_data):
     assert "Posterior_SexLinked" in header
 
 
+def test_triage(test_data):
+    """triage should produce marker-level candidate classes."""
+    out = os.path.join(test_data["tmp"], "triage.tsv")
+    pyrsx.triage(
+        test_data["table"],
+        test_data["popmap"],
+        out,
+        min_depth=1,
+        group1="M",
+        group2="F",
+    )
+    assert os.path.exists(out)
+    with open(out) as f:
+        content = f.read()
+    assert "Candidate_Class" in content
+    assert "Bayes_Factor" in content
+
+
 def test_depth(test_data):
     """depth should produce per-individual stats."""
     out = os.path.join(test_data["tmp"], "depth.tsv")
@@ -212,6 +230,21 @@ def test_cli_signif_bayes(test_data):
         "--correction", "none",
         "--test", "fisher",
         "--bayes",
+    ])
+    assert result.exit_code == 0, result.output
+    assert os.path.exists(out)
+
+
+def test_cli_triage(test_data):
+    """CLI triage command."""
+    runner = CliRunner()
+    out = os.path.join(test_data["tmp"], "cli_triage.tsv")
+    result = runner.invoke(main, [
+        "triage",
+        "-t", test_data["table"],
+        "-p", test_data["popmap"],
+        "-o", out,
+        "-G", "M,F",
     ])
     assert result.exit_code == 0, result.output
     assert os.path.exists(out)
