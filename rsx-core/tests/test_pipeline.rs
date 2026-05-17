@@ -222,6 +222,78 @@ fn test_signif_fasta_output() {
 }
 
 #[test]
+fn test_triage_command_outputs_biological_candidate_classes() {
+    let dir = test_dir().join("triage");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    writeln!(f, "#Number of markers : 3").unwrap();
+    write!(f, "id\tsequence").unwrap();
+    for i in 1..=10 {
+        write!(f, "\tm{i}").unwrap();
+    }
+    for i in 1..=10 {
+        write!(f, "\tf{i}").unwrap();
+    }
+    writeln!(f).unwrap();
+    write!(f, "0\tALL").unwrap();
+    for _ in 1..=20 {
+        write!(f, "\t10").unwrap();
+    }
+    writeln!(f).unwrap();
+    write!(f, "1\tMONLY").unwrap();
+    for _ in 1..=10 {
+        write!(f, "\t10").unwrap();
+    }
+    for _ in 1..=10 {
+        write!(f, "\t0").unwrap();
+    }
+    writeln!(f).unwrap();
+    write!(f, "2\tFONLY").unwrap();
+    for _ in 1..=10 {
+        write!(f, "\t0").unwrap();
+    }
+    for _ in 1..=10 {
+        write!(f, "\t10").unwrap();
+    }
+    writeln!(f).unwrap();
+
+    let popmap = dir.join("popmap.tsv");
+    let mut f = std::fs::File::create(&popmap).unwrap();
+    for i in 1..=10 {
+        writeln!(f, "m{i}\tM").unwrap();
+    }
+    for i in 1..=10 {
+        writeln!(f, "f{i}\tF").unwrap();
+    }
+
+    let output = dir.join("triage.tsv");
+    rsx_core::commands::triage::run(&rsx_core::commands::triage::TriageParams {
+        markers_table_path: table.to_str().unwrap().to_string(),
+        popmap_file_path: popmap.to_str().unwrap().to_string(),
+        output_file_path: output.to_str().unwrap().to_string(),
+        min_depth: 1,
+        signif_threshold: 0.05,
+        posterior_threshold: 0.9,
+        bayes_factor_threshold: 10.0,
+        prior_probability: 0.01,
+        linked_probability: 0.9,
+        group1: "M".to_string(),
+        group2: "F".to_string(),
+    })
+    .unwrap();
+
+    let content = std::fs::read_to_string(&output).unwrap();
+    assert!(content.contains("#source:rsx-triage"));
+    assert!(content.contains("Candidate_Class"));
+    assert!(content.contains("strict+posterior"));
+    assert!(content.contains("M-biased"));
+    assert!(content.contains("F-biased"));
+    assert!(!content.contains("0\tALL"));
+}
+
+#[test]
 fn test_subset_command() {
     let dir = test_dir().join("subset");
     std::fs::create_dir_all(&dir).unwrap();
