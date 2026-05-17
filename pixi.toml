@@ -18,6 +18,8 @@ bench = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo bench --manifest-path rs
 [feature.dev.dependencies]
 cargo-nextest = "*"
 compilers = ">=1.8"
+pkg-config = "*"
+zlib = "*"
 
 [feature.docs.dependencies]
 python = ">=3.11"
