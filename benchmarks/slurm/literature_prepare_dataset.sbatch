@@ -36,6 +36,11 @@ fi
 dataset=${datasets[$index]}
 job_id=${SLURM_JOB_ID:-manual}
 
+if [[ ! -x target/release/rsx ]]; then
+    echo "target/release/rsx not found; submit benchmarks/slurm/rsx_release_build.sbatch before this job" >&2
+    exit 2
+fi
+
 "$pixi" run -e benchmark python benchmarks/run_literature_benchmarks.py \
     --manifest benchmarks/literature_datasets.tsv \
     --dataset "$dataset" \

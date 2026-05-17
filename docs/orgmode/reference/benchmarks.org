@@ -157,8 +157,9 @@ On Slurm clusters, submit per-dataset compute-only comparisons as an array
 job after the FASTQ files and marker tables have been prepared:
 
 #+begin_src bash
-sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/literature_prepare_dataset.sbatch
+sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/rsx_release_build.sbatch
 sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/radsex_cpp_build.sbatch
+sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/literature_prepare_dataset.sbatch
 sbatch --export=ALL,RSX_REPO=$PWD,RADSEX_BIN=/path/to/radsex \
   benchmarks/slurm/literature_radsex_compare.sbatch
 pixi run -e benchmark merge-literature-slurm-results

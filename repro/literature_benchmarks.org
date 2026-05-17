@@ -84,8 +84,9 @@ measures compute time from prepared FASTQ/marker-table inputs rather than
 download throughput:
 
 #+begin_src bash
-sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/literature_prepare_dataset.sbatch
+sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/rsx_release_build.sbatch
 sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/radsex_cpp_build.sbatch
+sbatch --export=ALL,RSX_REPO=$PWD benchmarks/slurm/literature_prepare_dataset.sbatch
 sbatch --export=ALL,RSX_REPO=$PWD,RADSEX_BIN=/path/to/radsex \
   benchmarks/slurm/literature_radsex_compare.sbatch
 pixi run -e benchmark merge-literature-slurm-results
