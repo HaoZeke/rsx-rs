@@ -15,3 +15,4 @@ pub mod process;
 pub mod process_mpi;
 pub mod signif;
 pub mod subset;
+pub mod triage;
