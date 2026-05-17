@@ -27,5 +27,4 @@ pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 # temp file that is deleted before the call returns. No pyo3 version
 # conflict and no visible temp files for the high-level API.
 parquet = { version = "55", features = ["arrow"] }
-arrow = { version = "55" }
-tempfile = "3"
+arrow = { version = "55", features = ["ipc"] }

@@ -221,7 +221,7 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
 ///
 /// Calls the real in-memory `run_to_arrow` (pure Rust, identical logic to
 /// the classic file writer). The resulting RecordBatch(es) are written to
-/// a hidden NamedTempFile using the Arrow Parquet writer, then read by
+/// an in-memory Arrow IPC stream (zero disk I/O), then handed to pyarrow.
 /// pyarrow on the Python side. The temp file is deleted before return,
 /// so callers see a direct data-producing API with no visible artifacts.
 #[pyfunction]
@@ -238,13 +238,10 @@ fn triage_to_arrow(
     group1: &str,
     group2: &str,
 ) -> PyResult<PyObject> {
-    use std::fs;
-    use tempfile::NamedTempFile;
-
     let params = rsx_core::commands::triage::TriageParams {
         markers_table_path: table_path.to_string(),
         popmap_file_path: popmap_path.to_string(),
-        output_file_path: String::new(), // unused — we go through the Arrow path
+        output_file_path: String::new(),
         min_depth,
         signif_threshold: 0.05,
         posterior_threshold,
@@ -259,36 +256,46 @@ fn triage_to_arrow(
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     if batches.is_empty() {
-        // Empty result — return a proper 0-row table via Python (schema will be inferred or empty)
         let pyarrow = py.import("pyarrow")?;
-        let py_list = pyo3::types::PyList::empty(py);
-        let empty_table = pyarrow.getattr("Table")?.call_method1("from_batches", (py_list,))?;
-        return Ok(empty_table.into());
+        let empty = pyarrow.getattr("Table")?.call_method0("from_batches")?;
+        return Ok(empty.into());
     }
 
-    // Write the real Arrow batches to a hidden temp Parquet
-    let output_file = NamedTempFile::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("failed to create temp file: {e}")))?;
-    let output_path = output_file.path().to_string_lossy().to_string();
+    // True zero-disk-temp path: in-memory Arrow IPC → pyarrow Table
+    let table = batches_to_pyarrow_table(py, &batches)?;
+    Ok(table)
+}
 
+/// In-memory Arrow IPC export — zero disk files anywhere.
+/// Converts Rust RecordBatch(es) into real pyarrow.Table objects via Arrow IPC in RAM only.
+fn batches_to_pyarrow_table(
+    py: Python<'_>,
+    batches: &[arrow::record_batch::RecordBatch],
+) -> PyResult<PyObject> {
+    if batches.is_empty() {
+        let pyarrow = py.import("pyarrow")?;
+        return Ok(pyarrow.getattr("Table")?.call_method0("from_batches")?.into());
+    }
+
+    let mut buf = Vec::new();
     {
-        let file = std::fs::File::create(&output_path)
-            .map_err(|e| PyRuntimeError::new_err(format!("failed to open temp parquet: {e}")))?;
-        let mut writer = parquet::arrow::ArrowWriter::try_new(file, batches[0].schema(), None)
-            .map_err(|e| PyRuntimeError::new_err(format!("ArrowWriter init failed: {e}")))?;
-        for batch in &batches {
-            writer.write(batch).map_err(|e| PyRuntimeError::new_err(format!("write batch: {e}")))?;
+        let schema = batches[0].schema();
+        let mut writer = arrow::ipc::writer::StreamWriter::try_new(&mut buf, &schema)
+            .map_err(|e| PyRuntimeError::new_err(format!("IPC StreamWriter: {e}")))?;
+        for batch in batches {
+            writer.write(batch)
+                .map_err(|e| PyRuntimeError::new_err(format!("IPC write: {e}")))?;
         }
-        writer.close().map_err(|e| PyRuntimeError::new_err(format!("writer close: {e}")))?;
+        writer.finish()
+            .map_err(|e| PyRuntimeError::new_err(format!("IPC finish: {e}")))?;
     }
 
-    // Hand the Parquet to pyarrow (fast path) and return a real Table
+    let py_bytes = pyo3::types::PyBytes::new(py, &buf);
     let pyarrow = py.import("pyarrow")?;
-    let pyarrow_parquet = pyarrow.getattr("parquet")?;
-    let table = pyarrow_parquet.call_method1("read_table", (output_path.as_str(),))?;
-
-    // Delete the internal file before returning — caller never sees it
-    let _ = fs::remove_file(&output_path);
+    let ipc = pyarrow.getattr("ipc")?;
+    let reader = ipc.call_method1("RecordBatchStreamReader", (py_bytes,))?;
+    let all_batches_py = reader.call_method0("read_all")?;
+    let table = pyarrow.getattr("Table")?.call_method1("from_batches", (all_batches_py,))?;
 
     Ok(table.into())
 }
@@ -300,8 +307,7 @@ fn triage_to_arrow(
 ///     "n_markers", "n_individuals", "n_components", "total_variance"
 /// }
 ///
-/// Uses the real in-memory `run_to_arrow` in rsx-core (identical Jacobi +
-/// streaming Gram math). Hidden temp Parquet files are cleaned before return.
+/// Uses the real in-memory `run_to_arrow` in rsx-core. No temp files on disk.
 #[pyfunction]
 #[pyo3(signature = (table_path, min_depth=1, n_components=None))]
 fn pca_to_arrow(
@@ -310,12 +316,9 @@ fn pca_to_arrow(
     min_depth: u16,
     n_components: Option<usize>,
 ) -> PyResult<PyObject> {
-    use std::fs;
-    use tempfile::NamedTempFile;
-
     let params = rsx_core::commands::pca::PcaParams {
         markers_table_path: table_path.to_string(),
-        output_dir: String::new(), // unused by Arrow path
+        output_dir: String::new(),
         min_depth,
         n_components,
     };
@@ -323,35 +326,10 @@ fn pca_to_arrow(
     let res = rsx_core::commands::pca::run_to_arrow(&params)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    // Helper to write one batch to a hidden temp Parquet and return the path
-    fn write_batch_to_hidden_parquet(batch: &arrow::record_batch::RecordBatch) -> PyResult<String> {
-        let tmp = NamedTempFile::new()
-            .map_err(|e| PyRuntimeError::new_err(format!("temp file: {e}")))?;
-        let path = tmp.path().to_string_lossy().to_string();
+    // True zero-disk-temp: convert each logical table via in-memory IPC
+    let ev_table = batches_to_pyarrow_table(py, &[res.eigenvalues])?;
+    let ld_table = batches_to_pyarrow_table(py, &[res.loadings])?;
 
-        let file = std::fs::File::create(&path)
-            .map_err(|e| PyRuntimeError::new_err(format!("open parquet: {e}")))?;
-        let mut writer = parquet::arrow::ArrowWriter::try_new(file, batch.schema(), None)
-            .map_err(|e| PyRuntimeError::new_err(format!("ArrowWriter: {e}")))?;
-        writer.write(batch).map_err(|e| PyRuntimeError::new_err(format!("write: {e}")))?;
-        writer.close().map_err(|e| PyRuntimeError::new_err(format!("close: {e}")))?;
-        Ok(path)
-    }
-
-    let ev_path = write_batch_to_hidden_parquet(&res.eigenvalues)?;
-    let ld_path = write_batch_to_hidden_parquet(&res.loadings)?;
-
-    let pyarrow = py.import("pyarrow")?;
-    let pq = pyarrow.getattr("parquet")?;
-
-    let ev_table = pq.call_method1("read_table", (ev_path.as_str(),))?;
-    let ld_table = pq.call_method1("read_table", (ld_path.as_str(),))?;
-
-    // Cleanup
-    let _ = fs::remove_file(&ev_path);
-    let _ = fs::remove_file(&ld_path);
-
-    // Build Python dict return value (very ergonomic for the high-level layer)
     let dict = pyo3::types::PyDict::new(py);
     dict.set_item("eigenvalues", ev_table)?;
     dict.set_item("loadings", ld_table)?;
