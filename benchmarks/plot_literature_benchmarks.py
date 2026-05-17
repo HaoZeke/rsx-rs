@@ -61,7 +61,8 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
 def as_float(value: str | None) -> float:
     if value in {None, ""}:
         return 0.0
-    return float(value)
+    number = float(value)
+    return 0.0 if math.isnan(number) else number
 
 
 def as_int(value: str | None) -> int:
@@ -488,11 +489,131 @@ def plot_speed_comparison(path: Path, output_dir: Path, colors: dict[str, str]) 
     save_plot(plot, output_dir, "literature_radsex_speedups", width=7.2, height=5.2)
 
 
+def plot_mode_candidate_counts(path: Path, output_dir: Path, colors: dict[str, str]) -> None:
+    if not path.exists():
+        return
+    import pandas as pd
+    from plotnine import aes, coord_flip, facet_wrap, geom_col, ggplot, labs, scale_fill_manual
+
+    modes = pd.read_csv(path)
+    if modes.empty:
+        return
+
+    rows: list[dict[str, object]] = []
+    label_map = {
+        "marker_extraction_chisq_bonferroni": ("Strict marker extraction", "significant_markers"),
+        "distribution_fisher_fdr": ("Fisher/FDR distribution", "significant_markers"),
+        "distribution_gtest_fdr": ("G-test/FDR distribution", "significant_markers"),
+        "bayesian_marker_table": ("Bayes posterior > 0.9", "posterior_gt_0_9"),
+    }
+    for row in modes.to_dict("records"):
+        mode = row.get("mode")
+        if mode not in label_map:
+            continue
+        label, column = label_map[mode]
+        value = as_float(str(row.get(column, "")))
+        rows.append(
+            {
+                "dataset_label": str(row["dataset"]).replace("_", " ").title(),
+                "mode_label": label,
+                "marker_count": value,
+                "log10_marker_count_plus_one": math.log10(value + 1.0),
+            }
+        )
+    if not rows:
+        return
+
+    plot_data = pd.DataFrame(rows)
+    mode_order = [
+        "Strict marker extraction",
+        "Fisher/FDR distribution",
+        "G-test/FDR distribution",
+        "Bayes posterior > 0.9",
+    ]
+    plot_data["mode_label"] = pd.Categorical(plot_data["mode_label"], categories=mode_order, ordered=True)
+    palette = {
+        "Strict marker extraction": colors["teal"],
+        "Fisher/FDR distribution": colors["sky"],
+        "G-test/FDR distribution": colors["coral"],
+        "Bayes posterior > 0.9": colors["magenta"],
+    }
+    plot = (
+        ggplot(plot_data, aes(x="mode_label", y="log10_marker_count_plus_one", fill="mode_label"))
+        + geom_col(width=0.7)
+        + coord_flip()
+        + facet_wrap("~ dataset_label")
+        + scale_fill_manual(values=palette)
+        + labs(x="", y="log10(markers + 1)", fill="")
+        + base_theme()
+    )
+    save_plot(plot, output_dir, "literature_mode_candidate_counts", width=7.2, height=5.2)
+
+
+def plot_mode_qc(path: Path, output_dir: Path, colors: dict[str, str]) -> None:
+    if not path.exists():
+        return
+    import pandas as pd
+    from plotnine import aes, coord_flip, facet_wrap, geom_col, ggplot, labs, scale_fill_manual
+
+    modes = pd.read_csv(path)
+    if modes.empty:
+        return
+
+    rows: list[dict[str, object]] = []
+    for row in modes.to_dict("records"):
+        dataset_label = str(row["dataset"]).replace("_", " ").title()
+        if row.get("mode") == "frequency_qc":
+            rows.append(
+                {
+                    "dataset_label": dataset_label,
+                    "metric": "Singleton marker fraction",
+                    "value": as_float(str(row.get("singleton_fraction", ""))),
+                }
+            )
+        elif row.get("mode") == "streaming_pca":
+            rows.extend(
+                [
+                    {
+                        "dataset_label": dataset_label,
+                        "metric": "PC1 variance fraction",
+                        "value": as_float(str(row.get("pc1_variance_fraction", ""))),
+                    },
+                    {
+                        "dataset_label": dataset_label,
+                        "metric": "PC2 variance fraction",
+                        "value": as_float(str(row.get("pc2_variance_fraction", ""))),
+                    },
+                ]
+            )
+    if not rows:
+        return
+
+    plot_data = pd.DataFrame(rows)
+    metric_order = ["Singleton marker fraction", "PC1 variance fraction", "PC2 variance fraction"]
+    plot_data["metric"] = pd.Categorical(plot_data["metric"], categories=metric_order, ordered=True)
+    palette = {
+        "Singleton marker fraction": colors["sunshine"],
+        "PC1 variance fraction": colors["teal"],
+        "PC2 variance fraction": colors["sky"],
+    }
+    plot = (
+        ggplot(plot_data, aes(x="metric", y="value", fill="metric"))
+        + geom_col(width=0.7)
+        + coord_flip()
+        + facet_wrap("~ dataset_label")
+        + scale_fill_manual(values=palette)
+        + labs(x="", y="Fraction", fill="")
+        + base_theme()
+    )
+    save_plot(plot, output_dir, "literature_mode_qc", width=7.2, height=5.2)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", default=Path("benchmarks/results/literature_benchmark_results.csv"), type=Path)
     parser.add_argument("--bayesian", default=Path("benchmarks/results/literature_bayesian_evidence.csv"), type=Path)
     parser.add_argument("--comparison", default=Path("benchmarks/results/literature_speed_comparison.csv"), type=Path)
+    parser.add_argument("--modes", default=Path("benchmarks/results/literature_mode_effects.csv"), type=Path)
     parser.add_argument("--output", default=Path("docs/figures"), type=Path)
     args = parser.parse_args()
 
@@ -508,6 +629,8 @@ def main() -> None:
     plot_bayesian_evidence(args.bayesian, args.output, colors)
     plot_candidate_recovery(args.bayesian, args.input, args.output, colors)
     plot_speed_comparison(args.comparison, args.output, colors)
+    plot_mode_candidate_counts(args.modes, args.output, colors)
+    plot_mode_qc(args.modes, args.output, colors)
     print(f"Wrote figures to {args.output}")
 
 
