@@ -292,7 +292,7 @@ def plot_speed_comparison(path: Path, output_dir: Path, colors: dict[str, str]) 
     if not path.exists():
         return
     import pandas as pd
-    from plotnine import aes, coord_flip, geom_col, geom_hline, geom_point, ggplot, labs, position_jitter, scale_y_log10
+    from plotnine import aes, coord_flip, geom_hline, geom_linerange, geom_point, ggplot, labs, position_jitter, scale_y_log10
 
     comparison = pd.read_csv(path)
     if comparison.empty:
@@ -362,7 +362,8 @@ def plot_speed_comparison(path: Path, output_dir: Path, colors: dict[str, str]) 
     )
     plot = (
         ggplot(summary, aes(x="command_label", y="geomean_speedup"))
-        + geom_col(fill=colors["teal"], width=0.72)
+        + geom_linerange(aes(ymin="min_speedup", ymax="max_speedup"), color=colors["teal"], size=1.25)
+        + geom_point(color=colors["magenta"], size=2.4)
         + geom_point(
             pivot,
             aes(x="command_label", y="speedup"),
