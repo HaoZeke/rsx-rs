@@ -421,6 +421,59 @@ fn test_marker_table_parallel_filter_map_collect_preserves_serial_order() {
     assert_eq!(parallel, serial);
 }
 
+#[cfg(feature = "parallel")]
+#[test]
+fn test_depth_exact_parallel_matches_streaming_large_table() {
+    let dir = test_dir().join("depth_parallel_exact");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let n_ind = 8u16;
+    let n_markers = 170_000usize;
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    writeln!(f, "#Number of markers : {n_markers}").unwrap();
+    write!(f, "id\tsequence").unwrap();
+    for ind in 0..n_ind {
+        write!(f, "\tind{ind}").unwrap();
+    }
+    writeln!(f).unwrap();
+    for marker in 0..n_markers {
+        write!(f, "{marker}\tACGTACGT").unwrap();
+        for ind in 0..n_ind as usize {
+            let depth = ((marker + ind * 7) % 23) as u16;
+            write!(f, "\t{depth}").unwrap();
+        }
+        writeln!(f).unwrap();
+    }
+
+    let popmap = create_precision_popmap(&dir, n_ind);
+    let exact_output = dir.join("depth_exact.tsv");
+    let streaming_output = dir.join("depth_streaming.tsv");
+
+    rsx_core::commands::depth::run(&rsx_core::commands::depth::DepthParams {
+        markers_table_path: table.to_str().unwrap().to_string(),
+        popmap_file_path: popmap.to_str().unwrap().to_string(),
+        output_file_path: exact_output.to_str().unwrap().to_string(),
+        min_frequency: 0.5,
+        streaming: false,
+    })
+    .unwrap();
+
+    rsx_core::commands::depth::run(&rsx_core::commands::depth::DepthParams {
+        markers_table_path: table.to_str().unwrap().to_string(),
+        popmap_file_path: popmap.to_str().unwrap().to_string(),
+        output_file_path: streaming_output.to_str().unwrap().to_string(),
+        min_frequency: 0.5,
+        streaming: true,
+    })
+    .unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(exact_output).unwrap(),
+        std::fs::read_to_string(streaming_output).unwrap()
+    );
+}
+
 // === End-to-end golden tests with known outputs ===
 
 #[test]

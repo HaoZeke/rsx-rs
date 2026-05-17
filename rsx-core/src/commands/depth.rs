@@ -54,10 +54,48 @@ fn run_exact(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     let n_individuals = stream.header.n_individuals as usize;
     let min_individuals = (params.min_frequency * stream.header.n_individuals as f32) as u32;
 
-    let mut depths: Vec<Vec<u16>> = vec![Vec::new(); n_individuals];
-    let mut individual_markers_count: Vec<u64> = vec![0; n_individuals];
-    let mut individual_reads_count: Vec<u64> = vec![0; n_individuals];
+    // Exact mode stores retained depths, so each worker can accumulate
+    // per-individual vectors before the final median sort.
+    #[cfg(feature = "parallel")]
+    let (mut depths, individual_markers_count, individual_reads_count) = {
+        let init = (
+            vec![Vec::<u16>::new(); n_individuals],
+            vec![0u64; n_individuals],
+            vec![0u64; n_individuals],
+        );
 
+        stream.par_fold_reduce(
+            init,
+            |(depths, markers, reads), marker| {
+                for i in 0..n_individuals {
+                    let d = marker.individual_depths[i];
+                    if marker.n_individuals >= min_individuals {
+                        depths[i].push(d);
+                    }
+                    if d > 0 {
+                        markers[i] += 1;
+                        reads[i] += d as u64;
+                    }
+                }
+            },
+            |(mut a_d, mut a_m, mut a_r), (b_d, b_m, b_r)| {
+                for i in 0..n_individuals {
+                    a_d[i].extend(b_d[i].iter().cloned());
+                    a_m[i] += b_m[i];
+                    a_r[i] += b_r[i];
+                }
+                (a_d, a_m, a_r)
+            },
+        )?
+    };
+
+    #[cfg(not(feature = "parallel"))]
+    let mut depths: Vec<Vec<u16>> = vec![Vec::new(); n_individuals];
+    #[cfg(not(feature = "parallel"))]
+    let mut individual_markers_count: Vec<u64> = vec![0; n_individuals];
+    #[cfg(not(feature = "parallel"))]
+    let mut individual_reads_count: Vec<u64> = vec![0; n_individuals];
+    #[cfg(not(feature = "parallel"))]
     stream.for_each(|marker| {
         for i in 0..n_individuals {
             let d = marker.individual_depths[i];
