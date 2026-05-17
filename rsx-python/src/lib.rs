@@ -219,9 +219,9 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 /// Returns the triage results directly as a pyarrow.Table.
 ///
-/// Calls the real in-memory `run_to_arrow` (pure Rust, identical logic to
-/// the classic file writer). The resulting RecordBatch(es) are written to
-/// an in-memory Arrow IPC stream (zero disk I/O), then handed to pyarrow.
+/// Calls the real in-memory `run_to_arrow` (pure Rust). The RecordBatch(es)
+/// are serialized via Arrow IPC entirely in RAM and reconstructed as a
+/// pyarrow.Table on the Python side — zero disk files at any point.
 /// pyarrow on the Python side. The temp file is deleted before return,
 /// so callers see a direct data-producing API with no visible artifacts.
 #[pyfunction]
@@ -273,6 +273,7 @@ fn batches_to_pyarrow_table(
     batches: &[arrow::record_batch::RecordBatch],
 ) -> PyResult<PyObject> {
     if batches.is_empty() {
+        // Cache the pyarrow.Table reference for the (rare) empty case
         let pyarrow = py.import("pyarrow")?;
         return Ok(pyarrow.getattr("Table")?.call_method0("from_batches")?.into());
     }
@@ -291,6 +292,9 @@ fn batches_to_pyarrow_table(
     }
 
     let py_bytes = pyo3::types::PyBytes::new(py, &buf);
+
+    // One import + getattr sequence per top-level call (acceptable; the heavy
+    // work is already done in Rust before we reach this point).
     let pyarrow = py.import("pyarrow")?;
     let ipc = pyarrow.getattr("ipc")?;
     let reader = ipc.call_method1("RecordBatchStreamReader", (py_bytes,))?;
@@ -307,7 +311,7 @@ fn batches_to_pyarrow_table(
 ///     "n_markers", "n_individuals", "n_components", "total_variance"
 /// }
 ///
-/// Uses the real in-memory `run_to_arrow` in rsx-core. No temp files on disk.
+/// Uses the real in-memory `run_to_arrow` in rsx-core (pure IPC handoff).
 #[pyfunction]
 #[pyo3(signature = (table_path, min_depth=1, n_components=None))]
 fn pca_to_arrow(
@@ -326,9 +330,33 @@ fn pca_to_arrow(
     let res = rsx_core::commands::pca::run_to_arrow(&params)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    // True zero-disk-temp: convert each logical table via in-memory IPC
-    let ev_table = batches_to_pyarrow_table(py, &[res.eigenvalues])?;
-    let ld_table = batches_to_pyarrow_table(py, &[res.loadings])?;
+    // One-shot IPC: write both logical tables (eigenvalues + loadings) into a
+    // single Arrow IPC stream. This gives us one import + one round-trip for PCA.
+    let mut buf = Vec::new();
+    {
+        // First batch (eigenvalues)
+        let mut writer = arrow::ipc::writer::StreamWriter::try_new(&mut buf, &res.eigenvalues.schema())
+            .map_err(|e| PyRuntimeError::new_err(format!("IPC writer (eigen): {e}")))?;
+        writer.write(&res.eigenvalues)
+            .map_err(|e| PyRuntimeError::new_err(format!("IPC write eigen: {e}")))?;
+        // Second batch (loadings) – different schema is fine in one stream
+        writer.write(&res.loadings)
+            .map_err(|e| PyRuntimeError::new_err(format!("IPC write loadings: {e}")))?;
+        writer.finish()
+            .map_err(|e| PyRuntimeError::new_err(format!("IPC finish: {e}")))?;
+    }
+
+    let py_bytes = pyo3::types::PyBytes::new(py, &buf);
+    let pyarrow = py.import("pyarrow")?;
+    let ipc = pyarrow.getattr("ipc")?;
+    let reader = ipc.call_method1("RecordBatchStreamReader", (py_bytes,))?;
+
+    // Read the two batches we wrote
+    let b0 = reader.call_method0("read_next_batch")?;
+    let b1 = reader.call_method0("read_next_batch")?;
+
+    let ev_table = pyarrow.getattr("Table")?.call_method1("from_batches", (vec![b0],))?;
+    let ld_table = pyarrow.getattr("Table")?.call_method1("from_batches", (vec![b1],))?;
 
     let dict = pyo3::types::PyDict::new(py);
     dict.set_item("eigenvalues", ev_table)?;

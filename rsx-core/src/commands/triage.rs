@@ -227,22 +227,16 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         Field::new("Candidate_Class", DataType::Utf8, false),
     ]);
 
-    // Collect qualifying rows first (output size is small)
-    struct OutRow {
-        id: String, seq: String,
-        g1: String, g1p: u32, g1t: u32, g1pen: f64,
-        g2: String, g2p: u32, g2t: u32, g2pen: f64,
-        dir: String, bias: f64,
-        p: f64, cp: f64, bf: f64, post: f64,
-        strict: bool, pcall: bool, bfcall: bool, class: String,
-    }
-
-    let mut rows: Vec<OutRow> = Vec::new();
+    // We stream directly into Arrow builders (no intermediate OutRow vec).
+    // This is the "direct to builder" path for the Arrow emission.
 
     // Setup (identical to file-based run)
     let popmap = Popmap::from_file(std::path::Path::new(&params.popmap_file_path))?;
     let mut groups = GroupConfig { group1: params.group1.clone(), group2: params.group2.clone() };
     popmap.resolve_groups(&mut groups)?;
+
+    let g1_name = groups.group1.clone();
+    let g2_name = groups.group2.clone();
 
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
@@ -270,7 +264,30 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         params.signif_threshold as f64
     };
 
-    // Streaming pass – collect rows
+    // === Direct-to-builder streaming (no intermediate Vec<OutRow>) ===
+    // Declare all builders before the stream so we can append inside the closure.
+    let mut id_b = StringBuilder::new();
+    let mut seq_b = StringBuilder::new();
+    let mut g1n_b = StringBuilder::new();
+    let mut g1p_b = UInt32Builder::new();
+    let mut g1t_b = UInt32Builder::new();
+    let mut g1pen_b = Float64Builder::new();
+    let mut g2n_b = StringBuilder::new();
+    let mut g2p_b = UInt32Builder::new();
+    let mut g2t_b = UInt32Builder::new();
+    let mut g2pen_b = Float64Builder::new();
+    let mut dir_b = StringBuilder::new();
+    let mut bias_b = Float64Builder::new();
+    let mut p_b = Float64Builder::new();
+    let mut cp_b = Float64Builder::new();
+    let mut bf_b = Float64Builder::new();
+    let mut post_b = Float64Builder::new();
+    let mut strict_b = BooleanBuilder::new();
+    let mut pcall_b = BooleanBuilder::new();
+    let mut bfcall_b = BooleanBuilder::new();
+    let mut class_b = StringBuilder::new();
+
+    // Streaming pass – append qualifying rows directly into the Arrow builders
     stream.for_each(|marker| {
         if marker.n_individuals == 0 { return; }
 
@@ -298,60 +315,28 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         let dir = bias_direction(&groups.group1, &groups.group2, g1_pen, g2_pen);
         let class = candidate_class(strict_call, posterior_call, bayes_factor_call);
 
-        rows.push(OutRow {
-            id: marker.id.clone(),
-            seq: marker.sequence.clone(),
-            g1: groups.group1.clone(), g1p: g1, g1t: total_g1, g1pen: g1_pen,
-            g2: groups.group2.clone(), g2p: g2, g2t: total_g2, g2pen: g2_pen,
-            dir, bias, p, cp: p_corrected, bf, post: posterior,
-            strict: strict_call, pcall: posterior_call, bfcall: bayes_factor_call, class: class.to_string(),
-        });
+        // Direct append – this is the "direct to builder" optimization
+        id_b.append_value(marker.id.clone());
+        seq_b.append_value(&marker.sequence);
+        g1n_b.append_value(&g1_name);
+        g1p_b.append_value(g1);
+        g1t_b.append_value(total_g1);
+        g1pen_b.append_value(g1_pen);
+        g2n_b.append_value(&g2_name);
+        g2p_b.append_value(g2);
+        g2t_b.append_value(total_g2);
+        g2pen_b.append_value(g2_pen);
+        dir_b.append_value(&dir);
+        bias_b.append_value(bias);
+        p_b.append_value(p);
+        cp_b.append_value(p_corrected);
+        bf_b.append_value(bf);
+        post_b.append_value(posterior);
+        strict_b.append_value(strict_call);
+        pcall_b.append_value(posterior_call);
+        bfcall_b.append_value(bayes_factor_call);
+        class_b.append_value(class);
     })?;
-
-    // Build Arrow from collected rows
-    let mut id_b = StringBuilder::new();
-    let mut seq_b = StringBuilder::new();
-    let mut g1n_b = StringBuilder::new();
-    let mut g1p_b = UInt32Builder::new();
-    let mut g1t_b = UInt32Builder::new();
-    let mut g1pen_b = Float64Builder::new();
-    let mut g2n_b = StringBuilder::new();
-    let mut g2p_b = UInt32Builder::new();
-    let mut g2t_b = UInt32Builder::new();
-    let mut g2pen_b = Float64Builder::new();
-    let mut dir_b = StringBuilder::new();
-    let mut bias_b = Float64Builder::new();
-    let mut p_b = Float64Builder::new();
-    let mut cp_b = Float64Builder::new();
-    let mut bf_b = Float64Builder::new();
-    let mut post_b = Float64Builder::new();
-    let mut strict_b = BooleanBuilder::new();
-    let mut pcall_b = BooleanBuilder::new();
-    let mut bfcall_b = BooleanBuilder::new();
-    let mut class_b = StringBuilder::new();
-
-    for r in rows {
-        id_b.append_value(r.id);
-        seq_b.append_value(&r.seq);
-        g1n_b.append_value(&r.g1);
-        g1p_b.append_value(r.g1p);
-        g1t_b.append_value(r.g1t);
-        g1pen_b.append_value(r.g1pen);
-        g2n_b.append_value(&r.g2);
-        g2p_b.append_value(r.g2p);
-        g2t_b.append_value(r.g2t);
-        g2pen_b.append_value(r.g2pen);
-        dir_b.append_value(&r.dir);
-        bias_b.append_value(r.bias);
-        p_b.append_value(r.p);
-        cp_b.append_value(r.cp);
-        bf_b.append_value(r.bf);
-        post_b.append_value(r.post);
-        strict_b.append_value(r.strict);
-        pcall_b.append_value(r.pcall);
-        bfcall_b.append_value(r.bfcall);
-        class_b.append_value(&r.class);
-    }
 
     let batch = RecordBatch::try_new(
         std::sync::Arc::new(schema),
