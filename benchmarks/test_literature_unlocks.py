@@ -3,10 +3,74 @@ import unittest
 from pathlib import Path
 
 from benchmarks.plot_literature_benchmarks import prepare_bio_unlock_plot_rows
-from benchmarks.summarize_literature_unlocks import summarize_dataset
+from benchmarks.summarize_literature_unlocks import infer_biological_signal, summarize_dataset
 
 
 class LiteratureUnlockSummaryTests(unittest.TestCase):
+    def test_infer_biological_signal_calls_confirmatory_xy_from_strict_male_bias(self):
+        inference = infer_biological_signal(
+            "demo_species",
+            10,
+            {
+                "strict_candidates": "2",
+                "posterior_gt_0_9": "2",
+                "bayes_factor_only": "4",
+                "singleton_fraction": "0.1",
+            },
+            [
+                {"strict_call": True, "posterior_sex_linked": 0.99, "bias_direction": "male-biased"},
+                {"strict_call": True, "posterior_sex_linked": 0.98, "bias_direction": "male-biased"},
+                {"strict_call": False, "posterior_sex_linked": 0.95, "bias_direction": "female-biased"},
+            ],
+        )
+
+        self.assertEqual(inference["evidence_class"], "confirmatory")
+        self.assertEqual(inference["inferred_sex_system"], "XX/XY-supported")
+        self.assertEqual(inference["strict_male_biased"], "2")
+        self.assertIn("male-biased strict markers", inference["biological_inference"])
+
+    def test_infer_biological_signal_reports_exploratory_zw_from_posterior_only_bias(self):
+        inference = infer_biological_signal(
+            "demo_species",
+            10,
+            {
+                "strict_candidates": "0",
+                "posterior_gt_0_9": "3",
+                "bayes_factor_only": "1",
+                "singleton_fraction": "0.2",
+            },
+            [
+                {"strict_call": False, "posterior_sex_linked": 0.99, "bias_direction": "female-biased"},
+                {"strict_call": False, "posterior_sex_linked": 0.96, "bias_direction": "female-biased"},
+                {"strict_call": False, "posterior_sex_linked": 0.93, "bias_direction": "male-biased"},
+            ],
+        )
+
+        self.assertEqual(inference["evidence_class"], "exploratory")
+        self.assertEqual(inference["inferred_sex_system"], "ZZ/ZW-like")
+        self.assertEqual(inference["posterior_female_biased"], "2")
+        self.assertIn("source call remains strict-null", inference["biological_inference"])
+
+    def test_infer_biological_signal_restrains_bayes_factor_only_rows(self):
+        inference = infer_biological_signal(
+            "demo_species",
+            10,
+            {
+                "strict_candidates": "0",
+                "posterior_gt_0_9": "0",
+                "bayes_factor_only": "5",
+                "singleton_fraction": "0.55",
+            },
+            [
+                {"strict_call": False, "posterior_sex_linked": 0.8, "bias_direction": "female-biased"},
+                {"strict_call": False, "posterior_sex_linked": 0.7, "bias_direction": "male-biased"},
+            ],
+        )
+
+        self.assertEqual(inference["evidence_class"], "restrained_null")
+        self.assertEqual(inference["inferred_sex_system"], "no high-posterior sex-system call")
+        self.assertIn("not converted into a sex-system call", inference["biological_inference"])
+
     def test_prepare_bio_unlock_plot_rows_keeps_interpretable_classes(self):
         rows = prepare_bio_unlock_plot_rows(
             [

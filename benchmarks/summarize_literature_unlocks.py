@@ -31,6 +31,29 @@ SUMMARY_COLUMNS = [
     "sex_loading_delta_pc1",
     "unlock_class",
     "biological_interpretation",
+    "evidence_class",
+    "inferred_sex_system",
+    "strict_male_biased",
+    "strict_female_biased",
+    "posterior_male_biased",
+    "posterior_female_biased",
+    "biological_inference",
+]
+
+INFERENCE_COLUMNS = [
+    "dataset",
+    "min_depth",
+    "evidence_class",
+    "inferred_sex_system",
+    "strict_candidates",
+    "posterior_gt_0_9",
+    "strict_male_biased",
+    "strict_female_biased",
+    "posterior_male_biased",
+    "posterior_female_biased",
+    "bayes_factor_only",
+    "singleton_fraction",
+    "biological_inference",
 ]
 
 CANDIDATE_COLUMNS = [
@@ -160,6 +183,110 @@ def classify_candidate(candidate: dict[str, object]) -> str:
     return "exploratory"
 
 
+def as_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() == "true"
+
+
+def candidate_posterior(candidate: dict[str, object]) -> float:
+    return as_float(str(candidate.get("posterior_sex_linked", "")))
+
+
+def count_bias(candidates: list[dict[str, object]]) -> tuple[int, int]:
+    male = sum(1 for candidate in candidates if str(candidate.get("bias_direction")) == "male-biased")
+    female = sum(1 for candidate in candidates if str(candidate.get("bias_direction")) == "female-biased")
+    return male, female
+
+
+def infer_biological_signal(
+    dataset: str,
+    min_depth: int,
+    summary: dict[str, str],
+    candidates: list[dict[str, object]],
+) -> dict[str, str]:
+    strict_candidates = [candidate for candidate in candidates if as_bool(candidate.get("strict_call"))]
+    posterior_candidates = [candidate for candidate in candidates if candidate_posterior(candidate) > 0.9]
+    strict_male, strict_female = count_bias(strict_candidates)
+    posterior_male, posterior_female = count_bias(posterior_candidates)
+    strict_count = as_int(summary.get("strict_candidates"))
+    posterior_count = as_int(summary.get("posterior_gt_0_9"))
+    bayes_factor_only = as_int(summary.get("bayes_factor_only"))
+    singleton_fraction = as_float(summary.get("singleton_fraction"))
+
+    if strict_count:
+        evidence_class = "confirmatory"
+        if strict_male > strict_female:
+            inferred = "XX/XY-supported"
+            inference = (
+                f"{dataset} has {strict_male} male-biased strict markers at depth {min_depth}, "
+                "supporting a male-heterogametic XX/XY interpretation on the RAD marker table."
+            )
+        elif strict_female > strict_male:
+            inferred = "ZZ/ZW-supported"
+            inference = (
+                f"{dataset} has {strict_female} female-biased strict markers at depth {min_depth}, "
+                "supporting a female-heterogametic ZZ/ZW interpretation on the RAD marker table."
+            )
+        else:
+            inferred = "mixed strict signal"
+            inference = (
+                f"{dataset} has strict markers at depth {min_depth}, but male- and female-biased "
+                "directions are tied, so rsx reports marker recovery without assigning a single "
+                "heterogametic direction."
+            )
+        if posterior_count > strict_count:
+            inference += f" Posterior triage adds {posterior_count - strict_count} validation target(s)."
+        if bayes_factor_only:
+            inference += f" {bayes_factor_only} Bayes-factor-only row(s) remain below the posterior call threshold."
+    elif posterior_count:
+        evidence_class = "exploratory"
+        if posterior_male > posterior_female:
+            inferred = "XX/XY-like"
+            direction = f"{posterior_male} male-biased"
+            system = "male-heterogametic"
+        elif posterior_female > posterior_male:
+            inferred = "ZZ/ZW-like"
+            direction = f"{posterior_female} female-biased"
+            system = "female-heterogametic"
+        else:
+            inferred = "mixed posterior signal"
+            direction = "mixed-direction"
+            system = "directionally mixed"
+        inference = (
+            f"{dataset} has no strict markers at depth {min_depth}; {direction} high-posterior marker(s) "
+            f"form an exploratory {system} validation set, but the source call remains strict-null."
+        )
+        if bayes_factor_only:
+            inference += f" {bayes_factor_only} Bayes-factor-only row(s) are held out of the sex-system call."
+    elif bayes_factor_only:
+        evidence_class = "restrained_null"
+        inferred = "no high-posterior sex-system call"
+        inference = (
+            f"{dataset} has no strict or high-posterior markers at depth {min_depth}; "
+            f"{bayes_factor_only} Bayes-factor-only row(s) are not converted into a sex-system call."
+        )
+    else:
+        evidence_class = "strict_null"
+        inferred = "no sex-system signal at threshold"
+        inference = f"{dataset} has no strict, high-posterior, or Bayes-factor candidate set at depth {min_depth}."
+
+    if singleton_fraction:
+        inference += f" Singleton fraction is {singleton_fraction:.1%}."
+
+    return {
+        "dataset": dataset,
+        "min_depth": str(min_depth),
+        "evidence_class": evidence_class,
+        "inferred_sex_system": inferred,
+        "strict_male_biased": str(strict_male),
+        "strict_female_biased": str(strict_female),
+        "posterior_male_biased": str(posterior_male),
+        "posterior_female_biased": str(posterior_female),
+        "biological_inference": inference,
+    }
+
+
 def candidate_sort_key(candidate: dict[str, object]) -> tuple[object, ...]:
     class_order = {
         "strict+posterior": 0,
@@ -287,6 +414,7 @@ def summarize_dataset(
         len(bayes_factor_only),
     )
     summary["biological_interpretation"] = biological_interpretation(summary)
+    summary.update(infer_biological_signal(dataset, min_depth, summary, list(candidates.values())))
 
     candidate_rows: list[dict[str, str]] = []
     for rank, candidate in enumerate(sorted(candidates.values(), key=candidate_sort_key)[:top_candidates], start=1):
@@ -362,6 +490,7 @@ def main() -> None:
     parser.add_argument("--mode-effects", default=Path("benchmarks/results/literature_mode_effects.csv"), type=Path)
     parser.add_argument("--summary", default=Path("benchmarks/results/literature_bio_unlocks.csv"), type=Path)
     parser.add_argument("--candidates", default=Path("benchmarks/results/literature_candidate_triage.csv"), type=Path)
+    parser.add_argument("--inference", default=Path("benchmarks/results/literature_sex_system_inference.csv"), type=Path)
     parser.add_argument("--dataset", action="append", help="Dataset name to summarize; repeat for multiple datasets")
     parser.add_argument("--min-depth", default=10, type=int)
     parser.add_argument("--group1", default="male")
@@ -372,6 +501,7 @@ def main() -> None:
     mode_effects = load_mode_effects(args.mode_effects)
     summaries: list[dict[str, str]] = []
     candidates: list[dict[str, str]] = []
+    inferences: list[dict[str, str]] = []
     for dataset in discover_datasets(args.mode_dir, args.dataset):
         summary, candidate_rows = summarize_dataset(
             args.workdir,
@@ -384,10 +514,12 @@ def main() -> None:
             args.top_candidates,
         )
         summaries.append(summary)
+        inferences.append({column: summary.get(column, "") for column in INFERENCE_COLUMNS})
         candidates.extend(candidate_rows)
     write_rows(args.summary, summaries, SUMMARY_COLUMNS)
+    write_rows(args.inference, inferences, INFERENCE_COLUMNS)
     write_rows(args.candidates, candidates, CANDIDATE_COLUMNS)
-    print(f"Wrote {args.summary} and {args.candidates}")
+    print(f"Wrote {args.summary}, {args.inference}, and {args.candidates}")
 
 
 if __name__ == "__main__":
