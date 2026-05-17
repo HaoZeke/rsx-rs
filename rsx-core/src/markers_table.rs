@@ -354,10 +354,7 @@ impl MarkersTableStream {
     where
         F: FnMut(&Marker),
     {
-        if !self.config.store_sequence
-            && !self.config.store_depths
-            && self.config.min_depth <= 1
-        {
+        if !self.config.store_sequence && !self.config.store_depths && self.config.min_depth <= 1 {
             self.for_each_fast_d1(slice, &mut visit);
         } else if !self.config.store_sequence {
             self.for_each_skip_seq(slice, &mut visit);
