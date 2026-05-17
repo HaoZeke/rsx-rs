@@ -291,17 +291,13 @@ fn batches_to_pyarrow_table(
             .map_err(|e| PyRuntimeError::new_err(format!("IPC finish: {e}")))?;
     }
 
-    let py_bytes = pyo3::types::PyBytes::new(py, &buf);
-
-    // One import + getattr sequence per top-level call (acceptable; the heavy
-    // work is already done in Rust before we reach this point).
-    let pyarrow = py.import("pyarrow")?;
-    let ipc = pyarrow.getattr("ipc")?;
-    let reader = ipc.call_method1("RecordBatchStreamReader", (py_bytes,))?;
-    let all_batches_py = reader.call_method0("read_all")?;
-    let table = pyarrow.getattr("Table")?.call_method1("from_batches", (all_batches_py,))?;
-
-    Ok(table.into())
+    let bytes = batches_to_ipc_bytes(batches.iter().collect::<Vec<_>>().as_slice())?;
+    let mut tables = ipc_bytes_to_pyarrow_tables(py, &bytes)?;
+    if tables.is_empty() {
+        let pyarrow = py.import("pyarrow")?;
+        return Ok(pyarrow.getattr("Table")?.call_method0("from_batches")?.into());
+    }
+    Ok(tables.remove(0))
 }
 
 /// Write heterogeneous RecordBatches to one in-memory IPC stream.
