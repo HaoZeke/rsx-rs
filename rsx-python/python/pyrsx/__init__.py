@@ -31,7 +31,7 @@ from .pyrsx import (  # noqa: F401
 # High-level idiomatic API (recommended)
 from .api.markers import MarkerTable  # noqa: F401
 from .api.params import TriageParams  # noqa: F401
-from .api.results import PcaResult, TriageResult  # noqa: F401
+from .api.results import DistribResult, DepthResult, FreqResult, PcaResult, TriageResult  # noqa: F401
 
 __all__ = [
     # Low-level (for compatibility)
@@ -52,4 +52,7 @@ __all__ = [
     "TriageResult",
     "TriageParams",
     "PcaResult",
+    "FreqResult",
+    "DepthResult",
+    "DistribResult",
 ]

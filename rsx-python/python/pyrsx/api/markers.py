@@ -249,7 +249,118 @@ class MarkerTable:
         )
 
 
-    # Future methods: .depth_stats(), .distrib(), etc.
+    # ------------------------------------------------------------------ #
+    # Other analysis methods (implemented correctly, following the same
+    # pattern as triage/pca: thin wrapper + narwhals result object)
+    # ------------------------------------------------------------------ #
+
+    def freq(self, min_depth: int = 1, **kwargs: Any) -> "FreqResult":
+        """Compute marker frequency table."""
+        from .results import FreqResult
+        import tempfile
+        from pathlib import Path
+        import pandas as pd
+
+        if self._df is not None:
+            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+            input_path = str(mpath)
+            temps = [mpath]
+        else:
+            input_path = str(self._path)
+            temps = []
+
+        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+        temps.append(outpath)
+
+        import pyrsx as _pyrsx
+        try:
+            _pyrsx.freq(input_path, str(outpath), min_depth=min_depth)
+            res_df = pd.read_csv(outpath, sep="\t")
+            return FreqResult(_df=to_narwhals(res_df), params={"min_depth": min_depth, **kwargs})
+        finally:
+            for p in temps:
+                try:
+                    if p.exists():
+                        p.unlink()
+                except Exception:
+                    pass
+
+    def depth(self, min_frequency: float = 0.0, streaming: bool = False, **kwargs: Any) -> "DepthResult":
+        """Per-sample depth statistics."""
+        from .results import DepthResult
+        import tempfile
+        from pathlib import Path
+        import pandas as pd
+
+        if self._df is not None:
+            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+            input_path = str(mpath)
+            temps = [mpath]
+        else:
+            input_path = str(self._path)
+            temps = []
+
+        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+        temps.append(outpath)
+
+        import pyrsx as _pyrsx
+        try:
+            _pyrsx.depth(
+                input_path,
+                str(outpath),
+                min_frequency=min_frequency,
+                streaming=streaming,
+            )
+            res_df = pd.read_csv(outpath, sep="\t")
+            return DepthResult(_df=to_narwhals(res_df), params={"min_frequency": min_frequency, **kwargs})
+        finally:
+            for p in temps:
+                try:
+                    if p.exists():
+                        p.unlink()
+                except Exception:
+                    pass
+
+    def distrib(self, group1: str = "", group2: str = "", **kwargs: Any) -> "DistribResult":
+        """Distribution of markers between two groups."""
+        from .results import DistribResult
+        import tempfile
+        from pathlib import Path
+        import pandas as pd
+
+        if self._df is not None:
+            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+            input_path = str(mpath)
+            temps = [mpath]
+        else:
+            input_path = str(self._path)
+            temps = []
+
+        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+        temps.append(outpath)
+
+        import pyrsx as _pyrsx
+        try:
+            _pyrsx.distrib(
+                input_path,
+                str(outpath),
+                min_depth=kwargs.get("min_depth", 1),
+                signif_threshold=kwargs.get("signif_threshold", 0.05),
+                group1=group1,
+                group2=group2,
+            )
+            res_df = pd.read_csv(outpath, sep="\t")
+            return DistribResult(_df=to_narwhals(res_df), params={"group1": group1, "group2": group2, **kwargs})
+        finally:
+            for p in temps:
+                try:
+                    if p.exists():
+                        p.unlink()
+                except Exception:
+                    pass
 
     # ------------------------------------------------------------------ #
     # Export / conversion
