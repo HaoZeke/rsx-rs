@@ -156,17 +156,17 @@ merge via BinaryHeap. The depth command sorts only non-zero entries
 
 Proof: =scripts/sympy/sparse_median_proof.py=
 
-*** Streaming Tucker via Gram eigendecomposition (pca)
+*** Streaming sample PCA via Gram eigendecomposition (pca)
 
 For an (m x n) depth matrix where m >> n (75M markers, 200 individuals):
 - Stream rows, accumulate X^T X (n x n = 200 x 200 = 320KB)
 - Eigendecompose X^T X (Jacobi rotation, instant for 200x200)
-- Eigenvectors = right singular vectors of X = Tucker mode-2 factors
+- Eigenvectors are the sample loading directions from a full PCA of X
 
 This is mathematically exact (not an approximation):
   SVD: X = U S V^T
   Gram: X^T X = V S^2 V^T
-  Therefore: eigvecs(X^T X) = V = Tucker_U2
+  Therefore: eigvecs(X^T X) = V, the sample-side PCA directions
 
 Proof: =scripts/sympy/tucker_covariance_proof.py=
 

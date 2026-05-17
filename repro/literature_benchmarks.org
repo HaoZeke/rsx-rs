@@ -71,6 +71,13 @@ Generate Bayesian evidence summaries from completed =distrib= outputs:
 pixi run -e benchmark analyze-literature-bayes
 #+end_src
 
+Summarize marker-level biological unlocks from completed mode outputs:
+
+#+begin_src bash
+pixi run -e paper analyze-literature-modes
+pixi run -e paper summarize-literature-unlocks
+#+end_src
+
 Run same-input C++ RADSex vs rsx timing comparisons after building the C++
 binary:
 
@@ -111,6 +118,9 @@ tracked measured outputs are:
 - =benchmarks/results/literature_bayesian_evidence.csv=
 - =benchmarks/results/literature_speed_comparison.csv=
 - =benchmarks/results/literature_binding_results.csv=
+- =benchmarks/results/literature_mode_effects.csv=
+- =benchmarks/results/literature_bio_unlocks.csv=
+- =benchmarks/results/literature_candidate_triage.csv=
 - =docs/figures/literature_benchmark_summary.tsv=
 - =docs/figures/literature_speedup_summary.tsv=
 - =docs/figures/literature_speedup_pairs.tsv=
@@ -171,6 +181,20 @@ multi-GB Bayesian =signif= tables.
 | =tinca_tinca=            |     1 |             127 |              21 |
 | =notothenia_rossii=      |     1 |               5 |               1 |
 
+** Marker-level biological unlocks at d=10
+
+The mode run joins strict =signif= calls with marker-level Bayesian output
+from the same published marker tables. The summary is small enough to track
+directly and keeps raw Bayes-factor counts separate from high-posterior
+candidate calls.
+
+| Dataset                  | Strict + posterior | Strict only | Posterior only | Bayes-factor only | Biological role |
+|--------------------------+--------------------+-------------+----------------+-------------------+-----------------|
+| =danio_albolineatus=     |                  0 |           0 |             30 |               158 | ranked exploratory set without strict reclassification |
+| =notothenia_rossii=      |                  0 |           0 |              0 |               400 | posterior/QC restraint on sparse null table |
+| =plecoglossus_altivelis= |                 47 |           0 |              2 |               523 | positive-control recovery plus added validation targets |
+| =tinca_tinca=            |                  6 |           0 |              5 |               432 | novel XX/XY case with expanded validation targets |
+
 ** Feature evidence matrix
 
 Every paper claim should point to a real run:
@@ -180,8 +204,9 @@ Every paper claim should point to a real run:
 | RADSex CLI compatibility | Four RADSex workflow FASTQ datasets   | =literature_speed_comparison.csv= |
 | Faster compute           | Same inputs vs C++ RADSex v1.2.0      | =literature_radsex_speedups.svg= |
 | Bayesian biological value | Same =distrib= outputs and popmaps    | =literature_candidate_recovery.svg= |
+| Marker-level bio unlocks | Same d=10 marker tables via =pyrsx=   | =literature_bio_unlocks.csv= |
 | Python ease of use       | Published marker table via =pyrsx=    | =literature_binding_results.csv= |
-| Streaming PCA/stat tests | Published marker table via =pyrsx=    | =literature_binding_results.csv= |
+| Streaming PCA/stat tests | Published marker tables via =pyrsx=   | =literature_mode_effects.csv= |
 
 The tracked binding run uses the published =notothenia_rossii= RADSex
 workflow marker table at minimum depth 10:

@@ -142,6 +142,7 @@ The generated figure and table assets are written to =docs/figures/=:
 - =literature_downstream_times.svg=
 - =literature_bayesian_evidence.svg=
 - =literature_candidate_recovery.svg=
+- =literature_bio_unlocks.svg=
 - =literature_mode_candidate_counts.svg=
 - =literature_mode_qc.svg=
 - =literature_radsex_speedups.svg=
@@ -242,6 +243,31 @@ the retained marker tables as well: =tinca_tinca= is low-singleton at d=10
 (7.74%), whereas =notothenia_rossii= remains dominated by singleton retained
 markers (52.78%), which is a biological-QC warning for candidate follow-up.
 
+*** Biological unlock summary
+
+The marker-level unlock summary joins strict =signif= output with
+=signif --bayes= output from the same d=10 marker tables. It is tracked in
+=benchmarks/results/literature_bio_unlocks.csv=, and the top-ranked marker
+rows are tracked in =benchmarks/results/literature_candidate_triage.csv=.
+The generated figure is =docs/figures/literature_bio_unlocks.svg=.
+
+| Dataset | Strict + posterior | Strict only | Posterior only | Bayes-factor only | Interpretation |
+|---------+--------------------+-------------+----------------+-------------------+----------------|
+| =danio_albolineatus= | 0 | 0 | 30 | 158 | posterior triage without strict reclassification |
+| =notothenia_rossii= | 0 | 0 | 0 | 400 | QC restraint on Bayes-factor-only signal |
+| =plecoglossus_altivelis= | 47 | 0 | 2 | 523 | strict recovery plus posterior expansion |
+| =tinca_tinca= | 6 | 0 | 5 | 432 | strict recovery plus posterior expansion |
+
+This is the clearest biological distinction unlocked by rsx beyond the
+original RADSex thresholded FASTA endpoint. In the two positive controls,
+posterior ranking recovers every strict d=10 marker and adds two
+=plecoglossus_altivelis= and five =tinca_tinca= follow-up markers. In
+=danio_albolineatus=, rsx exposes 30 high-posterior exploratory candidates
+while preserving the strict null call. In =notothenia_rossii=, 400 rows have
+Bayes factor > 10 but none have posterior > 0.9, and the singleton fraction is
+52.78%; the posterior/QC layer therefore prevents raw Bayes-factor counts from
+being over-read as biological positives.
+
 *** Biological inference role of extended features
 
 The extended rsx features map to biological interpretation tasks rather than
@@ -287,6 +313,7 @@ Paper-readiness validation is split by claim:
 | Literature speedup | =benchmarks/results/literature_speed_comparison.csv= and Slurm scripts |
 | Bayesian biological triage | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
 | Extended mode effects | =benchmarks/results/literature_mode_effects.csv= and mode-effect figures |
+| Biological unlock summary | =benchmarks/results/literature_bio_unlocks.csv=, =literature_candidate_triage.csv=, and unlock figure |
 | Python workflow surface | =benchmarks/results/literature_binding_results.csv= and =rsx-python/tests/test_pyrsx.py= |
 
 The math scripts verify the erfc form of the one-degree chi-squared
