@@ -29,6 +29,7 @@ fn process(
 /// Compute marker distribution between two groups.
 #[pyfunction]
 #[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq"))]
+#[allow(clippy::too_many_arguments)]
 fn distrib(
     table_path: &str,
     popmap_path: &str,
@@ -41,9 +42,8 @@ fn distrib(
     test: &str,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
-        .map_err(|e| PyRuntimeError::new_err(e))?;
-    let tm = rsx_core::test_method::TestMethod::parse_str(test)
-        .map_err(|e| PyRuntimeError::new_err(e))?;
+        .map_err(PyRuntimeError::new_err)?;
+    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyRuntimeError::new_err)?;
 
     rsx_core::commands::distrib::run(&rsx_core::commands::distrib::DistribParams {
         markers_table_path: table_path.to_string(),
@@ -63,6 +63,7 @@ fn distrib(
 /// Extract markers significantly associated with a group.
 #[pyfunction]
 #[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false))]
+#[allow(clippy::too_many_arguments)]
 fn signif(
     table_path: &str,
     popmap_path: &str,
@@ -77,9 +78,8 @@ fn signif(
     bayes: bool,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
-        .map_err(|e| PyRuntimeError::new_err(e))?;
-    let tm = rsx_core::test_method::TestMethod::parse_str(test)
-        .map_err(|e| PyRuntimeError::new_err(e))?;
+        .map_err(PyRuntimeError::new_err)?;
+    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyRuntimeError::new_err)?;
 
     rsx_core::commands::signif::run(&rsx_core::commands::signif::SignifParams {
         markers_table_path: table_path.to_string(),
