@@ -8,6 +8,7 @@ import csv
 import math
 import os
 import sys
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -148,12 +149,14 @@ def prepare_results_frame(input_path: Path):
             "signif": "Analysis",
         }
     )
-    phase_runtime = runtime >> group_by(_.dataset, _.dataset_label, _.phase) >> summarize(elapsed_seconds=_.elapsed_seconds.sum())
-    summary = (
-        runtime
-        >> group_by(_.dataset, _.dataset_label)
-        >> summarize(total_seconds=_.elapsed_seconds.sum(), samples=_.samples.max(), total_bases=_.total_bases.max())
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="DataFrameGroupBy.apply operated on the grouping columns", category=FutureWarning)
+        phase_runtime = runtime >> group_by(_.dataset, _.dataset_label, _.phase) >> summarize(elapsed_seconds=_.elapsed_seconds.sum())
+        summary = (
+            runtime
+            >> group_by(_.dataset, _.dataset_label)
+            >> summarize(total_seconds=_.elapsed_seconds.sum(), samples=_.samples.max(), total_bases=_.total_bases.max())
+        )
     return frame, phase_runtime, summary
 
 
