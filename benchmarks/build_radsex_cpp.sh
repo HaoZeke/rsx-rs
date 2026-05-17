@@ -3,7 +3,7 @@ set -euo pipefail
 
 prefix=${RADSEX_PREFIX:-benchmarks/tools/radsex-cpp}
 repo=${RADSEX_REPO:-https://github.com/RomainFeron/RADSex.git}
-ref=${RADSEX_REF:-v1.2.0}
+ref=${RADSEX_REF:-1.2.0}
 jobs=${RADSEX_BUILD_JOBS:-${SLURM_CPUS_PER_TASK:-4}}
 
 mkdir -p "$(dirname "$prefix")"
