@@ -401,7 +401,11 @@ pub fn posterior_sex_linked(
     pi: f64,
     p_sex: f64,
 ) -> f64 {
-    let ll_linked = binom_logpmf(n_g1, total_g1, p_sex) + binom_logpmf(n_g2, total_g2, 1.0 - p_sex);
+    let ll_g1_linked =
+        binom_logpmf(n_g1, total_g1, p_sex) + binom_logpmf(n_g2, total_g2, 1.0 - p_sex);
+    let ll_g2_linked =
+        binom_logpmf(n_g1, total_g1, 1.0 - p_sex) + binom_logpmf(n_g2, total_g2, p_sex);
+    let ll_linked = logsumexp2(ll_g1_linked, ll_g2_linked) - 2.0f64.ln();
     let ll_null = binom_logpmf(n_g1, total_g1, 0.5) + binom_logpmf(n_g2, total_g2, 0.5);
 
     let log_odds = ll_linked - ll_null + (pi / (1.0 - pi)).ln();
@@ -413,6 +417,15 @@ pub fn posterior_sex_linked(
         0.0
     } else {
         1.0 / (1.0 + (-log_odds).exp())
+    }
+}
+
+fn logsumexp2(a: f64, b: f64) -> f64 {
+    let max = a.max(b);
+    if max.is_infinite() {
+        max
+    } else {
+        max + ((a - max).exp() + (b - max).exp()).ln()
     }
 }
 
@@ -758,6 +771,24 @@ mod tests {
         assert!(
             post > 0.9,
             "strong signal should have high posterior: {post}"
+        );
+    }
+
+    #[test]
+    fn test_posterior_strong_signal_is_symmetric() {
+        let group1 = posterior_sex_linked(10, 0, 10, 10, 0.01, 0.9);
+        let group2 = posterior_sex_linked(0, 10, 10, 10, 0.01, 0.9);
+        assert!(
+            group1 > 0.9,
+            "group1-linked posterior should be high: {group1}"
+        );
+        assert!(
+            group2 > 0.9,
+            "group2-linked posterior should be high: {group2}"
+        );
+        assert!(
+            (group1 - group2).abs() < 1e-12,
+            "posterior should be symmetric: group1={group1}, group2={group2}"
         );
     }
 
