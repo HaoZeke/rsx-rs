@@ -54,8 +54,20 @@ compilers = ">=1.8"
 [feature.mpi.tasks]
 build-mpi = { cmd = "MPICC=$CONDA_PREFIX/bin/mpicc CC=$CONDA_PREFIX/bin/mpicc C_INCLUDE_PATH=$CONDA_PREFIX/include LIBRARY_PATH=$CONDA_PREFIX/lib RUSTFLAGS='-C target-cpu=native' cargo build --release --features mpi" }
 
+[feature.benchmark.dependencies]
+python = ">=3.11"
+bc = "*"
+
+[feature.benchmark.tasks]
+generate-data = { cmd = "python benchmarks/generate_data.py --outdir benchmarks/data-regenerated", description = "Regenerate synthetic RAD-seq benchmark data into benchmarks/data-regenerated" }
+build-rsx = { cmd = "cargo build --release", description = "Build the rsx release binary used by the benchmark harness" }
+run-benchmarks = { cmd = "bash benchmarks/run_benchmarks.sh", description = "Run the benchmark suite against benchmarks/data", depends-on = ["build-rsx"] }
+plot-benchmarks = { cmd = "python benchmarks/plot_benchmarks.py --input benchmarks/results/benchmark_results.csv --output docs/figures", description = "Generate benchmark summary and SVG plots from results CSV" }
+package-figshare = { cmd = "bash repro/benchmarks/package_for_figshare.sh", description = "Prepare the benchmark data package for DOI deposition" }
+
 [environments]
 default = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
+benchmark = { features = ["benchmark"], solve-group = "default" }
 python = { features = ["python"], solve-group = "default" }
 mpi = { features = ["dev", "mpi"], solve-group = "default" }

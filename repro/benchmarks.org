@@ -1,0 +1,68 @@
+* About
+Reproducibility materials for the benchmarks reported in the rsx BMC Bioinformatics software article.
+
+** Reference
+If you use this repository or its parts please cite the corresponding publication.
+
+*** Primary Publication
+R. Goswami and R. Goswami, “rsx: a high-performance streaming toolkit for RAD-seq sex determination,” BMC Bioinformatics, 2026 (submitted).
+
+** Replication data
+The exact input data, generated marker tables, and benchmark result CSV used for the numbers in the manuscript are in the repository under `benchmarks/data/` and `benchmarks/results/`. The package script in `repro/benchmarks/` prepares the same files for DOI deposition.
+
+To use:
+
+1. Use the tracked `benchmarks/data/` and `benchmarks/results/benchmark_results.csv` directly, or prepare a deposition package with `pixi run -e benchmark package-figshare`.
+2. Set `BENCH_DATA` or `BENCH_RESULTS` only when using alternate data or result locations.
+
+See the sections below for regenerating or re-running.
+
+* Setup
+
+This repository uses ~pixi~ for reproducible Python and Rust environments.
+
+#+begin_src bash
+pixi install
+#+end_src
+
+The benchmark feature provides the environment used for `generate_data.py`, `run_benchmarks.sh`, and plotting.
+
+* Usage / Reproducing the paper benchmarks
+
+** Regenerate synthetic data (optional)
+
+The tracked benchmark data is the reference data for the manuscript numbers. To regenerate equivalent data without overwriting the tracked reference data:
+
+#+begin_src bash
+pixi run -e benchmark generate-data
+#+end_src
+
+This writes to `benchmarks/data-regenerated/`.
+
+** Run the benchmarks
+
+The exact commands and environment used for the manuscript timings:
+
+#+begin_src bash
+CPP_RADSEX=/path/to/radsex pixi run -e benchmark run-benchmarks
+#+end_src
+
+This produces `benchmarks/results/benchmark_results.csv`. The harness uses the tracked `benchmarks/data/` by default; set `BENCH_DATA=/path/to/data` to benchmark regenerated or external data.
+
+** Plotting
+
+#+begin_src bash
+pixi run -e benchmark plot-benchmarks
+#+end_src
+
+This prints a summary table and writes SVG plots under `docs/figures/`.
+
+* Data and code availability
+
+- All source code: https://github.com/HaoZeke/rsx-rs
+- Exact benchmark data and results for the manuscript: `benchmarks/data/` and `benchmarks/results/benchmark_results.csv`
+- Paper source: https://github.com/HaoZeke/rsx_bmc (or the arXiv source tarball)
+
+* References
+
+The primary publication and related works.
