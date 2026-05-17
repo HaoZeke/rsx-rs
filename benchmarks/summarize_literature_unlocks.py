@@ -220,13 +220,13 @@ def infer_biological_signal(
             inferred = "XX/XY-supported"
             inference = (
                 f"{dataset} has {strict_male} male-biased strict markers at depth {min_depth}, "
-                "supporting a male-heterogametic XX/XY interpretation on the RAD marker table."
+                "consistent with putative Y-linked RAD markers and a male-heterogametic XX/XY system."
             )
         elif strict_female > strict_male:
             inferred = "ZZ/ZW-supported"
             inference = (
                 f"{dataset} has {strict_female} female-biased strict markers at depth {min_depth}, "
-                "supporting a female-heterogametic ZZ/ZW interpretation on the RAD marker table."
+                "consistent with putative W-linked RAD markers and a female-heterogametic ZZ/ZW system."
             )
         else:
             inferred = "mixed strict signal"
@@ -236,39 +236,42 @@ def infer_biological_signal(
                 "heterogametic direction."
             )
         if posterior_count > strict_count:
-            inference += f" Posterior triage adds {posterior_count - strict_count} validation target(s)."
+            inference += (
+                f" Posterior evidence adds {posterior_count - strict_count} lower-stringency "
+                "marker(s) for PCR or genome-mapping validation."
+            )
         if bayes_factor_only:
             inference += f" {bayes_factor_only} Bayes-factor-only row(s) remain below the posterior call threshold."
     elif posterior_count:
-        evidence_class = "exploratory"
+        evidence_class = "hypothesis"
         if posterior_male > posterior_female:
-            inferred = "XX/XY-like"
+            inferred = "putative Y-linked marker hypothesis"
             direction = f"{posterior_male} male-biased"
-            system = "male-heterogametic"
+            system = "putative Y-linked RAD marker hypothesis"
         elif posterior_female > posterior_male:
-            inferred = "ZZ/ZW-like"
+            inferred = "putative W-linked marker hypothesis"
             direction = f"{posterior_female} female-biased"
-            system = "female-heterogametic"
+            system = "putative W-linked RAD marker hypothesis"
         else:
             inferred = "mixed posterior signal"
             direction = "mixed-direction"
-            system = "directionally mixed"
+            system = "directionally mixed marker hypothesis"
         inference = (
-            f"{dataset} has no strict markers at depth {min_depth}; {direction} high-posterior marker(s) "
-            f"form an exploratory {system} validation set, but the source call remains strict-null."
+            f"{dataset} has no Bonferroni-significant markers at depth {min_depth}; "
+            f"{direction} high-posterior marker(s) define a {system} for validation."
         )
         if bayes_factor_only:
             inference += f" {bayes_factor_only} Bayes-factor-only row(s) are held out of the sex-system call."
     elif bayes_factor_only:
-        evidence_class = "restrained_null"
-        inferred = "no high-posterior sex-system call"
+        evidence_class = "negative"
+        inferred = "no sex-linked marker call"
         inference = (
             f"{dataset} has no strict or high-posterior markers at depth {min_depth}; "
-            f"{bayes_factor_only} Bayes-factor-only row(s) are not converted into a sex-system call."
+            f"{bayes_factor_only} Bayes-factor-only row(s) are not treated as sex-linked markers."
         )
     else:
-        evidence_class = "strict_null"
-        inferred = "no sex-system signal at threshold"
+        evidence_class = "negative"
+        inferred = "no sex-linked marker call"
         inference = f"{dataset} has no strict, high-posterior, or Bayes-factor candidate set at depth {min_depth}."
 
     if singleton_fraction:
@@ -317,15 +320,15 @@ def summarize_unlock_class(
     bayes_factor_only: int,
 ) -> str:
     if strict_and_posterior > 0 and posterior_only > 0:
-        return "strict recovery plus posterior expansion"
+        return "RADSex signal with posterior-supported additions"
     if strict_and_posterior > 0:
-        return "strict recovery with posterior support"
+        return "RADSex signal with posterior support"
     if strict_count > 0:
-        return "strict recovery with candidate ranking"
+        return "RADSex signal with Bayesian ranking"
     if posterior_count > 0:
-        return "posterior triage without strict reclassification"
+        return "posterior-supported markers below Bonferroni"
     if bayes_factor_only > 0:
-        return "QC restraint on Bayes-factor-only signal"
+        return "Bayes-factor evidence rejected by posterior threshold"
     return "strict null with QC context"
 
 
@@ -337,17 +340,17 @@ def biological_interpretation(summary: dict[str, str]) -> str:
     pc1 = as_float(summary.get("pc1_variance_fraction"))
     pieces: list[str] = []
     if strict_count:
-        pieces.append(f"strict extraction recovers {strict_count} marker(s)")
+        pieces.append(f"Bonferroni extraction recovers {strict_count} sex-biased marker(s)")
     else:
-        pieces.append("strict extraction is empty")
+        pieces.append("Bonferroni extraction returns no sex-biased markers")
     if posterior_only:
-        pieces.append(f"posterior ranking adds {posterior_only} follow-up marker(s)")
+        pieces.append(f"posterior evidence adds {posterior_only} sex-linked marker hypothesis/hypotheses")
     elif as_int(summary["posterior_gt_0_9"]):
-        pieces.append("posterior ranking supports the strict marker set")
+        pieces.append("posterior evidence supports the Bonferroni marker set")
     else:
-        pieces.append("posterior ranking does not add high-posterior markers")
+        pieces.append("posterior evidence does not add high-probability sex-linked markers")
     if bayes_factor_only:
-        pieces.append(f"{bayes_factor_only} Bayes-factor-only row(s) are held below the posterior threshold")
+        pieces.append(f"{bayes_factor_only} Bayes-factor-only row(s) fail the posterior threshold")
     if singleton_fraction:
         pieces.append(f"singleton fraction is {singleton_fraction:.1%}")
     if pc1:

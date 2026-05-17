@@ -28,6 +28,8 @@ class LiteratureUnlockSummaryTests(unittest.TestCase):
         self.assertEqual(inference["inferred_sex_system"], "XX/XY-supported")
         self.assertEqual(inference["strict_male_biased"], "2")
         self.assertIn("male-biased strict markers", inference["biological_inference"])
+        self.assertIn("putative Y-linked RAD markers", inference["biological_inference"])
+        self.assertNotIn("triage", inference["biological_inference"])
 
     def test_infer_biological_signal_reports_exploratory_zw_from_posterior_only_bias(self):
         inference = infer_biological_signal(
@@ -46,10 +48,11 @@ class LiteratureUnlockSummaryTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(inference["evidence_class"], "exploratory")
-        self.assertEqual(inference["inferred_sex_system"], "ZZ/ZW-like")
+        self.assertEqual(inference["evidence_class"], "hypothesis")
+        self.assertEqual(inference["inferred_sex_system"], "putative W-linked marker hypothesis")
         self.assertEqual(inference["posterior_female_biased"], "2")
-        self.assertIn("source call remains strict-null", inference["biological_inference"])
+        self.assertIn("putative W-linked RAD marker hypothesis", inference["biological_inference"])
+        self.assertIn("Bonferroni-significant", inference["biological_inference"])
 
     def test_infer_biological_signal_restrains_bayes_factor_only_rows(self):
         inference = infer_biological_signal(
@@ -67,9 +70,9 @@ class LiteratureUnlockSummaryTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(inference["evidence_class"], "restrained_null")
-        self.assertEqual(inference["inferred_sex_system"], "no high-posterior sex-system call")
-        self.assertIn("not converted into a sex-system call", inference["biological_inference"])
+        self.assertEqual(inference["evidence_class"], "negative")
+        self.assertEqual(inference["inferred_sex_system"], "no sex-linked marker call")
+        self.assertIn("not treated as sex-linked markers", inference["biological_inference"])
 
     def test_prepare_bio_unlock_plot_rows_keeps_interpretable_classes(self):
         rows = prepare_bio_unlock_plot_rows(
@@ -141,7 +144,7 @@ class LiteratureUnlockSummaryTests(unittest.TestCase):
         self.assertEqual(summary["posterior_only"], "1")
         self.assertEqual(summary["bayes_factor_gt_10"], "3")
         self.assertEqual(summary["bayes_factor_only"], "1")
-        self.assertEqual(summary["unlock_class"], "strict recovery plus posterior expansion")
+        self.assertEqual(summary["unlock_class"], "RADSex signal with posterior-supported additions")
         self.assertEqual(len(candidates), 5)
 
     def test_summarize_dataset_reports_penetrance_and_candidate_classes(self):
