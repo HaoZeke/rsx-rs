@@ -563,16 +563,45 @@ exercise the Parquet path.
 pixi run -e paper python benchmarks/bench_marker_source.py
 #+end_src
 
-The tracked numbers go to =benchmarks/results/marker_source_paths.csv=.
-Wall-time and peak-RSS columns let the paper report the cost of the
-DataFrame API relative to the streaming file path; see
-=benchmarks/bench_marker_source.py= for the full instrumentation. The
-specific build-host numbers are tracked in the CSV; the qualitative claim
-is that the in-memory Arrow path is constant-factor heavier than the
-file streamer (one extra IPC serialisation step at construction, the
-per-marker work is identical), and the Parquet spill path adds a single
-spill-then-stream pass whose cost the Beissinger estimator only accepts
-when the alternative is exceeding the RAM budget.
+Tracked wall-time in =benchmarks/results/marker_source_paths.csv= (build-host,
+4 datasets x 3 sources x 3 commands, =min_depth=10=):
+
+| Dataset                  | Command  | Path (s) | In-memory Arrow (s) | Spilled Parquet (s) | Arrow slowdown | Parquet slowdown |
+|--------------------------+----------+----------+---------------------+---------------------+----------------+-------------------|
+| =danio_albolineatus=     | freq     |     4.54 |               38.12 |               68.09 |          8.4x  |            15.0x  |
+| =danio_albolineatus=     | depth    |    17.26 |               44.16 |               67.55 |          2.6x  |             3.9x  |
+| =danio_albolineatus=     | triage   |    30.95 |               67.13 |              111.14 |          2.2x  |             3.6x  |
+| =notothenia_rossii=      | freq     |     1.62 |               19.28 |               29.08 |         11.9x  |            17.9x  |
+| =notothenia_rossii=      | depth    |     5.13 |               20.80 |               30.14 |          4.1x  |             5.9x  |
+| =notothenia_rossii=      | triage   |     9.22 |               29.11 |               53.88 |          3.2x  |             5.8x  |
+| =plecoglossus_altivelis= | freq     |     1.71 |               20.10 |               26.85 |         11.8x  |            15.7x  |
+| =plecoglossus_altivelis= | depth    |     0.90 |               21.36 |               26.94 |         23.7x  |            29.9x  |
+| =plecoglossus_altivelis= | triage   |    13.41 |               30.75 |               50.27 |          2.3x  |             3.7x  |
+| =tinca_tinca=            | freq     |     1.29 |               13.03 |               19.71 |         10.1x  |            15.3x  |
+| =tinca_tinca=            | depth    |     0.56 |               13.87 |               20.45 |         24.7x  |            36.4x  |
+| =tinca_tinca=            | triage   |     8.84 |               18.95 |               34.82 |          2.1x  |             3.9x  |
+
+The qualitative shape:
+
+- The path-based mmap streamer keeps its existing speed; nothing in the
+  refactor regressed the CLI path.
+- The in-memory Arrow path is 2-25x slower than the file path for the
+  same command on the same data. The biggest gaps appear on the
+  smallest-output commands (=freq=, =depth=) where the per-marker IPC
+  decoding overhead dominates; on =triage= the gap shrinks to ~2-3x
+  because the per-marker statistical work amortises the format cost.
+- The Parquet spill path adds another ~1.5-2x over the in-memory variant
+  (the spill-then-stream pass). The Beissinger estimator only chooses
+  it when the working-set prediction exceeds the available-RAM
+  threshold, so the user pays for the spill only when the alternative
+  is exceeding RAM.
+
+The numbers support a paper claim that the DataFrame surface gives an
+ergonomic notebook/workflow API for moderate-sized data without
+regressing the CLI's streaming path, and that the spill-vs-in-memory
+choice is automatic but explicitly overridable via
+=RSX_FORCE_SPILL= / =RSX_SPILL_BYTES=. Heavy production analysis on the
+largest datasets is still cheapest through the path-based CLI.
 
 ** Raw timing data (seconds, median of 3 runs)
 
