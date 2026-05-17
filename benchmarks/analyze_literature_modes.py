@@ -140,9 +140,10 @@ def summarize_distrib(path: Path) -> dict[str, str]:
     significant_cells = 0
     tested_markers = as_int(metadata.get("n_markers"))
     for row in rows:
-        if row.get("Signif") == "True":
+        markers = as_int(row.get("Markers"))
+        if row.get("Signif") == "True" and markers > 0:
             significant_cells += 1
-            significant_markers += as_int(row.get("Markers"))
+            significant_markers += markers
     return {
         "tested_markers": str(tested_markers),
         "output_rows": str(len(rows)),
@@ -152,28 +153,36 @@ def summarize_distrib(path: Path) -> dict[str, str]:
 
 
 def summarize_signif(path: Path) -> dict[str, str]:
-    metadata, _, rows = read_table(path)
+    metadata, header, rows = read_table(path)
+    has_bayes = "Posterior_SexLinked" in header and "Bayes_Factor" in header
     posterior_gt_0_5 = 0
     posterior_gt_0_9 = 0
     bayes_factor_gt_10 = 0
-    for row in rows:
-        posterior = as_float(row.get("Posterior_SexLinked"))
-        bayes_factor = as_float(row.get("Bayes_Factor"))
-        posterior_gt_0_5 += int(posterior > 0.5)
-        posterior_gt_0_9 += int(posterior > 0.9)
-        bayes_factor_gt_10 += int(bayes_factor > 10.0)
-    return {
+    if has_bayes:
+        for row in rows:
+            posterior = as_float(row.get("Posterior_SexLinked"))
+            bayes_factor = as_float(row.get("Bayes_Factor"))
+            posterior_gt_0_5 += int(posterior > 0.5)
+            posterior_gt_0_9 += int(posterior > 0.9)
+            bayes_factor_gt_10 += int(bayes_factor > 10.0)
+    summary = {
         "tested_markers": str(as_int(metadata.get("n_markers"))),
         "output_rows": str(len(rows)),
         "significant_markers": str(len(rows)),
-        "posterior_gt_0_5": str(posterior_gt_0_5),
-        "posterior_gt_0_9": str(posterior_gt_0_9),
-        "bayes_factor_gt_10": str(bayes_factor_gt_10),
-        "summary": (
-            f"{len(rows)} marker rows; {posterior_gt_0_9} rows with posterior > 0.9; "
-            f"{bayes_factor_gt_10} rows with Bayes factor > 10."
-        ),
     }
+    if has_bayes:
+        summary |= {
+            "posterior_gt_0_5": str(posterior_gt_0_5),
+            "posterior_gt_0_9": str(posterior_gt_0_9),
+            "bayes_factor_gt_10": str(bayes_factor_gt_10),
+            "summary": (
+                f"{len(rows)} marker rows; {posterior_gt_0_9} rows with posterior > 0.9; "
+                f"{bayes_factor_gt_10} rows with Bayes factor > 10."
+            ),
+        }
+    else:
+        summary["summary"] = f"{len(rows)} marker rows."
+    return summary
 
 
 def load_popmap(path: Path) -> dict[str, str]:

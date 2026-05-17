@@ -49,11 +49,13 @@ class LiteratureModeSummaryTests(unittest.TestCase):
                 "10\t0\t4\t0.0001\t0.1\tTrue\t1\n"
                 "9\t1\t6\t0.01\t1\tFalse\t0.8\n"
                 "0\t10\t3\t0.0001\t0.1\tTrue\t-1\n"
+                "0\t9\t0\t0.0001\t0.1\tTrue\t-0.9\n"
             )
             summary = summarize_distrib(path)
         self.assertEqual(summary["tested_markers"], "1000")
-        self.assertEqual(summary["output_rows"], "3")
+        self.assertEqual(summary["output_rows"], "4")
         self.assertEqual(summary["significant_markers"], "7")
+        self.assertIn("2 significant distribution cells", summary["summary"])
 
     def test_summarize_signif_counts_bayesian_columns(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -71,6 +73,20 @@ class LiteratureModeSummaryTests(unittest.TestCase):
         self.assertEqual(summary["posterior_gt_0_5"], "2")
         self.assertEqual(summary["posterior_gt_0_9"], "1")
         self.assertEqual(summary["bayes_factor_gt_10"], "1")
+
+    def test_summarize_signif_without_bayes_omits_bayesian_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "signif.tsv"
+            path.write_text(
+                "#source:rsx-signif;min_depth:10;signif_threshold:0.05;correction:bonferroni;test:chisq;n_markers:500\n"
+                "id\tsequence\n"
+                "1\tAAAA\n"
+                "2\tCCCC\n"
+            )
+            summary = summarize_signif(path)
+        self.assertEqual(summary["output_rows"], "2")
+        self.assertNotIn("posterior_gt_0_9", summary)
+        self.assertEqual(summary["summary"], "2 marker rows.")
 
     def test_summarize_pca_computes_sex_loading_delta(self):
         with tempfile.TemporaryDirectory() as tmp:
