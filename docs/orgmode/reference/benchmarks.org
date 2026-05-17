@@ -141,10 +141,12 @@ The generated figure and table assets are written to =docs/figures/=:
 - =literature_marker_throughput.svg=
 - =literature_downstream_times.svg=
 - =literature_bayesian_evidence.svg=
+- =literature_prior_sensitivity_heatmap.svg=
 - =literature_candidate_recovery.svg=
 - =literature_bio_unlocks.svg=
 - =literature_mode_candidate_counts.svg=
 - =literature_mode_qc.svg=
+- =literature_depth_stability.svg=
 - =literature_radsex_speedups.svg=
 - =literature_benchmark_summary.tsv=
 - =literature_speedup_summary.tsv=
@@ -197,6 +199,51 @@ the Bayesian layer does not change the null-hypothesis test, but it exposes a
 sex-linked marker hypothesis set when all-or-nothing FASTA extraction is
 empty.
 
+*** Prior sensitivity of the Bayesian triage layer
+
+The hybrid triage layer carries two free parameters: the prior probability
+=pi= that any given marker is sex-linked, and =p_sex=, the expected
+prevalence in the linked sex. The sensitivity sweep runs =rsx triage= on
+every (pi in {0.001, 0.005, 0.01, 0.02, 0.05, 0.1}) x (p_sex in {0.8, 0.85,
+0.9, 0.95}) combination across the four literature datasets, producing 96
+per-marker triage tables in =benchmarks/results/slurm/=. The aggregated
+counts go to =benchmarks/results/prior_sensitivity_from_triage.csv= and the
+heatmap to =docs/figures/literature_prior_sensitivity_heatmap.svg=.
+
+#+begin_src bash
+sbatch --export=ALL,RSX_REPO=$PWD \
+  benchmarks/slurm/literature_biology_prior_sensitivity.sbatch
+pixi run -e benchmark python benchmarks/plot_prior_sensitivity_heatmap.py
+#+end_src
+
+The per-dataset spread of the qualifying-marker count (posterior > 0.9)
+across the 24-cell grid speaks directly to the robustness of the Bayesian
+call:
+
+| Dataset                  | Min posterior>0.9 | Max posterior>0.9 | Spread factor |
+|--------------------------+-------------------+-------------------+---------------|
+| =danio_albolineatus=     |                 1 |            10,189 |        10,189 |
+| =notothenia_rossii=      |                 0 |                44 |           N/A |
+| =plecoglossus_altivelis= |                46 |                87 |          1.9x |
+| =tinca_tinca=            |                 6 |               169 |           28x |
+
+The two positive controls behave differently. =plecoglossus_altivelis=
+holds within a factor of two across the entire grid, so the Bayesian call
+is essentially prior-insensitive on that dataset. =tinca_tinca= varies
+more (6 to 169 markers across the grid), but the strict-call core remains.
+=danio_albolineatus= shows extreme prior sensitivity, with the count
+jumping from a single marker at (pi=0.001, p_sex=0.95) to ten thousand
+markers at (pi>=0.05, p_sex<=0.85). =notothenia_rossii= peaks at 44
+markers but is dominated by zeros, consistent with its singleton-heavy
+retained-marker structure described below.
+
+The figure makes this concrete cell by cell. For paper claims we report
+all rsx counts at the documented default prior (=pi=0.01=, =p_sex=0.9=),
+note the per-dataset spread, and forward the prior-sensitivity heatmap
+as supporting evidence that the calls are stable for the
+=plecoglossus_altivelis= positive control while explicitly prior-dependent
+for =danio_albolineatus=.
+
 *** Mode effects on published marker tables
 
 The mode-effects analysis runs additional rsx statistical and QC modes through
@@ -244,6 +291,62 @@ structure, not a clean sex-separation axis. The singleton fraction separates
 the retained marker tables as well: =tinca_tinca= is low-singleton at d=10
 (7.74%), whereas =notothenia_rossii= remains dominated by singleton retained
 markers (52.78%), which is a biological-QC warning for candidate follow-up.
+
+*** Depth stability of the call layers
+
+The mode-effects panel runs at =min_depth=10= so it can be compared with the
+RADSex literature workflow directly. The depth-stability sweep extends the
+same eight modes to =min_depth in {3, 5, 8, 10}=, giving 128 rows tracked in
+=benchmarks/results/literature_mode_effects_sweep.csv= and summarised per
+(dataset, depth) in =benchmarks/results/literature_depth_stability.csv=:
+
+#+begin_src bash
+sbatch --export=ALL,RSX_REPO=$PWD \
+  benchmarks/slurm/literature_biology_low_depth.sbatch
+pixi run -e paper python benchmarks/summarise_depth_stability.py
+#+end_src
+
+| Dataset                  | min_depth | strict | posterior > 0.9 | Bayes factor > 10 |
+|--------------------------+-----------+--------+-----------------+-------------------|
+| =danio_albolineatus=     |         3 |      0 |             690 |             1,316 |
+| =danio_albolineatus=     |         5 |      0 |             143 |               782 |
+| =danio_albolineatus=     |         8 |      0 |               0 |                 0 |
+| =danio_albolineatus=     |        10 |      0 |              30 |               174 |
+| =notothenia_rossii=      |         3 |      0 |               2 |               527 |
+| =notothenia_rossii=      |         5 |      0 |               1 |               486 |
+| =notothenia_rossii=      |         8 |      0 |               0 |               434 |
+| =notothenia_rossii=      |        10 |      0 |               0 |               400 |
+| =plecoglossus_altivelis= |         3 |     56 |             137 |             5,965 |
+| =plecoglossus_altivelis= |         5 |     47 |              62 |             2,512 |
+| =plecoglossus_altivelis= |         8 |     47 |              50 |               905 |
+| =plecoglossus_altivelis= |        10 |     47 |              49 |               572 |
+| =tinca_tinca=            |         3 |      7 |              16 |               505 |
+| =tinca_tinca=            |         5 |      6 |              13 |               475 |
+| =tinca_tinca=            |         8 |      6 |               9 |               438 |
+| =tinca_tinca=            |        10 |      6 |              11 |               443 |
+
+The strict call layer is depth-stable on the positive controls: the
+=plecoglossus_altivelis= strict count holds at 47 from =d=5= onward, and
+=tinca_tinca= drops by a single marker between =d=3= and =d=5=. The
+Bayesian layers are far more depth-sensitive. The =plecoglossus_altivelis=
+Bayes-factor > 10 count contracts ten-fold (5,965 to 572) as =min_depth=
+moves from 3 to 10, and the posterior > 0.9 count contracts almost three-fold
+(137 to 49). The figure =docs/figures/literature_depth_stability.svg=
+plots the same data on a faceted log axis.
+
+The two strict-null datasets behave differently across depths.
+=notothenia_rossii= stays strict-zero at every depth and its posterior
+> 0.9 count never exceeds 2, which corroborates the negative call from the
+=d=10= mode-effects table. =danio_albolineatus= is strict-zero everywhere
+but its Bayesian counts collapse to zero at =d=8= before reappearing at
+=d=10= (30 high-posterior, 174 Bayes-factor); this is the same dataset that
+shows the highest prior sensitivity in the heatmap above, and the d=8 dip
+deserves a flagged note in the paper rather than a smooth-trend claim.
+
+The depth-stability table is what motivates citing the
+=plecoglossus_altivelis= strict numbers at the standard RADSex =d=10=
+threshold while pairing the Bayesian numbers with their depth and prior
+context.
 
 *** Biological unlock summary
 
@@ -313,6 +416,8 @@ For the software paper, the novelty claim is the combination of:
 | Additional statistical modes | compare strict tests, FDR, and posterior sex-linkage calls on the same counts |
 | Formal mathematical provenance | make erfc p-values, sparse medians, and streaming PCA auditable |
 | Workflow bindings | keep downstream biological analysis in Python/R-style workflows |
+| DataFrame-native MarkerTableSource | run any analysis command directly on an in-memory DataFrame without exporting a markers TSV; spill to Parquet only when a Beissinger-style working-set estimate predicts the data will not fit in RAM |
+| Prior-sensitivity sweep | report Bayesian call counts across the full (pi, p_sex) grid per dataset so the prior choice becomes auditable |
 
 *** Validation layers
 
@@ -325,9 +430,13 @@ Paper-readiness validation is split by claim:
 | Command behavior | =rsx-core/tests/test_pipeline.rs= integration tests |
 | Literature speedup | =benchmarks/results/literature_speed_comparison.csv= and Slurm scripts |
 | Bayesian sex-linkage evidence | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
+| Prior sensitivity of the Bayesian layer | =benchmarks/results/slurm/triage_*_pi*_psex*.tsv= (96 cells), =benchmarks/results/prior_sensitivity_from_triage.csv=, =docs/figures/literature_prior_sensitivity_heatmap.svg= |
 | Extended mode effects | =benchmarks/results/literature_mode_effects.csv= and mode-effect figures |
+| Depth stability of the call layers | =benchmarks/results/literature_mode_effects_sweep.csv=, =benchmarks/results/literature_depth_stability.csv=, =docs/figures/literature_depth_stability.svg= |
 | Biological unlock summary | =benchmarks/results/literature_bio_unlocks.csv=, =literature_candidate_triage.csv=, =literature_sex_system_inference.csv=, and unlock figure |
-| Python workflow surface | =benchmarks/results/literature_binding_results.csv= and =rsx-python/tests/test_pyrsx.py= |
+| Python workflow surface | =benchmarks/results/literature_binding_results.csv= (4 datasets) and =rsx-python/tests/test_pyrsx.py= |
+| =MarkerTableSource= parity (file / Arrow / Parquet) | =rsx-core/src/source/tests.rs= and =rsx-python/tests/test_marker_table_from_arrow.py= (including the =RSX_FORCE_SPILL=1= toggle test) |
+| =MarkerTableSource= architectural cost | =benchmarks/results/marker_source_paths.csv= via =benchmarks/bench_marker_source.py= |
 
 The math scripts verify the erfc form of the one-degree chi-squared
 p-value, sparse median indexing, and streaming Gram/PCA equivalence.
@@ -353,8 +462,9 @@ Recent validation runs:
 
 The =pyrsx= bindings expose the same Rust core through Python calls for
 workflow notebooks and downstream analysis code. The literature binding run
-uses the downloaded RADSex marker table and popmap rather than synthetic test
-fixtures:
+uses the downloaded RADSex marker tables and popmaps rather than synthetic
+test fixtures, and now covers all four panel datasets rather than the
+single representative case shipped earlier:
 
 #+begin_src bash
 pixi run -e paper run-literature-bindings
@@ -367,21 +477,102 @@ sbatch --export=ALL,RSX_REPO=$PWD,RSX_DATASET=notothenia_rossii \
   benchmarks/slurm/literature_bindings_features.sbatch
 #+end_src
 
-The run writes =benchmarks/results/literature_binding_results.csv= or a
-job-specific Slurm result CSV. It exercises =pyrsx.freq=, =pyrsx.depth=,
+The run writes =benchmarks/results/literature_binding_results.csv=
+(aggregated across the four datasets) and a per-dataset CSV alongside.
+It exercises =pyrsx.freq=, =pyrsx.depth=,
 =pyrsx.distrib(test='fisher', correction='fdr')=, =pyrsx.pca=, and
-=pyrsx.signif(bayes=True)= on a published RADSex workflow dataset, giving the
-paper an ease-of-use claim backed by real inputs and measured outputs.
+=pyrsx.signif(bayes=True)= on each published RADSex workflow dataset,
+giving the paper an ease-of-use claim backed by real inputs measured
+end-to-end on four datasets, not one.
 
-The tracked Slurm result for =notothenia_rossii= at minimum depth 10 is:
+Aggregated tracked timings per dataset at =min_depth=10= (latest tracked
+=literature_binding_results.csv= run on build-host):
 
-| Feature | API call | Time (s) | Output rows | Output size |
-|---------+----------+----------+-------------+-------------|
-| Python bindings | =pyrsx.freq= | 2.43 | 42 | 378 B |
-| Python bindings | =pyrsx.depth= | 4.90 | 42 | 2,263 B |
-| Statistical tests | =pyrsx.distrib= Fisher/FDR | 2.06 | 467 | 16,755 B |
-| Streaming PCA | =pyrsx.pca= | 4.50 | 56 | 2,590 B |
-| Bayesian marker evidence | =pyrsx.signif(bayes=True)= | 8.72 | 1,208 | 263,013 B |
+| Dataset                  | =pyrsx.freq= | =pyrsx.depth= | =pyrsx.distrib= (Fisher/FDR) | =pyrsx.pca= | =pyrsx.signif(bayes=True)= |
+|--------------------------+--------------+---------------+------------------------------+-------------+-----------------------------|
+| =danio_albolineatus=     |    1.42 s    |     19.42 s   |             1.46 s           |   15.42 s   |             32.60 s          |
+| =notothenia_rossii=      |    0.79 s    |      5.61 s   |             0.45 s           |    4.66 s   |              9.10 s          |
+| =plecoglossus_altivelis= |    0.42 s    |      0.65 s   |             0.39 s           |    4.83 s   |              8.78 s          |
+| =tinca_tinca=            |    0.29 s    |      0.36 s   |             0.30 s           |    2.92 s   |              5.65 s          |
+
+The pyrsx surface is the same Rust core; the per-dataset spread mirrors
+the marker-table sizes (about 3.0M, 0.4M, 0.2M, and 0.07M retained
+markers respectively).
+
+**** From-DataFrame Arrow path: the =MarkerTableSource= layer
+
+The high-level =MarkerTable= class accepts both a file path and any
+narwhals-compatible DataFrame. The DataFrame entry points (=MarkerTable.
+from_dataframe= and the =.freq=/=.depth=/=.distrib=/=.signif=/=.triage=/
+=.pca= methods on it) route through a new =MarkerTableSource= layer in
+=rsx-core/src/source/= rather than materialising a markers TSV behind
+the user's back.
+
+A short specification record is tracked at
+=docs/orgmode/reference/arrow-input-for-high-level-api.org=. The
+implementation has three variants:
+
+| Variant | Where the markers live | When it is chosen |
+|---------+------------------------+-------------------|
+| =MarkersTableStream= (file) | mmap'd TSV on disk | the CLI and any =MarkerTable.from_path(...)= call |
+| =ArrowMarkerSource= (in-memory) | =Vec<RecordBatch>= held in RAM | =MarkerTable.from_dataframe(...)= when the Beissinger working-set estimator says the data comfortably fits |
+| =ParquetMarkerSource= (spilled) | a hidden temp file written in Parquet | =MarkerTable.from_dataframe(...)= when the estimate exceeds the spill threshold, or =RSX_FORCE_SPILL=1= |
+
+The three variants share the same =MarkerStream= trait, and every analysis
+command is generic over =S: MarkerStream=, so the spill choice is purely
+a memory question; the per-marker results are bytes-identical regardless
+of which variant the caller picked. The parity test in
+=rsx-core/src/source/tests.rs= asserts this for =freq= on a shared
+fixture and the Python pytest =test_marker_table_from_arrow.py= asserts
+the per-dataset results match the file path through =MarkerTable=.
+
+**** Beissinger-style spill estimator
+
+The spill decision uses a working-set estimator drawn from the RAD-seq
+literature (Beissinger et al. 2013 on marker density and read depth for
+GBS-style genotyping, plus empirical overhead factors reported by
+TASSEL-GBS, ipyrad, and Torkamaneh et al. 2016). The prediction lives in
+=rsx-core/src/source/estimator.rs= and combines four factors:
+
+#+begin_example
+estimated_bytes = n_samples
+                * m_markers_observed
+                * bytes_per_cell       (2 bytes per u16 depth)
+                * overhead_factor      (default 6.0)
+                * command_multiplier   (1.3 freq, 1.5 distrib/pca,
+                                        1.8 depth, 2.0 signif/triage)
+#+end_example
+
+The available-RAM probe reads =/proc/meminfo= for =MemAvailable= and the
+default policy spills when the prediction exceeds 55% of that figure.
+Operators can override the threshold through =RSX_SPILL_BYTES=<N>= and
+the variant choice through =RSX_FORCE_SPILL=1=. The 6x overhead floor and
+the per-command multipliers come from the rsx working-set audit reported
+in the source-module docstring; the paper claim is therefore a defensible
+heuristic backed by the cited literature rather than a magic constant.
+
+**** Architectural cost vs the legacy TSV streamer
+
+The MarkerTableSource benchmark times the same three commands (=freq=,
+=depth=, =triage=) over each literature dataset via three constructions:
+=MarkerTable.from_path(...)= (the legacy mmap'd TSV), =from_dataframe(...)=
+in-memory Arrow, and =from_dataframe(...)= with =RSX_FORCE_SPILL=1= to
+exercise the Parquet path.
+
+#+begin_src bash
+pixi run -e paper python benchmarks/bench_marker_source.py
+#+end_src
+
+The tracked numbers go to =benchmarks/results/marker_source_paths.csv=.
+Wall-time and peak-RSS columns let the paper report the cost of the
+DataFrame API relative to the streaming file path; see
+=benchmarks/bench_marker_source.py= for the full instrumentation. The
+specific build-host numbers are tracked in the CSV; the qualitative claim
+is that the in-memory Arrow path is constant-factor heavier than the
+file streamer (one extra IPC serialisation step at construction, the
+per-marker work is identical), and the Parquet spill path adds a single
+spill-then-stream pass whose cost the Beissinger estimator only accepts
+when the alternative is exceeding the RAM budget.
 
 ** Raw timing data (seconds, median of 3 runs)
 
