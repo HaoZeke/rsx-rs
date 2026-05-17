@@ -94,8 +94,13 @@ class MarkerTable:
             return len(header) - 2
 
     @property
+    def data(self) -> nw.DataFrame | None:
+        """The underlying data as a narwhals DataFrame (preferred over .df for consistency)."""
+        return self._df
+
+    @property
     def df(self) -> nw.DataFrame | None:
-        """Narwhals DataFrame when in-memory. Great for siuba/plotnine."""
+        """Alias for .data — convenient for siuba/plotnine users."""
         return self._df
 
     def __getattr__(self, name: str) -> Any:

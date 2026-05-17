@@ -21,6 +21,8 @@ parallel = ["dep:rayon", "dep:dashmap"]
 mpi = ["dep:mpi"]
 map = ["dep:minimap2"]
 parquet-io = ["dep:arrow", "dep:parquet"]
+# Enable Arrow RecordBatch production from commands (for direct data to Python)
+arrow-output = ["dep:arrow"]
 
 [dependencies]
 needletail = "0.6"

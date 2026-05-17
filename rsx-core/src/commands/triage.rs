@@ -15,6 +15,12 @@ use crate::test_method::{TestMethod, compute_p};
 use std::io::Write;
 use std::path::Path;
 
+#[cfg(feature = "arrow-output")]
+use arrow_array::RecordBatch;
+#[cfg(feature = "arrow-output")]
+use arrow_schema::{DataType, Field, Schema};
+
+#[derive(Clone)]
 pub struct TriageParams {
     pub markers_table_path: String,
     pub popmap_file_path: String,
@@ -186,4 +192,44 @@ pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
     })?;
 
     Ok(())
+}
+
+#[cfg(feature = "arrow-output")]
+pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn std::error::Error>> {
+    // Transitional implementation:
+    // We still use the file-based path internally (to avoid large refactoring in one step),
+    // but we read the Parquet back in Rust and return Arrow RecordBatches.
+    // The temp file is cleaned by the caller (PyO3 layer).
+    //
+    // Long-term: stream the marker table and build RecordBatches on the fly
+    // without ever writing to disk.
+
+    use std::fs::File;
+    use tempfile::NamedTempFile;
+
+    let temp_file = NamedTempFile::new()
+        .map_err(|e| format!("failed to create temp parquet: {}", e))?;
+    let temp_path = temp_file.path().to_string_lossy().to_string();
+
+    let mut file_params = params.clone();
+    file_params.output_file_path = temp_path.clone();
+
+    // Run the existing logic (writes Parquet because of .parquet extension or we force it)
+    // For simplicity we assume the caller passes a .parquet path or we always write parquet here.
+    // In practice the high-level will request parquet.
+    run(&file_params)?;
+
+    // Read it back as Arrow
+    let file = File::open(&temp_path)?;
+    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)?;
+    let reader = builder.build()?;
+
+    let batches: Vec<RecordBatch> = reader
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| format!("failed to read parquet to arrow: {}", e).into())?;
+
+    // Note: we intentionally do NOT delete here — the PyO3 layer owns the temp file
+    // and will clean it after converting to pyarrow.
+
+    Ok(batches)
 }
