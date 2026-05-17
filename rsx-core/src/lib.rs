@@ -15,6 +15,7 @@ pub mod kmer;
 pub mod marker;
 pub mod markers_table;
 pub mod popmap;
+pub mod source;
 pub mod stats;
 pub mod status;
 pub mod test_method;

@@ -23,6 +23,8 @@ map = ["dep:minimap2"]
 parquet-io = ["dep:arrow", "dep:parquet"]
 # Enable Arrow RecordBatch production from commands (for direct data to Python)
 arrow-output = ["dep:arrow"]
+# Enable Arrow IPC ingestion through MarkerTableSource (in-memory or Parquet spill).
+arrow-input = ["dep:arrow", "dep:parquet"]
 
 [dependencies]
 needletail = "0.6"
