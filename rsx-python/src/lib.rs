@@ -378,32 +378,24 @@ fn ipc_to_popmap_tsv(ipc_bytes: &[u8]) -> PyResult<NamedTempFile> {
 }
 
 /// Read an output TSV produced by a low-level command and hand it back to
-/// Python as a `pyarrow.Table`. Comments (`#…`) are stripped; tab-delimited;
-/// header row honoured.
+/// Python as a `pyarrow.Table`. Goes through pandas because pyarrow.csv
+/// does not understand the `#Number of markers : N` comment prefix that
+/// the rsx commands emit; pandas does, and Table.from_pandas keeps the
+/// result Arrow-native.
 fn read_tsv_to_pyarrow_table(py: Python<'_>, path: &str) -> PyResult<PyObject> {
+    let pandas = py.import("pandas")?;
     let pyarrow = py.import("pyarrow")?;
-    let csv = pyarrow.getattr("csv")?;
-    let read_options = csv.getattr("ReadOptions")?;
-    let parse_options = csv.getattr("ParseOptions")?;
-    let convert_options = csv.getattr("ConvertOptions")?;
-
-    let ro_kw = pyo3::types::PyDict::new(py);
-    ro_kw.set_item("use_threads", false)?;
-    let read_opts = read_options.call((), Some(&ro_kw))?;
-
-    let po_kw = pyo3::types::PyDict::new(py);
-    po_kw.set_item("delimiter", "\t")?;
-    let parse_opts = parse_options.call((), Some(&po_kw))?;
-
-    let co_kw = pyo3::types::PyDict::new(py);
-    let convert_opts = convert_options.call((), Some(&co_kw))?;
 
     let kwargs = pyo3::types::PyDict::new(py);
-    kwargs.set_item("read_options", read_opts)?;
-    kwargs.set_item("parse_options", parse_opts)?;
-    kwargs.set_item("convert_options", convert_opts)?;
+    kwargs.set_item("sep", "\t")?;
+    kwargs.set_item("comment", "#")?;
+    let pdf = pandas.call_method("read_csv", (path,), Some(&kwargs))?;
 
-    let table = csv.call_method("read_csv", (path,), Some(&kwargs))?;
+    let table_kwargs = pyo3::types::PyDict::new(py);
+    table_kwargs.set_item("preserve_index", false)?;
+    let table = pyarrow
+        .getattr("Table")?
+        .call_method("from_pandas", (pdf,), Some(&table_kwargs))?;
     Ok(table.into())
 }
 
@@ -516,14 +508,12 @@ fn pca_to_arrow(
     let res = rsx_core::commands::pca::run_to_arrow(&params)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    let bytes = batches_to_ipc_bytes(&[&res.eigenvalues, &res.loadings])?;
-    let tables = ipc_bytes_to_pyarrow_tables(py, &bytes)?;
+    let eigenvalues = batches_to_pyarrow_table(py, &[res.eigenvalues])?;
+    let loadings = batches_to_pyarrow_table(py, &[res.loadings])?;
 
     let dict = pyo3::types::PyDict::new(py);
-    if tables.len() >= 2 {
-        dict.set_item("eigenvalues", &tables[0])?;
-        dict.set_item("loadings", &tables[1])?;
-    }
+    dict.set_item("eigenvalues", eigenvalues)?;
+    dict.set_item("loadings", loadings)?;
     dict.set_item("n_markers", res.n_markers)?;
     dict.set_item("n_individuals", res.n_individuals)?;
     dict.set_item("n_components", res.n_components)?;
@@ -597,14 +587,12 @@ fn pca_to_arrow_from_arrow(
     let res = rsx_core::commands::pca::run_to_arrow(&params)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    let bytes = batches_to_ipc_bytes(&[&res.eigenvalues, &res.loadings])?;
-    let tables = ipc_bytes_to_pyarrow_tables(py, &bytes)?;
+    let eigenvalues = batches_to_pyarrow_table(py, &[res.eigenvalues])?;
+    let loadings = batches_to_pyarrow_table(py, &[res.loadings])?;
 
     let dict = pyo3::types::PyDict::new(py);
-    if tables.len() >= 2 {
-        dict.set_item("eigenvalues", &tables[0])?;
-        dict.set_item("loadings", &tables[1])?;
-    }
+    dict.set_item("eigenvalues", eigenvalues)?;
+    dict.set_item("loadings", loadings)?;
     dict.set_item("n_markers", res.n_markers)?;
     dict.set_item("n_individuals", res.n_individuals)?;
     dict.set_item("n_components", res.n_components)?;
