@@ -122,6 +122,15 @@ figure reports compute time only (=process= plus downstream analysis);
 download time is retained in the raw CSV for reproducibility accounting but
 is not used as a performance claim.
 
+The panel is biologically anchored by the original RADSex results:
+=plecoglossus_altivelis= is a previously described XX/XY case with 47
+source-paper sex-associated markers at d=10, =tinca_tinca= is an XX/XY case
+reported without a previously described system and six markers at d=10, and
+=danio_albolineatus= and =notothenia_rossii= are source-paper null cases
+with no SD identified at d=10. The Bayesian plots therefore compare
+strict positive controls, strict null calls, and posterior-ranked candidate
+triage under the same published workflow.
+
 #+begin_src bash
 pixi run -e benchmark plot-literature-benchmarks
 #+end_src

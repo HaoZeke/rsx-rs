@@ -125,6 +125,25 @@ tracked measured outputs are:
 | =plecoglossus_altivelis= |      65 |  7,338,124 |               748.643 |                       153 |
 | =tinca_tinca=            |      43 |  6,932,387 |               988.278 |                        24 |
 
+** Biological interpretation anchors
+
+The four executed datasets deliberately include both strict RADSex-positive
+and strict RADSex-null cases from Feron et al. 2021:
+
+| Dataset                  | Source-paper sex-determination result | Source-paper marker count |
+|--------------------------+----------------------------------------+---------------------------|
+| =danio_albolineatus=     | No SD identified                       | 0 at d=10                 |
+| =notothenia_rossii=      | No SD identified                       | 0 at d=10                 |
+| =plecoglossus_altivelis= | XX/XY, previously described            | 47 at d=10                |
+| =tinca_tinca=            | XX/XY, previously undescribed          | 6 at d=10                 |
+
+This split keeps the performance benchmark tied to biological use cases:
+=plecoglossus_altivelis= and =tinca_tinca= are positive controls for
+recovering male-heterogametic signal, while =danio_albolineatus= and
+=notothenia_rossii= test throughput and candidate ranking on large null
+panels where posterior-ranked evidence must not be reported as confirmed
+sex-determining loci.
+
 ** Speed comparison summary
 
 The tracked =docs/figures/literature_speedup_summary.tsv= reports 56 paired
