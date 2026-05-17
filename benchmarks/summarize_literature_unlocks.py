@@ -9,6 +9,9 @@ import math
 import sys
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from benchmarks.analyze_literature_modes import as_float, as_int, read_table
 
 
