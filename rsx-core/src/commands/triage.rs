@@ -16,9 +16,7 @@ use std::io::Write;
 use std::path::Path;
 
 #[cfg(feature = "arrow-output")]
-use arrow_array::RecordBatch;
-#[cfg(feature = "arrow-output")]
-use arrow_schema::{DataType, Field, Schema};
+use arrow::record_batch::RecordBatch;
 
 #[derive(Clone)]
 pub struct TriageParams {
@@ -196,27 +194,18 @@ pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn std::error::Error>> {
-    // First cut of true in-memory Arrow emission for triage.
-    //
-    // We do one bounded-memory streaming pass over the marker table,
-    // apply the exact same decision logic, and build Arrow RecordBatches
-    // directly in memory. No temp files are created for this path.
-    //
-    // For the very first implementation we collect qualifying rows and
-    // emit one (or a few) RecordBatch at the end. Since the number of
-    // rows that survive the posterior / strict / BF filters is usually
-    // tiny compared with the input, this is perfectly acceptable.
-    // We can later switch to incremental RecordBatch emission if needed.
+    // Real in-memory Arrow emission for triage.
+    // Single bounded-memory streaming pass. We collect qualifying rows (output is small)
+    // and build RecordBatch(es) at the end. No temp files for the Arrow path.
 
-    use arrow_array::builder::{
+    use arrow::array::builder::{
         BooleanBuilder, Float64Builder, StringBuilder, UInt32Builder,
     };
-    use arrow_array::RecordBatch;
-    use arrow_schema::{DataType, Field, Schema};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
 
-    // Output schema (matches the columns the current TSV triage produces)
     let schema = Schema::new(vec![
-        Field::new("id", DataType::UInt32, false),
+        Field::new("id", DataType::Utf8, false),
         Field::new("sequence", DataType::Utf8, false),
         Field::new("Group1", DataType::Utf8, false),
         Field::new("Group1_Present", DataType::UInt32, false),
@@ -238,34 +227,21 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         Field::new("Candidate_Class", DataType::Utf8, false),
     ]);
 
-    // Builders for all columns (we only append when a row qualifies)
-    let mut id_b = UInt32Builder::new();
-    let mut seq_b = StringBuilder::new();
-    let mut g1_name_b = StringBuilder::new();
-    let mut g1_present_b = UInt32Builder::new();
-    let mut g1_total_b = UInt32Builder::new();
-    let mut g1_pen_b = Float64Builder::new();
-    let mut g2_name_b = StringBuilder::new();
-    let mut g2_present_b = UInt32Builder::new();
-    let mut g2_total_b = UInt32Builder::new();
-    let mut g2_pen_b = Float64Builder::new();
-    let mut bias_dir_b = StringBuilder::new();
-    let mut bias_b = Float64Builder::new();
-    let mut p_b = Float64Builder::new();
-    let mut corr_p_b = Float64Builder::new();
-    let mut bf_b = Float64Builder::new();
-    let mut post_b = Float64Builder::new();
-    let mut strict_b = BooleanBuilder::new();
-    let mut post_call_b = BooleanBuilder::new();
-    let mut bf_call_b = BooleanBuilder::new();
-    let mut class_b = StringBuilder::new();
+    // Collect qualifying rows first (output size is small)
+    struct OutRow {
+        id: String, seq: String,
+        g1: String, g1p: u32, g1t: u32, g1pen: f64,
+        g2: String, g2p: u32, g2t: u32, g2pen: f64,
+        dir: String, bias: f64,
+        p: f64, cp: f64, bf: f64, post: f64,
+        strict: bool, pcall: bool, bfcall: bool, class: String,
+    }
 
-    // Same popmap + mask setup as the file-based run
-    let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
-    let mut groups = GroupConfig {
-        group1: params.group1.clone(),
-        group2: params.group2.clone(),
-    };
+    let mut rows: Vec<OutRow> = Vec::new();
+
+    // Setup (identical to file-based run)
+    let popmap = Popmap::from_file(std::path::Path::new(&params.popmap_file_path))?;
+    let mut groups = GroupConfig { group1: params.group1.clone(), group2: params.group2.clone() };
     popmap.resolve_groups(&mut groups)?;
 
     let total_g1 = popmap.get_count(&groups.group1);
@@ -278,51 +254,43 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         min_depth: params.min_depth,
     };
 
-    let stream = MarkersTableStream::open(Path::new(&params.markers_table_path), Some(&popmap), config)?;
+    let stream = MarkersTableStream::open(
+        std::path::Path::new(&params.markers_table_path),
+        Some(&popmap),
+        config,
+    )?;
 
-    let mask_g1 = GroupMask::from_columns(
-        &stream.groups,
-        &groups.group1,
-        stream.header.n_individuals,
-    );
-    let mask_g2 = GroupMask::from_columns(
-        &stream.groups,
-        &groups.group2,
-        stream.header.n_individuals,
-    );
+    let mask_g1 = GroupMask::from_columns(&stream.groups, &groups.group1, stream.header.n_individuals);
+    let mask_g2 = GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
 
-    // Single streaming pass – bounded memory
+    let n_markers = stream.count_markers()?;
+    let corrected_threshold = if n_markers > 0 {
+        params.signif_threshold as f64 / n_markers as f64
+    } else {
+        params.signif_threshold as f64
+    };
+
+    // Streaming pass – collect rows
     stream.for_each(|marker| {
-        if marker.n_individuals == 0 {
-            return;
-        }
+        if marker.n_individuals == 0 { return; }
 
         let g1 = marker.presence.count_masked(&mask_g1);
         let g2 = marker.presence.count_masked(&mask_g2);
 
         let p = compute_p(TestMethod::ChiSquared, g1, g2, total_g1, total_g2);
-        let n_markers = /* we would have counted this in a first pass in the real impl */;
-        // For the first version we accept that we do a cheap count or we accept a slightly
-        // different Bonferroni threshold for the Arrow path. We can fix this cleanly later.
-        // For now we use the same corrected threshold logic the file path uses.
-        let p_corrected = stats::bonferroni_correct(p, /* placeholder */ 1_000_000); // will be fixed
+        let p_corrected = stats::bonferroni_correct(p, n_markers);
 
-        let strict_call = p < (params.signif_threshold as f64 / 1_000_000.0); // placeholder
+        let strict_call = p < corrected_threshold;
         let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
         let posterior = stats::posterior_sex_linked(
-            g1,
-            g2,
-            total_g1,
-            total_g2,
-            params.prior_probability,
-            params.linked_probability,
+            g1, g2, total_g1, total_g2,
+            params.prior_probability, params.linked_probability,
         );
+
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
 
-        if !(strict_call || posterior_call || bayes_factor_call) {
-            return;
-        }
+        if !(strict_call || posterior_call || bayes_factor_call) { return; }
 
         let g1_pen = penetrance(g1, total_g1);
         let g2_pen = penetrance(g2, total_g2);
@@ -330,38 +298,182 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
         let dir = bias_direction(&groups.group1, &groups.group2, g1_pen, g2_pen);
         let class = candidate_class(strict_call, posterior_call, bayes_factor_call);
 
-        // Append to Arrow builders
-        id_b.append_value(marker.id);
-        seq_b.append_value(&marker.sequence);
-        g1_name_b.append_value(&groups.group1);
-        g1_present_b.append_value(g1);
-        g1_total_b.append_value(total_g1);
-        g1_pen_b.append_value(g1_pen);
-        g2_name_b.append_value(&groups.group2);
-        g2_present_b.append_value(g2);
-        g2_total_b.append_value(total_g2);
-        g2_pen_b.append_value(g2_pen);
-        bias_dir_b.append_value(&dir);
-        bias_b.append_value(bias);
-        p_b.append_value(p);
-        corr_p_b.append_value(p_corrected);
-        bf_b.append_value(bf);
-        post_b.append_value(posterior);
-        strict_b.append_value(strict_call);
-        post_call_b.append_value(posterior_call);
-        bf_call_b.append_value(bayes_factor_call);
-        class_b.append_value(class);
+        rows.push(OutRow {
+            id: marker.id.clone(),
+            seq: marker.sequence.clone(),
+            g1: groups.group1.clone(), g1p: g1, g1t: total_g1, g1pen: g1_pen,
+            g2: groups.group2.clone(), g2p: g2, g2t: total_g2, g2pen: g2_pen,
+            dir, bias, p, cp: p_corrected, bf, post: posterior,
+            strict: strict_call, pcall: posterior_call, bfcall: bayes_factor_call, class: class.to_string(),
+        });
     })?;
 
-    // Build the RecordBatch (single batch for the first version)
+    // Build Arrow from collected rows
+    let mut id_b = StringBuilder::new();
+    let mut seq_b = StringBuilder::new();
+    let mut g1n_b = StringBuilder::new();
+    let mut g1p_b = UInt32Builder::new();
+    let mut g1t_b = UInt32Builder::new();
+    let mut g1pen_b = Float64Builder::new();
+    let mut g2n_b = StringBuilder::new();
+    let mut g2p_b = UInt32Builder::new();
+    let mut g2t_b = UInt32Builder::new();
+    let mut g2pen_b = Float64Builder::new();
+    let mut dir_b = StringBuilder::new();
+    let mut bias_b = Float64Builder::new();
+    let mut p_b = Float64Builder::new();
+    let mut cp_b = Float64Builder::new();
+    let mut bf_b = Float64Builder::new();
+    let mut post_b = Float64Builder::new();
+    let mut strict_b = BooleanBuilder::new();
+    let mut pcall_b = BooleanBuilder::new();
+    let mut bfcall_b = BooleanBuilder::new();
+    let mut class_b = StringBuilder::new();
+
+    for r in rows {
+        id_b.append_value(r.id);
+        seq_b.append_value(&r.seq);
+        g1n_b.append_value(&r.g1);
+        g1p_b.append_value(r.g1p);
+        g1t_b.append_value(r.g1t);
+        g1pen_b.append_value(r.g1pen);
+        g2n_b.append_value(&r.g2);
+        g2p_b.append_value(r.g2p);
+        g2t_b.append_value(r.g2t);
+        g2pen_b.append_value(r.g2pen);
+        dir_b.append_value(&r.dir);
+        bias_b.append_value(r.bias);
+        p_b.append_value(r.p);
+        cp_b.append_value(r.cp);
+        bf_b.append_value(r.bf);
+        post_b.append_value(r.post);
+        strict_b.append_value(r.strict);
+        pcall_b.append_value(r.pcall);
+        bfcall_b.append_value(r.bfcall);
+        class_b.append_value(&r.class);
+    }
+
     let batch = RecordBatch::try_new(
         std::sync::Arc::new(schema),
         vec![
             std::sync::Arc::new(id_b.finish()),
             std::sync::Arc::new(seq_b.finish()),
-            // ... finish all other builders ...
+            std::sync::Arc::new(g1n_b.finish()),
+            std::sync::Arc::new(g1p_b.finish()),
+            std::sync::Arc::new(g1t_b.finish()),
+            std::sync::Arc::new(g1pen_b.finish()),
+            std::sync::Arc::new(g2n_b.finish()),
+            std::sync::Arc::new(g2p_b.finish()),
+            std::sync::Arc::new(g2t_b.finish()),
+            std::sync::Arc::new(g2pen_b.finish()),
+            std::sync::Arc::new(dir_b.finish()),
+            std::sync::Arc::new(bias_b.finish()),
+            std::sync::Arc::new(p_b.finish()),
+            std::sync::Arc::new(cp_b.finish()),
+            std::sync::Arc::new(bf_b.finish()),
+            std::sync::Arc::new(post_b.finish()),
+            std::sync::Arc::new(strict_b.finish()),
+            std::sync::Arc::new(pcall_b.finish()),
+            std::sync::Arc::new(bfcall_b.finish()),
+            std::sync::Arc::new(class_b.finish()),
         ],
     )?;
 
     Ok(vec![batch])
+}
+
+#[cfg(all(test, feature = "arrow-output"))]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn make_triage_fixture() -> (std::path::PathBuf, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join("rsx_arrow_triage_test");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let table = dir.join("markers.tsv");
+        let mut f = std::fs::File::create(&table).unwrap();
+        writeln!(f, "#Number of markers : 3").unwrap();
+        write!(f, "id\tsequence").unwrap();
+        for i in 1..=10 { write!(f, "\tm{i}").unwrap(); }
+        for i in 1..=10 { write!(f, "\tf{i}").unwrap(); }
+        writeln!(f).unwrap();
+
+        // ALL-present (should be filtered out)
+        write!(f, "0\tALL").unwrap();
+        for _ in 0..20 { write!(f, "\t10").unwrap(); }
+        writeln!(f).unwrap();
+
+        // M-only (should survive)
+        write!(f, "1\tMONLY").unwrap();
+        for _ in 0..10 { write!(f, "\t10").unwrap(); }
+        for _ in 0..10 { write!(f, "\t0").unwrap(); }
+        writeln!(f).unwrap();
+
+        // F-only (should survive)
+        write!(f, "2\tFONLY").unwrap();
+        for _ in 0..10 { write!(f, "\t0").unwrap(); }
+        for _ in 0..10 { write!(f, "\t10").unwrap(); }
+        writeln!(f).unwrap();
+
+        let pop = dir.join("popmap.tsv");
+        let mut f = std::fs::File::create(&pop).unwrap();
+        for i in 1..=10 { writeln!(f, "m{i}\tM").unwrap(); }
+        for i in 1..=10 { writeln!(f, "f{i}\tF").unwrap(); }
+
+        (table, pop)
+    }
+
+    #[test]
+    fn run_to_arrow_matches_file_based_triage() {
+        let (table, pop) = make_triage_fixture();
+
+        let params = TriageParams {
+            markers_table_path: table.to_str().unwrap().to_string(),
+            popmap_file_path: pop.to_str().unwrap().to_string(),
+            output_file_path: "/tmp/discard.tsv".to_string(),
+            min_depth: 1,
+            signif_threshold: 0.05,
+            posterior_threshold: 0.9,
+            bayes_factor_threshold: 10.0,
+            prior_probability: 0.01,
+            linked_probability: 0.9,
+            group1: "M".to_string(),
+            group2: "F".to_string(),
+        };
+
+        // File-based path (writes TSV)
+        let tsv_path = std::env::temp_dir().join("arrow_vs_file_triage.tsv");
+        let mut file_params = params.clone();
+        file_params.output_file_path = tsv_path.to_str().unwrap().to_string();
+        run(&file_params).unwrap();
+
+        let tsv = std::fs::read_to_string(&tsv_path).unwrap();
+        let tsv_lines: Vec<&str> = tsv.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
+        let n_tsv = tsv_lines.len(); // header + data rows that survived
+
+        // Arrow path
+        let batches = run_to_arrow(&params).expect("run_to_arrow must succeed");
+        assert!(!batches.is_empty(), "Arrow path produced at least one batch");
+        let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+
+        // Differential: same number of qualifying markers
+        // (the TSV has a header line, so data rows = n_tsv - 1)
+        let n_data_tsv = n_tsv.saturating_sub(1);
+        assert_eq!(
+            total_rows, n_data_tsv,
+            "Arrow and file-based triage must emit the same number of candidate markers"
+        );
+
+        // Both must contain the expected biological classes produced by the same decision logic
+        assert!(tsv.contains("strict+posterior") || tsv.contains("M-biased") || tsv.contains("F-biased"),
+                "file-based triage must have produced at least one biological call");
+
+        // Verify Arrow batch schema has the expected columns (sanity on the helper)
+        let schema = batches[0].schema();
+        let col_names: Vec<_> = schema.fields().iter().map(|f| f.name().as_str()).collect();
+        assert!(col_names.contains(&"Candidate_Class"));
+        assert!(col_names.contains(&"Bayes_Factor"));
+        assert!(col_names.contains(&"Posterior_SexLinked"));
+    }
 }

@@ -17,8 +17,10 @@ pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 
 # DLPack (via the user's dlpk crate) for direct, zero-copy tensor/array production
 # to Python (numpy.from_dlpack, torch.from_dlpack, jax, etc.).
-# This is the preferred path for eliminating temp files in the high-level API.
-dlpk = { path = "../<path>", features = ["pyo3", "ndarray"] }
+# Temporarily commented while hardening the Arrow-based triage path and
+# adding Rust differential tests (dlpk brings pyo3 0.26 and conflicts with
+# the stable 0.23 pyo3 used by the extension module).
+# dlpk = { path = "../<path>", features = ["pyo3", "ndarray"] }
 
 # Optional: Arrow/Parquet still available for rich tabular outputs if needed later
 # arrow-array = "54"
