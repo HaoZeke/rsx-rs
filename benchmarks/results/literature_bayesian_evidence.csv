@@ -1,0 +1,17 @@
+dataset,min_depth,group1,group2,total_group1,total_group2,cells,markers,markers_bf_gt_10,markers_bf_gt_100,markers_posterior_gt_0_5,markers_posterior_gt_0_9,posterior_marker_mass,mean_posterior,top_cell_group1,top_cell_group2,top_cell_markers,top_cell_bayes_factor,top_cell_posterior,input_path
+notothenia_rossii,1,male,female,17,25,467,11337736,993,50,5,1,19.763407,0.000001743,0,25,0,2.33984249e+10,0.999999996,benchmarks/literature-workdir/notothenia_rossii/distrib_1.tsv
+notothenia_rossii,2,male,female,17,25,467,1171862,596,35,6,1,13.801569,0.000011777,0,25,0,2.33984249e+10,0.999999996,benchmarks/literature-workdir/notothenia_rossii/distrib_2.tsv
+notothenia_rossii,5,male,female,17,25,467,482520,486,30,4,1,11.442539,0.000023714,0,25,0,2.33984249e+10,0.999999996,benchmarks/literature-workdir/notothenia_rossii/distrib_5.tsv
+notothenia_rossii,10,male,female,17,25,467,385189,400,21,3,0,9.177989,0.000023827,0,25,0,2.33984249e+10,0.999999996,benchmarks/literature-workdir/notothenia_rossii/distrib_10.tsv
+danio_albolineatus,1,male,female,37,12,493,25415269,2645,154,61191,4297,1972098.270609,0.077595019,0,12,0,9.3384347e+09,1.000000000,benchmarks/literature-workdir/danio_albolineatus/distrib_1.tsv
+danio_albolineatus,2,male,female,37,12,493,8950577,1718,120,26962,1726,727974.377518,0.081332676,0,12,0,9.3384347e+09,1.000000000,benchmarks/literature-workdir/danio_albolineatus/distrib_2.tsv
+danio_albolineatus,5,male,female,37,12,493,1033080,782,24,1745,143,78049.189940,0.075549996,0,12,0,9.3384347e+09,1.000000000,benchmarks/literature-workdir/danio_albolineatus/distrib_5.tsv
+danio_albolineatus,10,male,female,37,12,493,125680,174,6,253,30,2252.689794,0.017924012,0,12,0,9.3384347e+09,1.000000000,benchmarks/literature-workdir/danio_albolineatus/distrib_10.tsv
+tinca_tinca,1,male,female,28,15,463,6932387,991,93,127,21,248.705307,0.000035876,28,0,1,1.43694761e+10,0.999999998,benchmarks/literature-workdir/tinca_tinca/distrib_1.tsv
+tinca_tinca,2,male,female,28,15,463,699088,559,58,66,21,79.254389,0.000113368,28,0,2,1.43694761e+10,0.999999998,benchmarks/literature-workdir/tinca_tinca/distrib_2.tsv
+tinca_tinca,5,male,female,28,15,463,123714,475,40,45,13,53.580721,0.000433102,28,0,4,1.43694761e+10,0.999999998,benchmarks/literature-workdir/tinca_tinca/distrib_5.tsv
+tinca_tinca,10,male,female,28,15,463,73592,443,36,40,11,47.335764,0.000643219,28,0,5,1.43694761e+10,0.999999998,benchmarks/literature-workdir/tinca_tinca/distrib_10.tsv
+plecoglossus_altivelis,1,male,female,35,30,1115,7338124,24746,9361,880,498,1176.372444,0.000160310,0,30,0,1.779579e+17,1.000000000,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_1.tsv
+plecoglossus_altivelis,2,male,female,35,30,1115,1041174,10274,3556,331,191,463.233343,0.000444914,0,30,0,1.779579e+17,1.000000000,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_2.tsv
+plecoglossus_altivelis,5,male,female,35,30,1115,213624,2512,675,84,62,106.308895,0.000497645,0,30,0,1.779579e+17,1.000000000,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_5.tsv
+plecoglossus_altivelis,10,male,female,35,30,1115,171173,572,115,50,49,52.674501,0.000307727,35,0,3,1.779579e+17,1.000000000,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_10.tsv
