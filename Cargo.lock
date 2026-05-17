@@ -1657,8 +1657,10 @@ dependencies = [
 name = "pyrsx"
 version = "0.2.0"
 dependencies = [
+ "parquet",
  "pyo3",
  "rsx-core",
+ "tempfile",
 ]
 
 [[package]]

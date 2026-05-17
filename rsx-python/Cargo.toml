@@ -12,7 +12,7 @@ name = "pyrsx"
 crate-type = ["cdylib"]
 
 [dependencies]
-rsx-core = { path = "../rsx-core", features = ["parallel"] }
+rsx-core = { path = "../rsx-core", features = ["parallel", "arrow-output"] }
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 
 # DLPack (via the user's dlpk crate) for direct, zero-copy tensor/array production
@@ -22,6 +22,9 @@ pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 # the stable 0.23 pyo3 used by the extension module).
 # dlpk = { path = "../<path>", features = ["pyo3", "ndarray"] }
 
-# Optional: Arrow/Parquet still available for rich tabular outputs if needed later
-# arrow-array = "54"
-# parquet = { version = "54", features = ["arrow"] }
+# Parquet writer so we can take the real in-memory RecordBatches from
+# run_to_arrow and hand them to Python as a pyarrow.Table with a hidden
+# temp file that is deleted before the call returns. No pyo3 version
+# conflict and no visible temp files for the high-level API.
+parquet = { version = "55", features = ["arrow"] }
+tempfile = "3"

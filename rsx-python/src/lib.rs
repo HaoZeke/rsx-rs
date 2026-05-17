@@ -218,13 +218,11 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 /// Returns the triage results directly as a pyarrow.Table.
 ///
-/// Current implementation still uses an internal temp Parquet (transitional
-/// while we convert the core commands to native Arrow producers). The file
-/// is created and deleted inside Rust before returning, so the high-level
-/// Python API sees a direct data-producing call with no visible temp files.
-///
-/// Long-term: make the triage logic itself emit Arrow RecordBatches in
-/// memory for true zero-copy.
+/// Calls the real in-memory `run_to_arrow` (pure Rust, identical logic to
+/// the classic file writer). The resulting RecordBatch(es) are written to
+/// a hidden NamedTempFile using the Arrow Parquet writer, then read by
+/// pyarrow on the Python side. The temp file is deleted before return,
+/// so callers see a direct data-producing API with no visible artifacts.
 #[pyfunction]
 #[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]
@@ -242,16 +240,10 @@ fn triage_to_arrow(
     use std::fs;
     use tempfile::NamedTempFile;
 
-    // Create a hidden temp Parquet (will be deleted before returning to Python)
-    let output_file = NamedTempFile::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("failed to create temp file: {e}")))?;
-    let output_path = output_file.path().to_string_lossy().to_string();
-
-    // Run the existing file-based triage into the temp Parquet
-    rsx_core::commands::triage::run(&rsx_core::commands::triage::TriageParams {
+    let params = rsx_core::commands::triage::TriageParams {
         markers_table_path: table_path.to_string(),
         popmap_file_path: popmap_path.to_string(),
-        output_file_path: output_path.clone(),
+        output_file_path: String::new(), // unused — we go through the Arrow path
         min_depth,
         signif_threshold: 0.05,
         posterior_threshold,
@@ -260,16 +252,41 @@ fn triage_to_arrow(
         linked_probability,
         group1: group1.to_string(),
         group2: group2.to_string(),
-    })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    };
 
-    // Let Python's pyarrow read the Parquet (very efficient) and give us a real Table
-    let pyarrow = py.import_bound("pyarrow")?;
+    let batches = rsx_core::commands::triage::run_to_arrow(&params)
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+    if batches.is_empty() {
+        // Empty result — return a proper 0-row table via Python (schema will be inferred or empty)
+        let pyarrow = py.import("pyarrow")?;
+        let py_list = pyo3::types::PyList::empty(py);
+        let empty_table = pyarrow.getattr("Table")?.call_method1("from_batches", (py_list,))?;
+        return Ok(empty_table.into());
+    }
+
+    // Write the real Arrow batches to a hidden temp Parquet
+    let output_file = NamedTempFile::new()
+        .map_err(|e| PyRuntimeError::new_err(format!("failed to create temp file: {e}")))?;
+    let output_path = output_file.path().to_string_lossy().to_string();
+
+    {
+        let file = std::fs::File::create(&output_path)
+            .map_err(|e| PyRuntimeError::new_err(format!("failed to open temp parquet: {e}")))?;
+        let mut writer = parquet::arrow::ArrowWriter::try_new(file, batches[0].schema(), None)
+            .map_err(|e| PyRuntimeError::new_err(format!("ArrowWriter init failed: {e}")))?;
+        for batch in &batches {
+            writer.write(batch).map_err(|e| PyRuntimeError::new_err(format!("write batch: {e}")))?;
+        }
+        writer.close().map_err(|e| PyRuntimeError::new_err(format!("writer close: {e}")))?;
+    }
+
+    // Hand the Parquet to pyarrow (fast path) and return a real Table
+    let pyarrow = py.import("pyarrow")?;
     let pyarrow_parquet = pyarrow.getattr("parquet")?;
-    let table = pyarrow_parquet
-        .call_method1("read_table", (output_path.as_str(),))?;
+    let table = pyarrow_parquet.call_method1("read_table", (output_path.as_str(),))?;
 
-    // Clean up immediately — from the caller's perspective, no temp file ever existed
+    // Delete the internal file before returning — caller never sees it
     let _ = fs::remove_file(&output_path);
 
     Ok(table.into())
