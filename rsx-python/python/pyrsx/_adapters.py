@@ -14,7 +14,12 @@ from __future__ import annotations
 from typing import Any, Literal, Protocol, TypeVar
 
 import narwhals as nw
-from narwhals.typing import IntoDataFrame, DataFrame as NWDataFrame
+try:
+    # narwhals < 2.x
+    from narwhals.typing import IntoDataFrame, DataFrame as NWDataFrame  # type: ignore[attr-defined]
+except ImportError:
+    # narwhals >= 2.x renamed DataFrame -> DataFrameT
+    from narwhals.typing import IntoDataFrame, DataFrameT as NWDataFrame  # type: ignore[attr-defined]
 
 DF = TypeVar("DF", bound=IntoDataFrame)
 
