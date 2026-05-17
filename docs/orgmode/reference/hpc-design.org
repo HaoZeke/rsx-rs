@@ -182,5 +182,6 @@ Formal analyses showing mathematical equivalences:
 - Mixed-precision (f32 chi-squared, f64 CDF): =rsx-core/tests/test_precision.rs=
 - erfc identity for chi-squared CDF: =scripts/sympy/chi2_cdf_derivation.py=
 - Sparse median equivalence: =scripts/sympy/sparse_median_proof.py=
-- Gram eigendecomposition = Tucker HOSVD: =scripts/sympy/tucker_covariance_proof.py=
+- Streaming Gram eigendecomposition equals full-matrix sample PCA:
+  =scripts/sympy/tucker_covariance_proof.py=
 - Sollya minimax erfc polynomial: =scripts/sollya/erfc_minimax.sollya=

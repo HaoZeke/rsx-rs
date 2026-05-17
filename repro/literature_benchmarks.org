@@ -22,8 +22,7 @@ The dataset manifest is tracked at
 =benchmarks/literature_datasets.tsv=. It mirrors the RADSex paper workflow's
 =data/info.tsv= source list:
 
-- 15 fish datasets under BioProject =PRJNA548074= from the RADSex paper
-  workflow.
+- 15 public RADSex workflow datasets under BioProject =PRJNA548074=.
 - =oryzias_latipes= under BioProject =PRJNA253959= from the RADSex
   medaka example and Wilson et al. 2014.
 - Genome links for datasets where the RADSex workflow specifies mapping

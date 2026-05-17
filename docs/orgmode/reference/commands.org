@@ -169,7 +169,7 @@ zeros stored as null for efficient RLE encoding.
 
 ** pca
 
-Streaming PCA of the depth matrix (Tucker mode-2 decomposition).
+Streaming sample PCA of the marker-depth matrix.
 
 #+begin_src bash
 rsx pca -t <table.tsv> -o <output_dir/> [-d 5] [-r 10]
@@ -182,9 +182,10 @@ rsx pca -t <table.tsv> -o <output_dir/> [-d 5] [-r 10]
 | =-d= | 1       | Minimum depth                            |
 | =-r= | all     | Number of principal components to output |
 
-Computes principal components by streaming the Gram matrix X^T X
-(n_individuals x n_individuals) and eigendecomposing it. This is
-mathematically equivalent to Tucker HOSVD mode-2 decomposition.
+Computes sample principal components by streaming the centered Gram matrix
+X^T X (n_individuals x n_individuals) and eigendecomposing it. The
+loadings are the same right singular vectors that full-matrix PCA would
+produce, but the marker table does not need to be materialized.
 
 Memory: O(n_individuals^2) = 320KB for 200 individuals, regardless of
 the number of markers. Works on arbitrarily large tables.

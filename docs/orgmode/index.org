@@ -13,7 +13,7 @@ workflow integration.
 
 - All 7 original commands: =process=, =distrib=, =signif=, =depth=, =freq=, =map=, =subset=
 - =merge= command: external sort-merge for 75M+ sequence tables
-- =pca= command: streaming Tucker/PCA in O(n_individuals^2) memory
+- =pca= command: streaming sample PCA in O(n_individuals^2) memory
 - Bayesian marker evidence: Bayes factors and symmetric posterior
   probabilities for sex-linked enrichment in either compared group
 - Byte-identical output to C++ RADSex (when groups specified explicitly)

@@ -79,9 +79,8 @@ FASTQ files.
 
 The tracked manifest =benchmarks/literature_datasets.tsv= contains:
 
-- 15 fish datasets from the RADSex paper workflow, BioProject
-  =PRJNA548074=, with the published RADSex command set run at minimum
-  depths 1, 2, 5, and 10.
+- 15 public RADSex workflow datasets, BioProject =PRJNA548074=, with the
+  published RADSex command set run at minimum depths 1, 2, 5, and 10.
 - The public =oryzias_latipes= medaka example, BioProject =PRJNA253959=,
   with the RADSex example genome and medaka-specific thresholds.
 
@@ -143,6 +142,8 @@ The generated figure and table assets are written to =docs/figures/=:
 - =literature_downstream_times.svg=
 - =literature_bayesian_evidence.svg=
 - =literature_candidate_recovery.svg=
+- =literature_mode_candidate_counts.svg=
+- =literature_mode_qc.svg=
 - =literature_radsex_speedups.svg=
 - =literature_benchmark_summary.tsv=
 - =literature_speedup_summary.tsv=
@@ -194,6 +195,53 @@ grounds the biological-value claim in the published RADSex workflow datasets:
 the Bayesian layer does not change the null-hypothesis test, but it exposes a
 ranked follow-up set when all-or-nothing FASTA extraction is empty.
 
+*** Mode effects on published marker tables
+
+The mode-effects analysis runs additional rsx statistical and QC modes through
+the Python bindings on the four downloaded marker tables at minimum depth 10:
+
+#+begin_src bash
+pixi run -e paper analyze-literature-modes
+pixi run -e benchmark plot-literature-benchmarks
+#+end_src
+
+The tracked result file is
+=benchmarks/results/literature_mode_effects.csv=. It records the command, wall
+time, output rows, marker counts, Bayesian thresholds, frequency-QC summaries,
+and PCA variance/loadings for each dataset. The generated figures are
+=docs/figures/literature_mode_candidate_counts.svg= and
+=docs/figures/literature_mode_qc.svg=.
+
+At d=10 the mode-effects run reproduces the source-paper strict calls and shows
+what the additional modes contribute:
+
+| Dataset | Strict chisq/Bonf. | Fisher/FDR | G-test/FDR | Bayes posterior > 0.9 | PC1 variance | Singleton fraction |
+|---------+--------------------+------------+------------+------------------------+--------------+--------------------|
+| =danio_albolineatus= | 0 | 0 | 0 | 30 | 79.72% | 19.96% |
+| =notothenia_rossii= | 0 | 0 | 0 | 0 | 94.93% | 52.78% |
+| =plecoglossus_altivelis= | 47 | 49 | 49 | 49 | 93.09% | 37.94% |
+| =tinca_tinca= | 6 | 6 | 7 | 11 | 98.14% | 7.74% |
+
+This table is the paper-facing demonstration of the added analysis modes. The
+strict path preserves the RADSex interpretation: =plecoglossus_altivelis= and
+=tinca_tinca= are positive controls, while =danio_albolineatus= and
+=notothenia_rossii= remain strict null cases at d=10. Fisher/FDR and G-test/FDR
+show the sensitivity of count-cell testing to exact and likelihood tests on the
+same marker table. The Bayesian table gives a ranked candidate layer: it
+recovers 49 high-posterior candidates for =plecoglossus_altivelis=, expands the
+=tinca_tinca= follow-up set to 11, and distinguishes the two strict nulls
+because =danio_albolineatus= has 30 high-posterior candidates whereas
+=notothenia_rossii= has none at the same threshold.
+
+The PCA and frequency columns are QC outputs rather than marker-discovery
+claims. PC1 explains 79.7--98.1% of depth variation across the four datasets,
+while the mean sex-loading deltas are small relative to the dominant depth
+axis. This indicates that the leading sample-level variation is library/depth
+structure, not a clean sex-separation axis. The singleton fraction separates
+the retained marker tables as well: =tinca_tinca= is low-singleton at d=10
+(7.74%), whereas =notothenia_rossii= remains dominated by singleton retained
+markers (52.78%), which is a biological-QC warning for candidate follow-up.
+
 *** Biological inference role of extended features
 
 The extended rsx features map to biological interpretation tasks rather than
@@ -238,6 +286,7 @@ Paper-readiness validation is split by claim:
 | Command behavior | =rsx-core/tests/test_pipeline.rs= integration tests |
 | Literature speedup | =benchmarks/results/literature_speed_comparison.csv= and Slurm scripts |
 | Bayesian biological triage | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
+| Extended mode effects | =benchmarks/results/literature_mode_effects.csv= and mode-effect figures |
 | Python workflow surface | =benchmarks/results/literature_binding_results.csv= and =rsx-python/tests/test_pyrsx.py= |
 
 The math scripts verify the erfc form of the one-degree chi-squared
@@ -253,8 +302,8 @@ Recent validation runs:
   critical-value checks, and f32/f64 relative-error checks.
 - =pixi run python sympy/sparse_median_proof.py=: passed sparse-median
   examples and complexity check.
-- =pixi run python sympy/tucker_covariance_proof.py=: passed Gram/SVD/Tucker
-  equivalence on a sparse matrix.
+- =pixi run python sympy/tucker_covariance_proof.py=: passed streaming
+  Gram/SVD equivalence on a sparse matrix.
 - Remote =cargo test --workspace= on =elja=: 60 core unit tests, 10 pipeline
   integration tests, and 13 precision tests passed.
 - Remote =pixi run -e python test-python= on =elja=: 16 Python binding tests
