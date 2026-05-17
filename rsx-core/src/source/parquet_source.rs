@@ -17,7 +17,6 @@ use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
 use crate::io::table_io::TableHeader;
 use crate::marker::Marker;
-use crate::popmap::Popmap;
 
 use super::arrow_source::{ArrowMarkerSource, ArrowSourceError};
 use super::MarkerStream;

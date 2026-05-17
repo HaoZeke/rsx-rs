@@ -224,7 +224,6 @@ fn pca(
 /// tiny (one row per individual), so we still flow it through a hidden TSV
 /// because `Popmap::from_file` is the only constructor exposed by the core.
 fn popmap_from_ipc(ipc_bytes: &[u8]) -> PyResult<(Popmap, NamedTempFile)> {
-    use arrow::array::Array;
     use std::io::Write;
 
     if ipc_bytes.is_empty() {
