@@ -5,9 +5,10 @@
 //!
 //! Key optimizations:
 //! - mmap for zero-copy I/O
-//! - Skip id+sequence fields when not needed (memchr to 2nd tab)
-//! - Fast min_depth=1 threshold: check "0" vs non-"0" (1 byte, no parse)
+//! - memchr-based line and field iteration
+//! - Specialized parser paths for presence-only, depth-only, and full marker rows
 //! - Bitset presence tracking via popcount
+//! - Optional parallel chunk processing behind the `parallel` feature
 
 use crate::io::table_io::fast_parse_u16;
 use crate::marker::Marker;
@@ -124,6 +125,25 @@ impl MarkersTableStream {
         self.dispatch_on_slice(data, f)
     }
 
+    /// Process all markers with a callback that is compatible with parallel execution.
+    ///
+    /// With the `parallel` feature enabled, callback order is not specified.
+    #[cfg(feature = "parallel")]
+    pub fn for_each_parallel<F>(&self, f: F) -> std::io::Result<()>
+    where
+        F: Fn(&Marker) + Send + Sync,
+    {
+        self.par_for_each(f)
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    pub fn for_each_parallel<F>(&self, f: F) -> std::io::Result<()>
+    where
+        F: Fn(&Marker) + Send + Sync,
+    {
+        self.for_each(|m| f(m))
+    }
+
     /// Fast path: min_depth=1, no sequence or depth values needed.
     /// Skip id+seq fields. Check "0" vs non-"0" without integer parse.
     /// Uses one delimiter pass over each line.
@@ -164,22 +184,14 @@ impl MarkersTableStream {
     {
         let min_depth = self.config.min_depth;
         let mut marker = Marker::new(self.n_individuals);
-        let mut pos = 0;
 
-        while pos < data.len() {
-            let line_end = memchr::memchr(b'\n', &data[pos..])
-                .map(|p| pos + p)
-                .unwrap_or(data.len());
-
-            let line = strip_cr(&data[pos..line_end]);
-            pos = line_end + 1;
-
+        for_each_line(data, |line| {
             // The second tab starts the depth columns.
             let mut tab_iter = memchr::memchr_iter(b'\t', line);
             let _tab1 = tab_iter.next();
             let tab2 = match tab_iter.next() {
                 Some(p) => p,
-                None => continue,
+                None => return,
             };
 
             for_each_depth_field(line, tab2, |col, field| {
@@ -198,7 +210,7 @@ impl MarkersTableStream {
 
             f(&marker);
             marker.reset(true);
-        }
+        });
     }
 
     /// Full path: parse everything including id and sequence.
@@ -209,34 +221,32 @@ impl MarkersTableStream {
     {
         let min_depth = self.config.min_depth;
         let mut marker = Marker::new(self.n_individuals);
-        let mut pos = 0;
 
-        while pos < data.len() {
-            let line_end = memchr::memchr(b'\n', &data[pos..])
-                .map(|p| pos + p)
-                .unwrap_or(data.len());
-
-            let line = strip_cr(&data[pos..line_end]);
-            pos = line_end + 1;
-
-            let tabs: Vec<usize> = memchr::memchr_iter(b'\t', line).collect();
-            if tabs.len() < 2 {
-                continue;
-            }
+        for_each_line(data, |line| {
+            // The first two tabs delimit id and sequence.
+            let mut tab_iter = memchr::memchr_iter(b'\t', line);
+            let tab1 = match tab_iter.next() {
+                Some(p) => p,
+                None => return,
+            };
+            let tab2 = match tab_iter.next() {
+                Some(p) => p,
+                None => return,
+            };
 
             marker.id.clear();
             marker
                 .id
-                .push_str(std::str::from_utf8(&line[0..tabs[0]]).unwrap_or(""));
+                .push_str(std::str::from_utf8(&line[0..tab1]).unwrap_or(""));
 
-            let seq_start = tabs[0] + 1;
-            let seq_end = tabs[1];
+            let seq_start = tab1 + 1;
+            let seq_end = tab2;
             marker.sequence.clear();
             marker
                 .sequence
                 .push_str(std::str::from_utf8(&line[seq_start..seq_end]).unwrap_or(""));
 
-            for_each_depth_field(line, tabs[1], |col, field| {
+            for_each_depth_field(line, tab2, |col, field| {
                 let depth = fast_parse_u16(field);
                 if col < self.n_individuals as usize {
                     if self.config.store_depths {
@@ -251,7 +261,7 @@ impl MarkersTableStream {
 
             f(&marker);
             marker.reset(false);
-        }
+        });
     }
 
     pub fn collect(&self) -> std::io::Result<Vec<Marker>> {
@@ -416,7 +426,7 @@ where
 }
 
 /// Iterate over lines using `memchr_iter(b'\n')`.
-/// Strips trailing carriage returns from CRLF inputs.
+/// Always strips trailing \r if present.
 #[inline]
 fn for_each_line<F>(data: &[u8], mut f: F)
 where
@@ -426,7 +436,7 @@ where
 
     for end in memchr::memchr_iter(b'\n', data) {
         let raw = &data[pos..end];
-        let line = strip_cr(raw);
+        let line = raw.strip_suffix(b"\r").unwrap_or(raw);
         if !line.is_empty() {
             f(line);
         }
@@ -436,14 +446,9 @@ where
     // Final line without trailing \n
     if pos < data.len() {
         let raw = &data[pos..];
-        let line = strip_cr(raw);
+        let line = raw.strip_suffix(b"\r").unwrap_or(raw);
         if !line.is_empty() {
             f(line);
         }
     }
-}
-
-#[inline(always)]
-fn strip_cr(line: &[u8]) -> &[u8] {
-    line.strip_suffix(b"\r").unwrap_or(line)
 }
