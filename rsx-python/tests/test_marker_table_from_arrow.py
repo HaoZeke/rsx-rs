@@ -189,6 +189,22 @@ def test_pca_arrow_matches_path(fixture_frames):
     assert list(arrow_df.columns) == list(file_df.columns)
 
 
+def test_force_spill_matches_in_memory(monkeypatch, fixture_frames):
+    """The Parquet spill source must produce the same result as the in-memory
+    source for the same DataFrame. Toggle RSX_FORCE_SPILL on the second run."""
+    monkeypatch.delenv("RSX_FORCE_SPILL", raising=False)
+    in_memory = _to_pandas(
+        MarkerTable.from_dataframe(fixture_frames["markers_df"]).freq(min_depth=1)
+    )
+
+    monkeypatch.setenv("RSX_FORCE_SPILL", "1")
+    spilled = _to_pandas(
+        MarkerTable.from_dataframe(fixture_frames["markers_df"]).freq(min_depth=1)
+    )
+
+    pd.testing.assert_frame_equal(in_memory, spilled, check_dtype=False)
+
+
 def test_freq_min_depth_filters(fixture_frames):
     """Sanity check: min_depth=5 must drop the LOW row (cells <= 2)."""
     arrow_total = (

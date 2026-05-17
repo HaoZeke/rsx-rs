@@ -22,6 +22,9 @@ pub mod parquet_source;
 #[cfg(feature = "arrow-input")]
 pub mod estimator;
 
+#[cfg(all(test, feature = "arrow-input"))]
+mod tests;
+
 #[cfg(feature = "arrow-input")]
 pub use arrow_source::ArrowMarkerSource;
 #[cfg(feature = "arrow-input")]
