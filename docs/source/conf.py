@@ -26,6 +26,6 @@ intersphinx_mapping = {
 }
 
 rust_crates = {
-    "rsx_core": {"source": "rsx-core/"},
+    "rsx_core": "rsx-core/",
 }
 rust_doc_dir = "api/rust"
