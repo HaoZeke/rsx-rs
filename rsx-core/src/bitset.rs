@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(row.count_total(), 200);
 
         // Mask first 100
-        let n_words = (200 + 63) / 64;
+        let n_words = 200_usize.div_ceil(64);
         let mut mask = GroupMask {
             words: vec![0u64; n_words],
         };
