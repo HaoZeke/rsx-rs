@@ -1657,6 +1657,7 @@ dependencies = [
 name = "pyrsx"
 version = "0.2.0"
 dependencies = [
+ "arrow",
  "parquet",
  "pyo3",
  "rsx-core",

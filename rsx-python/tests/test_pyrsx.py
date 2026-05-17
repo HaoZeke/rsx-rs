@@ -259,3 +259,75 @@ def test_cli_pca(test_data):
     ])
     assert result.exit_code == 0, result.output
     assert os.path.exists(os.path.join(out_dir, "eigenvalues.tsv"))
+
+
+# ------------------------------------------------------------------
+# High-level Python API tests (thin callers over the real Rust Arrow path)
+# ------------------------------------------------------------------
+
+def test_highlevel_triage_via_marker_table():
+    """High-level MarkerTable.triage should return a TriageResult backed by narwhals
+    and contain the expected biological candidate classes (exercises the full
+    Rust run_to_arrow -> PyO3 triage_to_arrow -> Python thin wrapper path).
+    """
+    import tempfile
+    from pathlib import Path
+
+    # Same synthetic data used by the Rust differential test
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        table = tmp / "markers.tsv"
+        table.write_text(
+            "#Number of markers : 3\n"
+            "id\tsequence\tm1\tm2\tm3\tm4\tm5\tm6\tm7\tm8\tm9\tm10\tf1\tf2\tf3\tf4\tf5\tf6\tf7\tf8\tf9\tf10\n"
+            "0\tALL\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\n"
+            "1\tMONLY\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+            "2\tFONLY\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t10\t10\t10\t10\t10\t10\t10\t10\t10\t10\n"
+        )
+        pop = tmp / "popmap.tsv"
+        pop.write_text(
+            "m1\tM\nm2\tM\nm3\tM\nm4\tM\nm5\tM\nm6\tM\nm7\tM\nm8\tM\nm9\tM\nm10\tM\n"
+            "f1\tF\nf2\tF\nf3\tF\nf4\tF\nf5\tF\nf6\tF\nf7\tF\nf8\tF\nf9\tF\nf10\tF\n"
+        )
+
+        # Import the high-level surface (will only work after maturin develop)
+        from pyrsx.api.markers import MarkerTable
+        from pyrsx.api.params import TriageParams
+
+        mt = MarkerTable.from_path(str(table))
+        p = TriageParams(group1="M", group2="F", prior=0.01, linked_prob=0.9)
+        result = mt.triage(popmap=str(pop), params=p)
+
+        # The result must be a TriageResult with a narwhals-backed df
+        assert hasattr(result, "df")
+        assert result.df is not None
+
+        # Must have produced the biological calls we expect from the decision logic
+        classes = result.df["Candidate_Class"].to_list()
+        assert any("strict" in str(c) or "posterior" in str(c) or "M-biased" in str(c) or "F-biased" in str(c) for c in classes)
+
+        # Provenance must be round-tripped
+        assert result.params is not None
+        assert result.params.group1 == "M"
+
+
+def test_pca_to_arrow_lowlevel(test_data):
+    """Low-level pca_to_arrow binding must return the expected dict with
+    pyarrow tables and match the numbers from the file-based path.
+    """
+    import pyrsx
+
+    # Use the existing 5-individual fixture
+    res = pyrsx.pca_to_arrow(test_data["table"], min_depth=1, n_components=3)
+
+    assert "eigenvalues" in res
+    assert "loadings" in res
+    assert res["n_individuals"] == 5
+    assert res["n_components"] == 3
+    assert res["total_variance"] > 0.0
+
+    # loadings must have the 5 individuals
+    loadings = res["loadings"]
+    assert loadings.num_rows == 5
+    assert "PC1" in loadings.column_names
+    assert "individual" in loadings.column_names

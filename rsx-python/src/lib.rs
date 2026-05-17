@@ -212,6 +212,7 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Direct Arrow production (first step toward zero temp files for the high-level API)
     m.add_function(wrap_pyfunction!(triage_to_arrow, m)?)?;
+    m.add_function(wrap_pyfunction!(pca_to_arrow, m)?)?;
 
     Ok(())
 }
@@ -290,4 +291,74 @@ fn triage_to_arrow(
     let _ = fs::remove_file(&output_path);
 
     Ok(table.into())
+}
+
+/// Returns PCA results as a Python dict of pyarrow.Tables:
+/// {
+///     "eigenvalues": Table with component, eigenvalue, variance_fraction, cumulative,
+///     "loadings": Table with individual + PC1..PCk,
+///     "n_markers", "n_individuals", "n_components", "total_variance"
+/// }
+///
+/// Uses the real in-memory `run_to_arrow` in rsx-core (identical Jacobi +
+/// streaming Gram math). Hidden temp Parquet files are cleaned before return.
+#[pyfunction]
+#[pyo3(signature = (table_path, min_depth=1, n_components=None))]
+fn pca_to_arrow(
+    py: Python<'_>,
+    table_path: &str,
+    min_depth: u16,
+    n_components: Option<usize>,
+) -> PyResult<PyObject> {
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    let params = rsx_core::commands::pca::PcaParams {
+        markers_table_path: table_path.to_string(),
+        output_dir: String::new(), // unused by Arrow path
+        min_depth,
+        n_components,
+    };
+
+    let res = rsx_core::commands::pca::run_to_arrow(&params)
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+    // Helper to write one batch to a hidden temp Parquet and return the path
+    fn write_batch_to_hidden_parquet(batch: &arrow::record_batch::RecordBatch) -> PyResult<String> {
+        let tmp = NamedTempFile::new()
+            .map_err(|e| PyRuntimeError::new_err(format!("temp file: {e}")))?;
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let file = std::fs::File::create(&path)
+            .map_err(|e| PyRuntimeError::new_err(format!("open parquet: {e}")))?;
+        let mut writer = parquet::arrow::ArrowWriter::try_new(file, batch.schema(), None)
+            .map_err(|e| PyRuntimeError::new_err(format!("ArrowWriter: {e}")))?;
+        writer.write(batch).map_err(|e| PyRuntimeError::new_err(format!("write: {e}")))?;
+        writer.close().map_err(|e| PyRuntimeError::new_err(format!("close: {e}")))?;
+        Ok(path)
+    }
+
+    let ev_path = write_batch_to_hidden_parquet(&res.eigenvalues)?;
+    let ld_path = write_batch_to_hidden_parquet(&res.loadings)?;
+
+    let pyarrow = py.import("pyarrow")?;
+    let pq = pyarrow.getattr("parquet")?;
+
+    let ev_table = pq.call_method1("read_table", (ev_path.as_str(),))?;
+    let ld_table = pq.call_method1("read_table", (ld_path.as_str(),))?;
+
+    // Cleanup
+    let _ = fs::remove_file(&ev_path);
+    let _ = fs::remove_file(&ld_path);
+
+    // Build Python dict return value (very ergonomic for the high-level layer)
+    let dict = pyo3::types::PyDict::new(py);
+    dict.set_item("eigenvalues", ev_table)?;
+    dict.set_item("loadings", ld_table)?;
+    dict.set_item("n_markers", res.n_markers)?;
+    dict.set_item("n_individuals", res.n_individuals)?;
+    dict.set_item("n_components", res.n_components)?;
+    dict.set_item("total_variance", res.total_variance)?;
+
+    Ok(dict.into())
 }

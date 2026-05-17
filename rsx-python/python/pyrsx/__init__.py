@@ -23,6 +23,7 @@ from .pyrsx import (  # noqa: F401
     signif,
     triage,
     triage_to_arrow,
+    pca_to_arrow,
 )
 
 # High-level idiomatic API (recommended)
@@ -36,6 +37,8 @@ __all__ = [
     "distrib",
     "signif",
     "triage",
+    "triage_to_arrow",
+    "pca_to_arrow",
     "freq",
     "depth",
     "merge",

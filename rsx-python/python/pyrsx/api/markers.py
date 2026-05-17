@@ -218,15 +218,32 @@ class MarkerTable:
         from pathlib import Path
         import pandas as pd
 
+        import pyrsx as _pyrsx
+
         if self._df is not None:
+            # Preferred fast path: write only the input table to temp (still small),
+            # then use the real Rust Arrow emitter.
             mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
             from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+
+            arrow_res = _pyrsx.pca_to_arrow(
+                str(mpath),
+                min_depth=kwargs.get("min_depth", 1),
+                n_components=k,
+            )
+            # loadings is the main table users plot (individuals in PC space)
+            res_df = to_narwhals(arrow_res["loadings"])
+            # We can also stash eigenvalues / provenance on the result later
+            return PcaResult(
+                _df=res_df,
+                params={"k": k, "arrow": True, **kwargs},
+                _input_backend=self._backend,
+            )
         else:
             mpath = self._path  # type: ignore[assignment]
 
         outpath = Path(tempfile.NamedTemporaryFile(suffix="_pca.tsv", delete=False).name)
 
-        import pyrsx as _pyrsx
         _lowlevel_pca = getattr(_pyrsx, "pca", None)
         if _lowlevel_pca is None:
             raise NotImplementedError("Low-level pca not exposed yet in this build")
