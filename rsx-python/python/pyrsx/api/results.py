@@ -188,10 +188,10 @@ class TableResult:
         return from_narwhals(self._df, backend=backend)
 
     def to_pandas(self) -> Any:
-        return self.to_dataframe("pandas")
+        return self.to_dataframe(backend="pandas")
 
     def to_polars(self) -> Any:
-        return self.to_dataframe("polars")
+        return self.to_dataframe(backend="polars")
 
     def __repr__(self) -> str:
         return f"<TableResult command={self.command!r} shape={len(self._df)}x{len(self._df.columns)}>"

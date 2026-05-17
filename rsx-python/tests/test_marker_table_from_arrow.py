@@ -170,9 +170,10 @@ def test_triage_arrow_matches_path(fixture_frames):
     )
     arrow_df = _to_pandas(arrow_res).sort_values("id").reset_index(drop=True)
     file_df = _to_pandas(file_res).sort_values("id").reset_index(drop=True)
-    # Same set of qualifying markers (numeric columns may differ at the
-    # very last float bit because the file path serializes through TSV).
-    assert list(arrow_df["id"]) == list(file_df["id"])
+    # Same set of qualifying markers. Compare ids as strings because the
+    # path flow always re-reads the id column as text, while the Arrow
+    # flow keeps whatever dtype the source DataFrame had.
+    assert [str(x) for x in arrow_df["id"]] == [str(x) for x in file_df["id"]]
     assert list(arrow_df.columns) == list(file_df.columns)
 
 
