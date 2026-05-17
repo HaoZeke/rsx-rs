@@ -143,40 +143,21 @@ impl MarkersTableStream {
             let line = strip_cr(&data[pos..line_end]);
             pos = line_end + 1;
 
-            // Collect tab positions once for the line.
-            let tabs: Vec<usize> = memchr::memchr_iter(b'\t', line).collect();
-            if tabs.len() < 2 {
-                continue;
-            }
+            // The second tab starts the depth columns.
+            let mut tab_iter = memchr::memchr_iter(b'\t', line);
+            let _tab1 = tab_iter.next();
+            let tab2 = match tab_iter.next() {
+                Some(p) => p,
+                None => continue,
+            };
 
-            let tab2 = tabs[1];
-            let depth_start = tab2 + 1;
-            let depth_section = &line[depth_start..];
-
-            let mut col = 0usize;
-            let mut field_start = 0usize;
-
-            for &abs_tab in tabs.iter().skip(2) {
-                let rel_tab = abs_tab - depth_start;
-                let field = &depth_section[field_start..rel_tab];
-
+            for_each_depth_field(line, tab2, |col, field| {
                 let is_zero = field.len() == 1 && field[0] == b'0';
                 if !is_zero && !field.is_empty() && col < self.n_individuals as usize {
                     marker.presence.set(col);
                     marker.n_individuals += 1;
                 }
-                col += 1;
-                field_start = rel_tab + 1;
-            }
-
-            if field_start < depth_section.len() {
-                let field = &depth_section[field_start..];
-                let is_zero = field.len() == 1 && field[0] == b'0';
-                if !is_zero && !field.is_empty() && col < self.n_individuals as usize {
-                    marker.presence.set(col);
-                    marker.n_individuals += 1;
-                }
-            }
+            });
 
             f(&marker);
             marker.reset(true);
@@ -201,13 +182,11 @@ impl MarkersTableStream {
             let line = strip_cr(&data[pos..line_end]);
             pos = line_end + 1;
 
-            // Skip id + sequence.
-            let tab1 = match memchr::memchr(b'\t', line) {
+            // The second tab starts the depth columns.
+            let mut tab_iter = memchr::memchr_iter(b'\t', line);
+            let _tab1 = tab_iter.next();
+            let tab2 = match tab_iter.next() {
                 Some(p) => p,
-                None => continue,
-            };
-            let tab2 = match memchr::memchr(b'\t', &line[tab1 + 1..]) {
-                Some(p) => tab1 + 1 + p,
                 None => continue,
             };
 
