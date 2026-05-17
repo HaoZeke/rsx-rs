@@ -41,11 +41,18 @@ results_dir=${RSX_SLURM_RESULTS_DIR:-benchmarks/results/slurm}
 mkdir -p "$results_dir"
 result="$results_dir/literature_speed_comparison_${dataset}_${job_id}.csv"
 
-"$pixi" run -e benchmark compare-literature-radsex \
+if [[ ! -x target/release/rsx ]]; then
+    echo "target/release/rsx not found; submit benchmarks/slurm/rsx_release_build.sbatch before this job" >&2
+    exit 2
+fi
+
+"$pixi" run -e benchmark python benchmarks/compare_literature_radsex.py \
+    --workdir benchmarks/literature-workdir \
+    --results "$result" \
+    --rsx target/release/rsx \
     --radsex "$RADSEX_BIN" \
     --dataset "$dataset" \
     --threads "${SLURM_CPUS_PER_TASK:-4}" \
-    --results "$result" \
     --force
 
 echo "Wrote $result"
