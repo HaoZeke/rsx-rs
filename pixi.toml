@@ -64,7 +64,10 @@ channels = ["bioconda"]
 [feature.benchmark.dependencies]
 python = ">=3.11"
 bc = "*"
+compilers = ">=1.8"
+pkg-config = "*"
 sra-tools = "*"
+zlib = "*"
 
 [feature.benchmark.tasks]
 generate-data = { cmd = "python benchmarks/generate_data.py --outdir benchmarks/data-regenerated", description = "Regenerate synthetic RAD-seq benchmark data into benchmarks/data-regenerated" }
