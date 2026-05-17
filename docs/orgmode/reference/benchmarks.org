@@ -249,6 +249,8 @@ The marker-level unlock summary joins strict =signif= output with
 =signif --bayes= output from the same d=10 marker tables. It is tracked in
 =benchmarks/results/literature_bio_unlocks.csv=, and the top-ranked marker
 rows are tracked in =benchmarks/results/literature_candidate_triage.csv=.
+Dataset-level sex-system calls are tracked in
+=benchmarks/results/literature_sex_system_inference.csv=.
 The generated figure is =docs/figures/literature_bio_unlocks.svg=.
 
 | Dataset | Strict + posterior | Strict only | Posterior only | Bayes-factor only | Interpretation |
@@ -267,6 +269,15 @@ while preserving the strict null call. In =notothenia_rossii=, 400 rows have
 Bayes factor > 10 but none have posterior > 0.9, and the singleton fraction is
 52.78%; the posterior/QC layer therefore prevents raw Bayes-factor counts from
 being over-read as biological positives.
+
+The generated sex-system inference artifact makes the biological call explicit:
+
+| Dataset | Evidence class | rsx inference | Marker basis |
+|---------+----------------+---------------+--------------|
+| =plecoglossus_altivelis= | confirmatory | XX/XY-supported | 47 male-biased strict markers; 49 male-biased high-posterior markers |
+| =tinca_tinca= | confirmatory | XX/XY-supported | 6 male-biased strict markers; 11 high-posterior markers for secondary triage |
+| =danio_albolineatus= | exploratory | ZZ/ZW-like validation set | 30 high-posterior markers without strict reclassification; 29 are female-biased |
+| =notothenia_rossii= | restrained null | no high-posterior sex-system call | 400 Bayes-factor-only rows, 0 high-posterior rows, 52.78% singleton retained markers |
 
 *** Biological inference role of extended features
 
@@ -313,7 +324,7 @@ Paper-readiness validation is split by claim:
 | Literature speedup | =benchmarks/results/literature_speed_comparison.csv= and Slurm scripts |
 | Bayesian biological triage | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
 | Extended mode effects | =benchmarks/results/literature_mode_effects.csv= and mode-effect figures |
-| Biological unlock summary | =benchmarks/results/literature_bio_unlocks.csv=, =literature_candidate_triage.csv=, and unlock figure |
+| Biological unlock summary | =benchmarks/results/literature_bio_unlocks.csv=, =literature_candidate_triage.csv=, =literature_sex_system_inference.csv=, and unlock figure |
 | Python workflow surface | =benchmarks/results/literature_binding_results.csv= and =rsx-python/tests/test_pyrsx.py= |
 
 The math scripts verify the erfc form of the one-degree chi-squared
@@ -331,9 +342,9 @@ Recent validation runs:
   examples and complexity check.
 - =pixi run python sympy/tucker_covariance_proof.py=: passed streaming
   Gram/SVD equivalence on a sparse matrix.
-- Remote =cargo test --workspace= on =elja=: 60 core unit tests, 10 pipeline
+- Remote =cargo test --workspace= on =elja=: 60 core unit tests, 11 pipeline
   integration tests, and 13 precision tests passed.
-- Remote =pixi run -e python test-python= on =elja=: 16 Python binding tests
+- Remote =pixi run -e python test-python= on =elja=: 18 Python binding tests
   passed after a release extension build.
 
 *** Python binding feature evidence
