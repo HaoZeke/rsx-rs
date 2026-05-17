@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import narwhals as nw
 
 from pyrsx._adapters import from_narwhals, is_dataframe_like, to_narwhals
-from pyrsx._rsx import process as _process_lowlevel  # type: ignore[attr-defined]
+
+if TYPE_CHECKING:
+    from .params import TriageParams
+    from .results import TriageResult
 # We will gradually add more low-level imports as we implement methods
 
 
@@ -121,79 +124,67 @@ class MarkerTable:
         self,
         *,
         popmap: Any,
-        min_depth: int = 10,
-        posterior_threshold: float = 0.9,
-        bayes_factor_threshold: float = 10.0,
-        prior: float = 0.01,
-        linked_prob: float = 0.9,
-        group1: str = "M",
-        group2: str = "F",
+        params: TriageParams | None = None,
         **kwargs: Any,
-    ) -> "TriageResult":
+    ) -> TriageResult:
         """
-        Run the hybrid strict + Bayesian triage (the core biological output of rsx).
+        Run the hybrid strict + Bayesian triage.
 
-        This is the first fully working method of the high-level "right" API.
-        It accepts DataFrames for both the marker table and popmap, calls the
-        fast Rust implementation (via temporary files for the first version),
-        and returns a rich `TriageResult` object.
+        Supports both the ergonomic kwarg style and passing a TriageParams
+        dataclass (more idiomatic when you want to version/share configs).
         """
         from .results import TriageResult
+        from .params import TriageParams
         import tempfile
         from pathlib import Path
         import pandas as pd
 
-        # --- Resolve inputs to paths (first version uses temp files) ---
-        if self._df is not None:
-            markers_path = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            pd_df = from_narwhals(self._df, backend="pandas")
-            pd_df.to_csv(markers_path, sep="\t", index=False)
+        # Merge dataclass + kwargs (kwargs override)
+        if params is None:
+            p = TriageParams(**{k: v for k, v in kwargs.items() if hasattr(TriageParams, k)})
         else:
-            markers_path = self._path  # type: ignore[assignment]
+            p = params
+
+        # Resolve to on-disk paths (tempfile roundtrip for v1 of the high-level API)
+        if self._df is not None:
+            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+        else:
+            mpath = self._path  # type: ignore[assignment]
 
         if is_dataframe_like(popmap):
-            popmap_path = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            pd_pop = from_narwhals(to_narwhals(popmap), backend="pandas")
-            pd_pop.to_csv(popmap_path, sep="\t", index=False)
+            ppath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            from_narwhals(to_narwhals(popmap), backend="pandas").to_csv(ppath, sep="\t", index=False)
         else:
-            popmap_path = Path(popmap)
+            ppath = Path(popmap)
 
-        output_path = Path(tempfile.NamedTemporaryFile(suffix="_triage.tsv", delete=False).name)
+        outpath = Path(tempfile.NamedTemporaryFile(suffix="_triage.tsv", delete=False).name)
 
-        # Call the existing fast low-level binding (exposed at package top level)
         import pyrsx as _pyrsx
         _lowlevel_triage = _pyrsx.triage
 
         _lowlevel_triage(
-            str(markers_path),
-            str(popmap_path),
-            str(output_path),
-            min_depth=min_depth,
-            posterior_threshold=posterior_threshold,
-            bayes_factor_threshold=bayes_factor_threshold,
-            prior=prior,
-            linked_prob=linked_prob,
-            group1=group1,
-            group2=group2,
+            str(mpath),
+            str(ppath),
+            str(outpath),
+            min_depth=p.min_depth,
+            posterior_threshold=p.posterior_threshold,
+            bayes_factor_threshold=p.bayes_factor_threshold,
+            prior=p.prior,
+            linked_prob=p.linked_prob,
+            group1=p.group1,
+            group2=p.group2,
         )
 
-        # Read result back and wrap
-        result_df = pd.read_csv(output_path, sep="\t", comment="#")
-        nw_df = to_narwhals(result_df)
-
-        params = {
-            "min_depth": min_depth,
-            "posterior_threshold": posterior_threshold,
-            "bayes_factor_threshold": bayes_factor_threshold,
-            "prior": prior,
-            "linked_prob": linked_prob,
-            "group1": group1,
-            "group2": group2,
-        }
-
+        res_df = pd.read_csv(outpath, sep="\t", comment="#")
         return TriageResult(
-            _df=nw_df,
-            params=params,
+            _df=to_narwhals(res_df),
+            params={
+                "min_depth": p.min_depth,
+                "posterior_threshold": p.posterior_threshold,
+                "prior": p.prior,
+                "linked_prob": p.linked_prob,
+            },
             _input_backend=self._backend,
         )
 

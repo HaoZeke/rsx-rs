@@ -4,6 +4,7 @@
 # High-level API (recommended)
 # --------------------------------------------------------------------------- #
 
+from dataclasses import dataclass
 from typing import Any, Literal
 
 class MarkerTable:
@@ -32,7 +33,7 @@ class MarkerTable:
     def summary(self) -> str: ...
     def to_dataframe(self, *, backend: str = "auto") -> Any: ...
 
-    def triage(self, *, popmap: Any, min_depth: int = 10, **kwargs: Any) -> "TriageResult": ...
+    def triage(self, *, popmap: Any, params: "TriageParams | None" = None, **kwargs: Any) -> "TriageResult": ...
 
 
 class TriageResult:
@@ -41,6 +42,17 @@ class TriageResult:
     def to_polars(self) -> Any: ...
     def summary(self) -> str: ...
     def plot_evidence(self, **kwargs: Any) -> Any: ...
+
+
+@dataclass
+class TriageParams:
+    min_depth: int = 10
+    posterior_threshold: float = 0.9
+    prior: float = 0.01
+    linked_prob: float = 0.9
+    group1: str = "M"
+    group2: str = "F"
+    ...
 
 # --------------------------------------------------------------------------- #
 # Low-level direct bindings (for power users / compatibility)

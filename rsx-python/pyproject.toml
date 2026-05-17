@@ -11,6 +11,22 @@ license = {text = "GPL-3.0-or-later"}
 authors = [{name = "Rohit Goswami", email = "rgoswami@ieee.org"}]
 requires-python = ">=3.9"
 dependencies = ["click>=8", "narwhals>=1.0"]
+
+[project.optional-dependencies]
+plot = ["plotnine>=0.12", "siuba>=0.4"]  # siuba is optional but recommended for users who love it
+```
+
+The siuba line is a comment for users. Actually put it only if we want to depend, but better as extra. For now, just note it.
+
+Better:
+
+Add under optional:
+
+plot = ["plotnine>=0.12"]
+
+And mention siuba in docs.
+
+Now, create a plotting helper module.
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",

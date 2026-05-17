@@ -53,9 +53,10 @@ class TriageResult:
     def __repr__(self) -> str:
         return f"<{self.summary()}>"
 
-    # Plotting hooks (stubs for now — real implementation uses matplotlib/seaborn)
-    def plot_evidence(self, **kwargs) -> Any:
-        """Plot the evidence class breakdown (strict / posterior-only / BF-only)."""
-        # Placeholder — will be implemented with seaborn in a follow-up
-        print("TriageResult.plot_evidence() — plotting not yet wired (coming in next pass)")
-        return None
+    def plot_evidence(self, **kwargs: Any) -> Any:
+        """Plot the evidence class breakdown using plotnine + the ruhi colorscheme."""
+        from pyrsx.plot import plot_evidence as _plot_evidence
+
+        # Convert to pandas for plotnine (plotnine works great with pandas)
+        pdf = self.to_pandas()
+        return _plot_evidence(pdf, **kwargs)
