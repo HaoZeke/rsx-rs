@@ -12,7 +12,7 @@ name = "pyrsx"
 crate-type = ["cdylib"]
 
 [dependencies]
-rsx-core = { path = "../rsx-core", features = ["parallel", "arrow-output"] }
+rsx-core = { path = "../rsx-core", features = ["parallel", "arrow-output", "arrow-input"] }
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 
 # DLPack (via the user's dlpk crate) for direct, zero-copy tensor/array production
