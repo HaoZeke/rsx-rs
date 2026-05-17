@@ -216,13 +216,15 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-/// Temporary implementation: runs the existing file-based triage to a temp Parquet,
-/// reads it back in Rust as Arrow RecordBatches, returns a pyarrow.Table,
-/// and cleans up the temp file.
+/// Returns the triage results directly as a pyarrow.Table.
 ///
-/// This is the bridge while we convert the core commands to native Arrow producers.
-/// The high-level Python API will call this (and future *_to_arrow functions)
-/// so that from the user's perspective there are **no temp files**.
+/// Current implementation still uses an internal temp Parquet (transitional
+/// while we convert the core commands to native Arrow producers). The file
+/// is created and deleted inside Rust before returning, so the high-level
+/// Python API sees a direct data-producing call with no visible temp files.
+///
+/// Long-term: make the triage logic itself emit Arrow RecordBatches in
+/// memory for true zero-copy.
 #[pyfunction]
 #[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]

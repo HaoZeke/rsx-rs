@@ -167,6 +167,7 @@ class MarkerTable:
         # Prefer the new direct Arrow path when we have in-memory data.
         # This removes the temp file from the caller's perspective.
         if self._df is not None:
+            # Preferred path: Rust produces the data directly as Arrow
             arrow_table = _pyrsx.triage_to_arrow(
                 str(mpath),
                 str(ppath),
@@ -177,10 +178,9 @@ class MarkerTable:
                 group1=p.group1,
                 group2=p.group2,
             )
-            # Convert PyArrow table → narwhals (zero-copy where possible)
-            res_df = to_narwhals(arrow_table)
+            res_df = to_narwhals(arrow_table)   # thin adapter, no heavy Python work
         else:
-            # Path-based path (user gave us files) — keep using the normal triage for now
+            # Legacy path-based usage (still supported)
             _lowlevel_triage = _pyrsx.triage
             _lowlevel_triage(
                 str(mpath),
@@ -194,7 +194,7 @@ class MarkerTable:
                 group1=p.group1,
                 group2=p.group2,
             )
-            res_df = to_narwhals(pd.read_parquet(outpath))
+            res_df = to_narwhals(pd.read_parquet(outpath))  # still thin
         return TriageResult(
             _df=to_narwhals(res_df),
             params={
