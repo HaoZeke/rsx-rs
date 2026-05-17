@@ -3,9 +3,8 @@
 
 //! `map` command: align markers to a reference genome and compute metrics.
 //!
-//! Two-pass streaming: O(genome_index) memory, not O(n_markers).
 //! Pass 1: count markers for Bonferroni (fast, no alignment).
-//! Pass 2: align each marker, compute stats, write directly.
+//! Pass 2: align each candidate marker, compute stats, and write in table order.
 
 use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
@@ -115,7 +114,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to build minimap2 index: {e}"))?;
     log::info!("Minimap2 index built");
 
-    // Pass 2: align + write directly (no Vec accumulation)
+    // Pass 2: align + write in table order
     log::info!("map pass 2: aligning and writing");
     let config2 = ParserConfig {
         store_sequence: true,
@@ -157,11 +156,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut n_aligned = 0u64;
 
-    stream2.for_each(|marker| {
-        if marker.n_individuals < min_individuals {
-            return;
-        }
-
+    let mut write_alignment = |marker: &crate::marker::Marker| {
         let mappings = aligner
             .map(marker.sequence.as_bytes(), false, false, None, None, None)
             .unwrap_or_default();
@@ -221,6 +216,28 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         );
 
         n_aligned += 1;
+    };
+
+    #[cfg(feature = "parallel")]
+    {
+        let candidates = stream2.par_filter_map_collect(|marker| {
+            if marker.n_individuals >= min_individuals {
+                Some(marker.clone())
+            } else {
+                None
+            }
+        })?;
+
+        for marker in candidates {
+            write_alignment(&marker);
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    stream2.for_each(|marker| {
+        if marker.n_individuals >= min_individuals {
+            write_alignment(marker);
+        }
     })?;
 
     log::info!("Aligned {} markers to the reference genome", n_aligned);

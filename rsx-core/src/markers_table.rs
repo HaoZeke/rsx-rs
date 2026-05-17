@@ -20,6 +20,13 @@ use std::path::Path;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+/// Heuristic: only use parallel dispatch for tables large enough to amortize overhead.
+#[cfg(feature = "parallel")]
+#[inline]
+fn should_use_parallel(len: usize) -> bool {
+    len > 4 * 1024 * 1024
+}
+
 /// Configuration for the markers table parser.
 pub struct ParserConfig {
     pub store_sequence: bool,
@@ -144,9 +151,8 @@ impl MarkersTableStream {
         self.for_each(|m| f(m))
     }
 
-    /// Fast path: min_depth=1, no sequence or depth values needed.
-    /// Skip id+seq fields. Check "0" vs non-"0" without integer parse.
-    /// Uses one delimiter pass over each line.
+    /// Fast path: min_depth <= 1 and we don't need to store depths.
+    /// Only tracks presence bits (no integer parsing).
     #[inline]
     fn for_each_fast_d1<F>(&self, data: &[u8], f: &mut F)
     where
@@ -155,11 +161,8 @@ impl MarkersTableStream {
         let mut marker = Marker::new(self.n_individuals);
 
         for_each_line(data, |line| {
-            // The second tab starts the depth columns.
-            let mut tab_iter = memchr::memchr_iter(b'\t', line);
-            let _tab1 = tab_iter.next();
-            let tab2 = match tab_iter.next() {
-                Some(p) => p,
+            let (_, tab2) = match find_first_two_tabs(line) {
+                Some(t) => t,
                 None => return,
             };
 
@@ -186,11 +189,8 @@ impl MarkersTableStream {
         let mut marker = Marker::new(self.n_individuals);
 
         for_each_line(data, |line| {
-            // The second tab starts the depth columns.
-            let mut tab_iter = memchr::memchr_iter(b'\t', line);
-            let _tab1 = tab_iter.next();
-            let tab2 = match tab_iter.next() {
-                Some(p) => p,
+            let (_, tab2) = match find_first_two_tabs(line) {
+                Some(t) => t,
                 None => return,
             };
 
@@ -223,14 +223,8 @@ impl MarkersTableStream {
         let mut marker = Marker::new(self.n_individuals);
 
         for_each_line(data, |line| {
-            // The first two tabs delimit id and sequence.
-            let mut tab_iter = memchr::memchr_iter(b'\t', line);
-            let tab1 = match tab_iter.next() {
-                Some(p) => p,
-                None => return,
-            };
-            let tab2 = match tab_iter.next() {
-                Some(p) => p,
+            let (tab1, tab2) = match find_first_two_tabs(line) {
+                Some(t) => t,
                 None => return,
             };
 
@@ -316,12 +310,64 @@ impl MarkersTableStream {
             return Ok(());
         }
 
+        if !should_use_parallel(data.len()) {
+            return self.dispatch_on_slice(data, |m| f(m));
+        }
+
         let target_chunk = 1 << 20;
         let chunks = self.make_line_aligned_chunks(data, target_chunk);
 
         chunks
             .into_par_iter()
             .try_for_each(|chunk| self.process_slice_serial(chunk, &f))
+    }
+
+    /// Collect mapped marker values in table order, using parallel parsing for large inputs.
+    ///
+    /// The filter/mapping closure runs independently per marker. Results are buffered per
+    /// line-aligned chunk, then concatenated in chunk order before returning.
+    #[cfg(feature = "parallel")]
+    pub fn par_filter_map_collect<T, F>(&self, filter_map: F) -> std::io::Result<Vec<T>>
+    where
+        T: Send,
+        F: Fn(&Marker) -> Option<T> + Send + Sync,
+    {
+        let data = &self.mmap[self.data_start..];
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        if !should_use_parallel(data.len()) {
+            let mut collected = Vec::new();
+            self.dispatch_on_slice(data, |marker| {
+                if let Some(item) = filter_map(marker) {
+                    collected.push(item);
+                }
+            })?;
+            return Ok(collected);
+        }
+
+        let target_chunk = 1 << 20;
+        let chunks = self.make_line_aligned_chunks(data, target_chunk);
+        let chunked: Vec<std::io::Result<Vec<T>>> = chunks
+            .into_par_iter()
+            .map(|chunk| {
+                let mut local = Vec::new();
+                self.dispatch_on_slice(chunk, |marker| {
+                    if let Some(item) = filter_map(marker) {
+                        local.push(item);
+                    }
+                })
+                .map(|()| local)
+            })
+            .collect();
+
+        let mut collected = Vec::new();
+        for chunk in chunked {
+            let mut chunk = chunk?;
+            collected.append(&mut chunk);
+        }
+        Ok(collected)
     }
 
     /// Internal dispatcher: run the appropriate specialized parser on a data slice,
@@ -375,6 +421,14 @@ impl MarkersTableStream {
         let data = &self.mmap[self.data_start..];
         if data.is_empty() {
             return Ok(init);
+        }
+
+        if !should_use_parallel(data.len()) {
+            let mut local = init;
+            self.dispatch_on_slice(data, |marker| {
+                fold(&mut local, marker);
+            })?;
+            return Ok(local);
         }
 
         let target_chunk = 1 << 20;
@@ -451,4 +505,14 @@ where
             f(line);
         }
     }
+}
+
+/// Returns the byte offsets of the first and second tab in the line.
+/// Returns `None` if there are fewer than two tabs.
+#[inline]
+fn find_first_two_tabs(line: &[u8]) -> Option<(usize, usize)> {
+    let mut it = memchr::memchr_iter(b'\t', line);
+    let t1 = it.next()?;
+    let t2 = it.next()?;
+    Some((t1, t2))
 }

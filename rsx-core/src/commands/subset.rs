@@ -3,7 +3,7 @@
 
 //! `subset` command: extract a filtered subset of markers.
 //!
-//! Two-pass streaming: O(n_individuals) memory, not O(n_markers).
+//! Two-pass filtering with table-order output.
 
 use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
@@ -66,7 +66,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
         n_markers
     };
 
-    // Pass 2: filter and write directly
+    // Pass 2: filter and write in table order
     log::info!("subset pass 2: filtering and writing");
     let config2 = ParserConfig {
         store_sequence: true,
@@ -118,7 +118,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
         (groups.group2.clone(), &mask_g2),
     ];
 
-    stream2.for_each(|marker| {
+    let filter_marker = |marker: &crate::marker::Marker| {
         if marker.n_individuals > 0 {
             let g1 = marker.presence.count_masked(&mask_g1);
             let g2 = marker.presence.count_masked(&mask_g2);
@@ -133,19 +133,36 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
                 let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
                 let p_corr = stats::bonferroni_correct(p, effective_n_markers);
 
-                if params.output_fasta {
-                    let mut m = marker.clone();
-                    m.p = p;
-                    m.p_corrected = p_corr;
-                    let _ = m.write_as_fasta_bitset(
-                        &mut output,
-                        params.min_depth as u32,
-                        &fasta_groups,
-                    );
-                } else {
-                    let _ = marker.write_as_table(&mut output);
-                }
+                let mut m = marker.clone();
+                m.p = p;
+                m.p_corrected = p_corr;
+                return Some(m);
             }
+        }
+        None
+    };
+
+    let mut write_marker = |marker: &crate::marker::Marker| {
+        if params.output_fasta {
+            let _ =
+                marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+        } else {
+            let _ = marker.write_as_table(&mut output);
+        }
+    };
+
+    #[cfg(feature = "parallel")]
+    {
+        let markers = stream2.par_filter_map_collect(filter_marker)?;
+        for marker in markers {
+            write_marker(&marker);
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    stream2.for_each(|marker| {
+        if let Some(marker) = filter_marker(marker) {
+            write_marker(&marker);
         }
     })?;
 

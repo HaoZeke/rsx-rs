@@ -364,6 +364,63 @@ fn test_marker_table_parallel_fold_matches_serial_frequency() {
     assert_eq!(parallel, serial);
 }
 
+#[cfg(feature = "parallel")]
+#[test]
+fn test_marker_table_parallel_filter_map_collect_preserves_serial_order() {
+    use rsx_core::markers_table::{MarkersTableStream, ParserConfig};
+
+    let dir = test_dir().join("parallel_filter_map_collect_order");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    let n_markers = 180_000usize;
+    writeln!(f, "#Number of markers : {n_markers}").unwrap();
+    writeln!(f, "id\tsequence\tind1\tind2\tind3\tind4").unwrap();
+    for marker in 0..n_markers {
+        write!(f, "{marker}\tACGTACGT").unwrap();
+        for ind in 0..4usize {
+            let depth = if (marker + ind) % 2 == 0 { 6 } else { 0 };
+            write!(f, "\t{depth}").unwrap();
+        }
+        writeln!(f).unwrap();
+    }
+
+    let serial_config = ParserConfig {
+        store_sequence: true,
+        store_depths: false,
+        compute_groups: false,
+        min_depth: 1,
+    };
+    let serial_stream = MarkersTableStream::open(&table, None, serial_config).unwrap();
+    let serial: Vec<String> = serial_stream
+        .collect()
+        .unwrap()
+        .into_iter()
+        .filter(|marker| marker.n_individuals >= 2)
+        .map(|marker| marker.id)
+        .collect();
+
+    let parallel_config = ParserConfig {
+        store_sequence: true,
+        store_depths: false,
+        compute_groups: false,
+        min_depth: 1,
+    };
+    let parallel_stream = MarkersTableStream::open(&table, None, parallel_config).unwrap();
+    let parallel = parallel_stream
+        .par_filter_map_collect(|marker| {
+            if marker.n_individuals >= 2 {
+                Some(marker.id.clone())
+            } else {
+                None
+            }
+        })
+        .unwrap();
+
+    assert_eq!(parallel, serial);
+}
+
 // === End-to-end golden tests with known outputs ===
 
 #[test]
