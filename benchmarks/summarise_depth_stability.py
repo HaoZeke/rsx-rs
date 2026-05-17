@@ -50,15 +50,20 @@ def main() -> int:
     }
     sub = df[df["mode"].isin(call_modes)].copy()
 
+    def _as_int(value) -> int:
+        if value is None or pd.isna(value):
+            return 0
+        return int(value)
+
     rows = []
     for (dataset, min_depth), group in sub.groupby(["dataset", "min_depth"]):
         record = {"dataset": dataset, "min_depth": int(min_depth)}
         for _, r in group.iterrows():
             if r["mode"] == "marker_extraction_chisq_bonferroni":
-                record["significant_markers"] = int(r["significant_markers"] or 0)
+                record["significant_markers"] = _as_int(r.get("significant_markers"))
             if r["mode"] == "bayesian_marker_table":
-                record["posterior_gt_0_9"] = int(r["posterior_gt_0_9"] or 0)
-                record["bayes_factor_gt_10"] = int(r["bayes_factor_gt_10"] or 0)
+                record["posterior_gt_0_9"] = _as_int(r.get("posterior_gt_0_9"))
+                record["bayes_factor_gt_10"] = _as_int(r.get("bayes_factor_gt_10"))
         rows.append(record)
 
     summary = pd.DataFrame(rows).sort_values(["dataset", "min_depth"]).reset_index(drop=True)
