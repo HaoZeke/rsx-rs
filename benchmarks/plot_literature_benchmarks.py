@@ -608,12 +608,66 @@ def plot_mode_qc(path: Path, output_dir: Path, colors: dict[str, str]) -> None:
     save_plot(plot, output_dir, "literature_mode_qc", width=7.2, height=5.2)
 
 
+def prepare_bio_unlock_plot_rows(summary_rows: list[dict[str, str]]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    class_columns = [
+        ("Strict + posterior", "strict_and_posterior"),
+        ("Strict only", "strict_only"),
+        ("Posterior only", "posterior_only"),
+        ("Bayes-factor only", "bayes_factor_only"),
+    ]
+    for row in summary_rows:
+        dataset_label = row["dataset"].replace("_", " ").title()
+        for candidate_class, column in class_columns:
+            marker_count = as_int(row.get(column))
+            rows.append(
+                {
+                    "dataset_label": dataset_label,
+                    "candidate_class": candidate_class,
+                    "marker_count": marker_count,
+                    "log10_marker_count_plus_one": math.log10(marker_count + 1.0),
+                }
+            )
+    return rows
+
+
+def plot_bio_unlocks(path: Path, output_dir: Path, colors: dict[str, str]) -> None:
+    if not path.exists():
+        return
+    import pandas as pd
+    from plotnine import aes, coord_flip, facet_wrap, geom_col, ggplot, labs, scale_fill_manual
+
+    rows = prepare_bio_unlock_plot_rows(read_csv_rows(path))
+    if not rows:
+        return
+    plot_data = pd.DataFrame(rows)
+    class_order = ["Strict + posterior", "Strict only", "Posterior only", "Bayes-factor only"]
+    plot_data["candidate_class"] = pd.Categorical(plot_data["candidate_class"], categories=class_order, ordered=True)
+    palette = {
+        "Strict + posterior": colors["teal"],
+        "Strict only": colors["sky"],
+        "Posterior only": colors["magenta"],
+        "Bayes-factor only": colors["sunshine"],
+    }
+    plot = (
+        ggplot(plot_data, aes(x="candidate_class", y="log10_marker_count_plus_one", fill="candidate_class"))
+        + geom_col(width=0.7)
+        + coord_flip()
+        + facet_wrap("~ dataset_label")
+        + scale_fill_manual(values=palette)
+        + labs(x="", y="log10(markers + 1)", fill="")
+        + base_theme()
+    )
+    save_plot(plot, output_dir, "literature_bio_unlocks", width=7.2, height=5.2)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", default=Path("benchmarks/results/literature_benchmark_results.csv"), type=Path)
     parser.add_argument("--bayesian", default=Path("benchmarks/results/literature_bayesian_evidence.csv"), type=Path)
     parser.add_argument("--comparison", default=Path("benchmarks/results/literature_speed_comparison.csv"), type=Path)
     parser.add_argument("--modes", default=Path("benchmarks/results/literature_mode_effects.csv"), type=Path)
+    parser.add_argument("--unlocks", default=Path("benchmarks/results/literature_bio_unlocks.csv"), type=Path)
     parser.add_argument("--output", default=Path("docs/figures"), type=Path)
     args = parser.parse_args()
 
@@ -631,6 +685,7 @@ def main() -> None:
     plot_speed_comparison(args.comparison, args.output, colors)
     plot_mode_candidate_counts(args.modes, args.output, colors)
     plot_mode_qc(args.modes, args.output, colors)
+    plot_bio_unlocks(args.unlocks, args.output, colors)
     print(f"Wrote figures to {args.output}")
 
 

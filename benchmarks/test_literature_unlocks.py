@@ -2,10 +2,30 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from benchmarks.plot_literature_benchmarks import prepare_bio_unlock_plot_rows
 from benchmarks.summarize_literature_unlocks import summarize_dataset
 
 
 class LiteratureUnlockSummaryTests(unittest.TestCase):
+    def test_prepare_bio_unlock_plot_rows_keeps_interpretable_classes(self):
+        rows = prepare_bio_unlock_plot_rows(
+            [
+                {
+                    "dataset": "demo_species",
+                    "strict_and_posterior": "4",
+                    "strict_only": "1",
+                    "posterior_only": "2",
+                    "bayes_factor_only": "3",
+                }
+            ]
+        )
+
+        by_class = {row["candidate_class"]: row["marker_count"] for row in rows}
+        self.assertEqual(by_class["Strict + posterior"], 4)
+        self.assertEqual(by_class["Strict only"], 1)
+        self.assertEqual(by_class["Posterior only"], 2)
+        self.assertEqual(by_class["Bayes-factor only"], 3)
+
     def test_summarize_dataset_counts_overlap_and_bayes_factor_only_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
