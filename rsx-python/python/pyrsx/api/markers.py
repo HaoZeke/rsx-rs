@@ -362,6 +362,67 @@ class MarkerTable:
                 except Exception:
                     pass
 
+    def signif(
+        self,
+        group1: str = "",
+        group2: str = "",
+        min_depth: int = 1,
+        signif_threshold: float = 0.05,
+        correction: str = "bonferroni",
+        test: str = "chisq",
+        output_fasta: bool = False,
+        **kwargs: Any,
+    ) -> "SignifResult":
+        """Extract significantly associated markers (classic signif command)."""
+        from .results import SignifResult
+        import tempfile
+        from pathlib import Path
+        import pandas as pd
+
+        if self._df is not None:
+            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+            input_path = str(mpath)
+            temps = [mpath]
+        else:
+            input_path = str(self._path)
+            temps = []
+
+        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+        temps.append(outpath)
+
+        import pyrsx as _pyrsx
+        try:
+            _pyrsx.signif(
+                input_path,
+                str(outpath),
+                min_depth=min_depth,
+                signif_threshold=signif_threshold,
+                group1=group1,
+                group2=group2,
+                correction=correction,
+                test=test,
+                output_fasta=output_fasta,
+            )
+            res_df = pd.read_csv(outpath, sep="\t")
+            return SignifResult(
+                _df=to_narwhals(res_df),
+                params={
+                    "group1": group1,
+                    "group2": group2,
+                    "min_depth": min_depth,
+                    "signif_threshold": signif_threshold,
+                    **kwargs,
+                },
+            )
+        finally:
+            for p in temps:
+                try:
+                    if p.exists():
+                        p.unlink()
+                except Exception:
+                    pass
+
     # ------------------------------------------------------------------ #
     # Export / conversion
     # ------------------------------------------------------------------ #

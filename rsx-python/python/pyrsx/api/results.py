@@ -224,3 +224,25 @@ class DistribResult:
 
     def to_pandas(self) -> Any:
         return self.to_dataframe("pandas")
+
+
+@dataclass(frozen=True, kw_only=True)
+class SignifResult:
+    """Result of `MarkerTable.signif(...)`."""
+    _df: nw.DataFrame
+    params: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def df(self) -> nw.DataFrame:
+        return self._df
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._df, name)
+
+    def to_dataframe(self, *, backend: str = "pandas") -> Any:
+        return from_narwhals(self._df, backend=backend)
+
+    def to_pandas(self) -> Any:
+        return self.to_dataframe("pandas")
