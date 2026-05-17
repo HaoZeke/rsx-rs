@@ -378,6 +378,7 @@ def download_samples(
 ) -> float:
     samples_dir = dataset_dir / "samples"
     samples_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir.mkdir(parents=True, exist_ok=True)
     start = time.perf_counter()
     for sample in samples:
         output = samples_dir / f"{sample.name}.fq.gz"

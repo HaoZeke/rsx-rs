@@ -3,7 +3,9 @@ import unittest
 from pathlib import Path
 
 from benchmarks.run_literature_benchmarks import (
+    Sample,
     count_data_rows,
+    download_samples,
     marker_count_from_table,
     parse_sra_experiment_xml,
     prune_dataset_results,
@@ -109,6 +111,25 @@ class LiteratureBenchmarkTests(unittest.TestCase):
             prune_dataset_results(path, {"oryzias_latipes"})
 
             self.assertEqual(path.read_text(), "dataset,command\n" "danio_choprae,metadata\n")
+
+    def test_download_samples_creates_log_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_fastq_dump = root / "fastq-dump"
+            fake_fastq_dump.write_text("#!/bin/sh\nprintf '@read\\nACGT\\n+\\nIIII\\n'\n")
+            fake_fastq_dump.chmod(0o755)
+
+            elapsed = download_samples(
+                root / "dataset",
+                [Sample("sample1", "SRR000001", "female", 1, 4, 4)],
+                str(fake_fastq_dump),
+                root / "dataset" / "logs",
+                force=False,
+            )
+
+            self.assertGreaterEqual(elapsed, 0)
+            self.assertEqual((root / "dataset" / "samples" / "sample1.fq.gz").read_text(), "@read\nACGT\n+\nIIII\n")
+            self.assertTrue((root / "dataset" / "logs" / "download_sample1.log").exists())
 
 
 if __name__ == "__main__":
