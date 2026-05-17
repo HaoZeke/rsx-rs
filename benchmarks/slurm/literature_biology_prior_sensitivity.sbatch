@@ -67,16 +67,15 @@ for pi in "${priors[@]}"; do
     echo "Running rsx triage for $dataset pi=$pi p_sex=$p_sex"
 
     "$pixi" run -e benchmark rsx triage \
-      "$markers" \
-      "$popmap" \
-      "$out_tsv" \
+      -t "$markers" \
+      -p "$popmap" \
+      -o "$out_tsv" \
       --min-depth 10 \
       --posterior-threshold 0.9 \
       --bayes-factor-threshold 10 \
-      --prior "$pi" \
-      --linked-prob "$p_sex" \
-      --group1 M \
-      --group2 F
+      --prior-probability "$pi" \
+      --linked-probability "$p_sex" \
+      --groups M,F
   done
 done
 
