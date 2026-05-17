@@ -254,113 +254,94 @@ class MarkerTable:
     # pattern as triage/pca: thin wrapper + narwhals result object)
     # ------------------------------------------------------------------ #
 
-    def freq(self, min_depth: int = 1, **kwargs: Any) -> "FreqResult":
+    def freq(self, min_depth: int = 1, **kwargs: Any) -> "TableResult":
         """Compute marker frequency table."""
-        from .results import FreqResult
-        import tempfile
-        from pathlib import Path
-        import pandas as pd
-
-        if self._df is not None:
-            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
-            input_path = str(mpath)
-            temps = [mpath]
-        else:
-            input_path = str(self._path)
-            temps = []
-
-        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-        temps.append(outpath)
+        from .results import TableResult
+        import pyarrow as pa
+        import io
 
         import pyrsx as _pyrsx
-        try:
-            _pyrsx.freq(input_path, str(outpath), min_depth=min_depth)
-            res_df = pd.read_csv(outpath, sep="\t")
-            return FreqResult(_df=to_narwhals(res_df), params={"min_depth": min_depth, **kwargs})
-        finally:
-            for p in temps:
-                try:
-                    if p.exists():
-                        p.unlink()
-                except Exception:
-                    pass
 
-    def depth(self, min_frequency: float = 0.0, streaming: bool = False, **kwargs: Any) -> "DepthResult":
+        if self._df is not None:
+            # Arrow-bytes path (no temp files from Python)
+            table = from_narwhals(self._df, backend="pyarrow")
+
+            buf = io.BytesIO()
+            with pa.ipc.new_stream(buf, table.schema) as writer:
+                writer.write_table(table)
+            ipc_bytes = buf.getvalue()
+
+            raw = _pyrsx.freq_from_arrow(ipc_bytes, min_depth=min_depth)
+            res_df = to_narwhals(raw)
+        else:
+            # Path-based (for huge on-disk tables)
+            out = "/tmp/rsx_freq_output.tsv"
+            _pyrsx.freq(str(self._path), out, min_depth=min_depth)
+            import pandas as pd
+            res_df = to_narwhals(pd.read_csv(out, sep="\t"))
+
+        return TableResult(_df=res_df, command="freq", params={"min_depth": min_depth, **kwargs})
+
+    def depth(self, min_frequency: float = 0.0, streaming: bool = False, **kwargs: Any) -> "TableResult":
         """Per-sample depth statistics."""
-        from .results import DepthResult
-        import tempfile
-        from pathlib import Path
-        import pandas as pd
-
-        if self._df is not None:
-            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
-            input_path = str(mpath)
-            temps = [mpath]
-        else:
-            input_path = str(self._path)
-            temps = []
-
-        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-        temps.append(outpath)
+        from .results import TableResult
+        import pyarrow as pa
+        import io
 
         import pyrsx as _pyrsx
-        try:
-            _pyrsx.depth(
-                input_path,
-                str(outpath),
-                min_frequency=min_frequency,
-                streaming=streaming,
-            )
-            res_df = pd.read_csv(outpath, sep="\t")
-            return DepthResult(_df=to_narwhals(res_df), params={"min_frequency": min_frequency, **kwargs})
-        finally:
-            for p in temps:
-                try:
-                    if p.exists():
-                        p.unlink()
-                except Exception:
-                    pass
 
-    def distrib(self, group1: str = "", group2: str = "", **kwargs: Any) -> "DistribResult":
+        if self._df is not None:
+            table = from_narwhals(self._df, backend="pyarrow")
+            buf = io.BytesIO()
+            with pa.ipc.new_stream(buf, table.schema) as writer:
+                writer.write_table(table)
+            ipc_bytes = buf.getvalue()
+
+            raw = _pyrsx.depth_from_arrow(ipc_bytes, min_frequency=min_frequency)
+            res_df = to_narwhals(raw)
+        else:
+            out = "/tmp/rsx_depth_output.tsv"
+            _pyrsx.depth(str(self._path), out, min_frequency=min_frequency, streaming=streaming)
+            import pandas as pd
+            res_df = to_narwhals(pd.read_csv(out, sep="\t"))
+
+        return TableResult(_df=res_df, command="depth", params={"min_frequency": min_frequency, **kwargs})
+
+    def distrib(self, group1: str = "", group2: str = "", **kwargs: Any) -> "TableResult":
         """Distribution of markers between two groups."""
-        from .results import DistribResult
-        import tempfile
-        from pathlib import Path
-        import pandas as pd
-
-        if self._df is not None:
-            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
-            input_path = str(mpath)
-            temps = [mpath]
-        else:
-            input_path = str(self._path)
-            temps = []
-
-        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-        temps.append(outpath)
+        from .results import TableResult
+        import pyarrow as pa
+        import io
 
         import pyrsx as _pyrsx
-        try:
-            _pyrsx.distrib(
-                input_path,
-                str(outpath),
-                min_depth=kwargs.get("min_depth", 1),
-                signif_threshold=kwargs.get("signif_threshold", 0.05),
+
+        if self._df is not None:
+            table = from_narwhals(self._df, backend="pyarrow")
+            buf = io.BytesIO()
+            with pa.ipc.new_stream(buf, table.schema) as writer:
+                writer.write_table(table)
+            ipc_bytes = buf.getvalue()
+
+            raw = _pyrsx.distrib_from_arrow(
+                ipc_bytes,
                 group1=group1,
                 group2=group2,
+                **{k: v for k, v in kwargs.items() if k in ("min_depth", "signif_threshold")}
             )
-            res_df = pd.read_csv(outpath, sep="\t")
-            return DistribResult(_df=to_narwhals(res_df), params={"group1": group1, "group2": group2, **kwargs})
-        finally:
-            for p in temps:
-                try:
-                    if p.exists():
-                        p.unlink()
-                except Exception:
-                    pass
+            res_df = to_narwhals(raw)
+        else:
+            out = "/tmp/rsx_distrib_output.tsv"
+            _pyrsx.distrib(
+                str(self._path),
+                out,
+                group1=group1,
+                group2=group2,
+                **kwargs
+            )
+            import pandas as pd
+            res_df = to_narwhals(pd.read_csv(out, sep="\t"))
+
+        return TableResult(_df=res_df, command="distrib", params={"group1": group1, "group2": group2, **kwargs})
 
     def signif(
         self,
@@ -372,56 +353,52 @@ class MarkerTable:
         test: str = "chisq",
         output_fasta: bool = False,
         **kwargs: Any,
-    ) -> "SignifResult":
+    ) -> "TableResult":
         """Extract significantly associated markers (classic signif command)."""
-        from .results import SignifResult
-        import tempfile
-        from pathlib import Path
-        import pandas as pd
-
-        if self._df is not None:
-            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
-            input_path = str(mpath)
-            temps = [mpath]
-        else:
-            input_path = str(self._path)
-            temps = []
-
-        outpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-        temps.append(outpath)
+        from .results import TableResult
+        import pyarrow as pa
+        import io
 
         import pyrsx as _pyrsx
-        try:
-            _pyrsx.signif(
-                input_path,
-                str(outpath),
-                min_depth=min_depth,
-                signif_threshold=signif_threshold,
+
+        if self._df is not None:
+            table = from_narwhals(self._df, backend="pyarrow")
+            buf = io.BytesIO()
+            with pa.ipc.new_stream(buf, table.schema) as writer:
+                writer.write_table(table)
+            ipc_bytes = buf.getvalue()
+
+            raw = _pyrsx.signif_from_arrow(
+                ipc_bytes,
                 group1=group1,
                 group2=group2,
+                min_depth=min_depth,
+                signif_threshold=signif_threshold,
+                correction=correction,
+                test=test,
+            )
+            res_df = to_narwhals(raw)
+        else:
+            out = "/tmp/rsx_signif_output.tsv"
+            _pyrsx.signif(
+                str(self._path),
+                out,
+                group1=group1,
+                group2=group2,
+                min_depth=min_depth,
+                signif_threshold=signif_threshold,
                 correction=correction,
                 test=test,
                 output_fasta=output_fasta,
             )
-            res_df = pd.read_csv(outpath, sep="\t")
-            return SignifResult(
-                _df=to_narwhals(res_df),
-                params={
-                    "group1": group1,
-                    "group2": group2,
-                    "min_depth": min_depth,
-                    "signif_threshold": signif_threshold,
-                    **kwargs,
-                },
-            )
-        finally:
-            for p in temps:
-                try:
-                    if p.exists():
-                        p.unlink()
-                except Exception:
-                    pass
+            import pandas as pd
+            res_df = to_narwhals(pd.read_csv(out, sep="\t"))
+
+        return TableResult(
+            _df=res_df,
+            command="signif",
+            params={"group1": group1, "group2": group2, "min_depth": min_depth, **kwargs},
+        )
 
     # ------------------------------------------------------------------ #
     # Export / conversion

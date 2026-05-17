@@ -157,13 +157,22 @@ class PcaResult:
 
 
 # ------------------------------------------------------------------ #
-# Lightweight result wrappers for other commands
+# ------------------------------------------------------------------ #
+# Generic result for simple table-returning commands
+# (freq, depth, distrib, signif, subset, etc.)
 # ------------------------------------------------------------------ #
 
 @dataclass(frozen=True, kw_only=True)
-class FreqResult:
-    """Result of `MarkerTable.freq(...)`."""
+class TableResult:
+    """
+    Generic, clean result object for commands that mainly return a table.
+
+    Used by: freq, depth, distrib, signif, subset, etc.
+
+    This replaces the explosion of near-identical *Result classes.
+    """
     _df: nw.DataFrame
+    command: str                              # e.g. "freq", "depth", "distrib", "signif"
     params: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -181,68 +190,8 @@ class FreqResult:
     def to_pandas(self) -> Any:
         return self.to_dataframe("pandas")
 
+    def to_polars(self) -> Any:
+        return self.to_dataframe("polars")
 
-@dataclass(frozen=True, kw_only=True)
-class DepthResult:
-    """Result of `MarkerTable.depth(...)`."""
-    _df: nw.DataFrame
-    params: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def df(self) -> nw.DataFrame:
-        return self._df
-
-    def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return getattr(self._df, name)
-
-    def to_dataframe(self, *, backend: str = "pandas") -> Any:
-        return from_narwhals(self._df, backend=backend)
-
-    def to_pandas(self) -> Any:
-        return self.to_dataframe("pandas")
-
-
-@dataclass(frozen=True, kw_only=True)
-class DistribResult:
-    """Result of `MarkerTable.distrib(...)`."""
-    _df: nw.DataFrame
-    params: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def df(self) -> nw.DataFrame:
-        return self._df
-
-    def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return getattr(self._df, name)
-
-    def to_dataframe(self, *, backend: str = "pandas") -> Any:
-        return from_narwhals(self._df, backend=backend)
-
-    def to_pandas(self) -> Any:
-        return self.to_dataframe("pandas")
-
-
-@dataclass(frozen=True, kw_only=True)
-class SignifResult:
-    """Result of `MarkerTable.signif(...)`."""
-    _df: nw.DataFrame
-    params: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def df(self) -> nw.DataFrame:
-        return self._df
-
-    def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return getattr(self._df, name)
-
-    def to_dataframe(self, *, backend: str = "pandas") -> Any:
-        return from_narwhals(self._df, backend=backend)
-
-    def to_pandas(self) -> Any:
-        return self.to_dataframe("pandas")
+    def __repr__(self) -> str:
+        return f"<TableResult command={self.command!r} shape={len(self._df)}x{len(self._df.columns)}>"
