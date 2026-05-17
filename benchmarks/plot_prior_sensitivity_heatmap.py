@@ -41,7 +41,16 @@ FILE_RE = re.compile(
 
 
 def summarise_one(path: Path) -> dict[str, float | int | str]:
-    df = pd.read_csv(path, sep="\t", comment="#")
+    # A handful of triage rows can carry stray tab characters inside the
+    # sequence field; switch to the Python engine and skip the unparseable
+    # rows so one malformed marker doesn't kill the whole summary.
+    df = pd.read_csv(
+        path,
+        sep="\t",
+        comment="#",
+        engine="python",
+        on_bad_lines="skip",
+    )
     n_posterior_gt_0_9 = int((df["Posterior_SexLinked"] > 0.9).sum())
     n_bf_gt_10 = int((df["Bayes_Factor"] > 10).sum())
     n_strict = int(df["Strict_Call"].astype(str).str.lower().eq("true").sum())
