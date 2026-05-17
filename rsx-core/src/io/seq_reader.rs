@@ -79,24 +79,139 @@ pub fn get_input_files(dir: &Path) -> std::io::Result<Vec<InputFile>> {
 /// Returns the packed bytes.
 #[inline(always)]
 pub fn pack_2bit(seq: &[u8]) -> Vec<u8> {
+    pack_2bit_vec(seq)
+}
+
+#[inline(always)]
+fn pack_2bit_vec(seq: &[u8]) -> Vec<u8> {
     let n = seq.len();
     let packed_len = n.div_ceil(4);
-    let mut packed = vec![0u8; packed_len + 1]; // +1 byte for length % 4
-    packed[0] = (n % 4) as u8; // store remainder for unpack
+    let mut packed = vec![0u8; packed_len + 1];
+    packed[0] = (n % 4) as u8;
 
     for (i, &base) in seq.iter().enumerate() {
-        let bits = match base {
-            b'A' | b'a' => 0b00,
-            b'C' | b'c' => 0b01,
-            b'G' | b'g' => 0b10,
-            b'T' | b't' => 0b11,
-            _ => 0b00, // N and others map to A
-        };
         let byte_idx = 1 + i / 4;
-        let bit_pos = 6 - 2 * (i % 4); // 6, 4, 2, 0
-        packed[byte_idx] |= bits << bit_pos;
+        let bit_pos = 6 - 2 * (i % 4);
+        packed[byte_idx] |= base_to_2bit(base) << bit_pos;
     }
     packed
+}
+
+#[inline(always)]
+fn base_to_2bit(base: u8) -> u8 {
+    match base {
+        b'A' | b'a' => 0b00,
+        b'C' | b'c' => 0b01,
+        b'G' | b'g' => 0b10,
+        b'T' | b't' => 0b11,
+        _ => 0b00,
+    }
+}
+
+#[inline(always)]
+fn pack_2bit_key(seq: &[u8]) -> PackedDnaKey {
+    let n = seq.len();
+    let packed_len = n.div_ceil(4);
+    if packed_len + 1 > PACKED_DNA_INLINE_CAPACITY {
+        return PackedDnaKey::Heap(pack_2bit_vec(seq));
+    }
+
+    let mut packed = [0u8; 48];
+    packed[0] = (n % 4) as u8;
+
+    for (i, &base) in seq.iter().enumerate() {
+        let byte_idx = 1 + i / 4;
+        let bit_pos = 6 - 2 * (i % 4);
+        packed[byte_idx] |= base_to_2bit(base) << bit_pos;
+    }
+
+    let used = packed_len + 1;
+    PackedDnaKey::Inline(PackedDna {
+        data: packed,
+        len: used as u8,
+    })
+}
+
+const PACKED_DNA_INLINE_CAPACITY: usize = 48;
+
+/// Compact stack-allocated key for 2-bit packed DNA (up to 188 bp / 47 bytes packed + len).
+/// Used in the hot per-file counting map to avoid per-read heap allocation.
+/// Only the used prefix participates in Hash/Eq. Converts to Vec<u8> only when
+/// promoting to the long-lived global marker table.
+#[derive(Clone, Copy)]
+struct PackedDna {
+    data: [u8; 48],
+    len: u8,
+}
+
+impl PackedDna {
+    #[inline(always)]
+    fn as_slice(&self) -> &[u8] {
+        &self.data[..self.len as usize]
+    }
+}
+
+impl PartialEq for PackedDna {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl Eq for PackedDna {}
+
+impl std::hash::Hash for PackedDna {
+    #[inline(always)]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state);
+    }
+}
+
+impl From<PackedDna> for Vec<u8> {
+    fn from(p: PackedDna) -> Self {
+        p.as_slice().to_vec()
+    }
+}
+
+#[derive(Clone)]
+enum PackedDnaKey {
+    Inline(PackedDna),
+    Heap(Vec<u8>),
+}
+
+impl PackedDnaKey {
+    #[inline(always)]
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            PackedDnaKey::Inline(packed) => packed.as_slice(),
+            PackedDnaKey::Heap(packed) => packed,
+        }
+    }
+}
+
+impl PartialEq for PackedDnaKey {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl Eq for PackedDnaKey {}
+
+impl std::hash::Hash for PackedDnaKey {
+    #[inline(always)]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state);
+    }
+}
+
+impl From<PackedDnaKey> for Vec<u8> {
+    fn from(p: PackedDnaKey) -> Self {
+        match p {
+            PackedDnaKey::Inline(packed) => packed.into(),
+            PackedDnaKey::Heap(packed) => packed,
+        }
+    }
 }
 
 /// Unpack a 2-bit encoded DNA sequence back to ASCII.
@@ -137,18 +252,22 @@ pub fn count_sequences(
 ) -> Result<ahash::AHashMap<Vec<u8>, u16>, Box<dyn std::error::Error + Send + Sync>> {
     use needletail::parse_fastx_file;
 
-    let mut counts: ahash::AHashMap<Vec<u8>, u16> = ahash::AHashMap::new();
+    // Use stack-allocated keys for common read lengths and heap-backed keys for
+    // longer reads. This preserves exact sequence identity for every input.
+    let mut counts: ahash::AHashMap<PackedDnaKey, u16> = ahash::AHashMap::new();
     let mut reader = parse_fastx_file(path)?;
 
     while let Some(record) = reader.next() {
         let record = record?;
         let seq = record.seq();
-        let packed = pack_2bit(&seq);
+        let packed = pack_2bit_key(&seq);
         let entry = counts.entry(packed).or_insert(0);
-        *entry = entry.saturating_add(1); // already saturating; high-depth tags cap at 65535 per individual
+        *entry = entry.saturating_add(1);
     }
 
-    Ok(counts)
+    // Convert to the public Vec<u8> form only for the (much smaller) set of
+    // unique sequences that will be merged into the global table.
+    Ok(counts.into_iter().map(|(k, v)| (k.into(), v)).collect())
 }
 
 #[cfg(test)]
@@ -164,7 +283,8 @@ mod tests {
 
     #[test]
     fn test_pack_unpack_roundtrip() {
-        let seqs = [
+        let long = vec![b'T'; 260];
+        let seqs: [&[u8]; 8] = [
             b"ATCG".as_slice(),
             b"AAAA",
             b"TTTTCCCCGGGGAAAA",
@@ -172,12 +292,13 @@ mod tests {
             b"AT",
             b"ATC",
             b"ATCGATCGATCGATCGATCGATCGATCGATCG", // 32bp
+            long.as_slice(),
         ];
-        for seq in &seqs {
+        for seq in seqs {
             let packed = pack_2bit(seq);
             let unpacked = unpack_2bit(&packed);
             assert_eq!(
-                &unpacked,
+                unpacked.as_slice(),
                 seq,
                 "roundtrip failed for {}",
                 std::str::from_utf8(seq).unwrap()
