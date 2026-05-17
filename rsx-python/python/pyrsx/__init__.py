@@ -15,23 +15,27 @@ Example
 # Low-level direct bindings (still available for power users / legacy code)
 from .pyrsx import (  # noqa: F401
     depth,
+    depth_from_arrow,
     distrib,
+    distrib_from_arrow,
     freq,
+    freq_from_arrow,
     merge,
     pca,
+    pca_to_arrow,
+    pca_to_arrow_from_arrow,
     process,
     signif,
+    signif_from_arrow,
     triage,
     triage_to_arrow,
-    pca_to_arrow,
     triage_to_arrow_from_arrow,
-    pca_to_arrow_from_arrow,
 )
 
 # High-level idiomatic API (recommended)
 from .api.markers import MarkerTable  # noqa: F401
 from .api.params import TriageParams  # noqa: F401
-from .api.results import DistribResult, DepthResult, FreqResult, PcaResult, SignifResult, TriageResult  # noqa: F401
+from .api.results import PcaResult, TableResult, TriageResult  # noqa: F401
 
 __all__ = [
     # Low-level (for compatibility)
@@ -56,8 +60,5 @@ __all__ = [
     "TriageResult",
     "TriageParams",
     "PcaResult",
-    "FreqResult",
-    "DepthResult",
-    "DistribResult",
-    "SignifResult",
+    "TableResult",
 ]
