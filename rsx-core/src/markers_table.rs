@@ -254,12 +254,16 @@ impl MarkersTableStream {
             }
 
             marker.id.clear();
-            marker.id.push_str(std::str::from_utf8(&line[0..tabs[0]]).unwrap_or(""));
+            marker
+                .id
+                .push_str(std::str::from_utf8(&line[0..tabs[0]]).unwrap_or(""));
 
             let seq_start = tabs[0] + 1;
             let seq_end = tabs[1];
             marker.sequence.clear();
-            marker.sequence.push_str(std::str::from_utf8(&line[seq_start..seq_end]).unwrap_or(""));
+            marker
+                .sequence
+                .push_str(std::str::from_utf8(&line[seq_start..seq_end]).unwrap_or(""));
 
             for_each_depth_field(line, tabs[1], |col, field| {
                 let depth = fast_parse_u16(field);
