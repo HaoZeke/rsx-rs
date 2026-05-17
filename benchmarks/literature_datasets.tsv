@@ -15,3 +15,6 @@ poecilia_sphenops	RADSex paper workflow	PRJNA548074	NA	literature panel	process,
 sander_vitreus	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
 tinca_tinca	RADSex paper workflow	PRJNA548074	NA	literature panel	process,distrib,signif,freq,depth	RADSex workflow panel dataset; evaluate min-depth 1,2,5,10.
 oryzias_latipes	RADSex medaka example	PRJNA253959	ftp://ftp.ensembl.org/pub/release-75/fasta/oryzias_latipes/dna/Oryzias_latipes.MEDAKA1.75.dna_sm.toplevel.fa.gz	literature example + mapping	process,distrib,signif,freq,depth,map,subset	Public medaka dataset used in the RADSex example and Wilson et al. 2014; RADSex config uses min-depth 10 for the medaka reanalysis.
+
+# === Biological validation (real data on elja) ===
+# hippoglossus_stenolepis	Orthogonal validation (Jasonowicz 2022 + Drinan 2018 RAD)	[INSERT SRA for RAD data]	https://www.ncbi.nlm.nih.gov/assembly/GCA_022539355.2	orthogonal validation	process,distrib,signif,freq,depth,triage,map	Real public RAD-seq + chromosome-level assembly with mapped sex-linked region on Chr9 (ZZ/ZW). Use for orthogonal check that high-posterior rsx markers land on the validated sex chromosome. Run on elja with same harness as the main four.
