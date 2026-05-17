@@ -304,6 +304,43 @@ fn batches_to_pyarrow_table(
     Ok(table.into())
 }
 
+/// Write heterogeneous RecordBatches to one in-memory IPC stream.
+/// Used for one-shot PCA (eigenvalues + loadings in a single round-trip).
+fn batches_to_ipc_bytes(batches: &[&arrow::record_batch::RecordBatch]) -> PyResult<Vec<u8>> {
+    if batches.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut buf = Vec::new();
+    {
+        let mut writer = arrow::ipc::writer::StreamWriter::try_new(&mut buf, &batches[0].schema())
+            .map_err(|e| PyRuntimeError::new_err(format!("IPC writer: {e}")))?;
+        for b in batches {
+            writer.write(b).map_err(|e| PyRuntimeError::new_err(format!("IPC write: {e}")))?;
+        }
+        writer.finish().map_err(|e| PyRuntimeError::new_err(format!("IPC finish: {e}")))?;
+    }
+    Ok(buf)
+}
+
+/// Reconstruct Vec<pyarrow.Table> from an IPC buffer containing one or more
+/// record batches (different schemas are allowed).
+fn ipc_bytes_to_pyarrow_tables(py: Python<'_>, bytes: &[u8]) -> PyResult<Vec<PyObject>> {
+    if bytes.is_empty() {
+        return Ok(vec![]);
+    }
+    let py_bytes = pyo3::types::PyBytes::new(py, bytes);
+    let pyarrow = py.import("pyarrow")?;
+    let ipc = pyarrow.getattr("ipc")?;
+    let reader = ipc.call_method1("RecordBatchStreamReader", (py_bytes,))?;
+
+    let mut tables = Vec::new();
+    while let Ok(batch) = reader.call_method0("read_next_batch") {
+        let t = pyarrow.getattr("Table")?.call_method1("from_batches", (vec![batch],))?;
+        tables.push(t.into());
+    }
+    Ok(tables)
+}
+
 /// Returns PCA results as a Python dict of pyarrow.Tables:
 /// {
 ///     "eigenvalues": Table with component, eigenvalue, variance_fraction, cumulative,
@@ -330,37 +367,15 @@ fn pca_to_arrow(
     let res = rsx_core::commands::pca::run_to_arrow(&params)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    // One-shot IPC: write both logical tables (eigenvalues + loadings) into a
-    // single Arrow IPC stream. This gives us one import + one round-trip for PCA.
-    let mut buf = Vec::new();
-    {
-        // First batch (eigenvalues)
-        let mut writer = arrow::ipc::writer::StreamWriter::try_new(&mut buf, &res.eigenvalues.schema())
-            .map_err(|e| PyRuntimeError::new_err(format!("IPC writer (eigen): {e}")))?;
-        writer.write(&res.eigenvalues)
-            .map_err(|e| PyRuntimeError::new_err(format!("IPC write eigen: {e}")))?;
-        // Second batch (loadings) – different schema is fine in one stream
-        writer.write(&res.loadings)
-            .map_err(|e| PyRuntimeError::new_err(format!("IPC write loadings: {e}")))?;
-        writer.finish()
-            .map_err(|e| PyRuntimeError::new_err(format!("IPC finish: {e}")))?;
-    }
-
-    let py_bytes = pyo3::types::PyBytes::new(py, &buf);
-    let pyarrow = py.import("pyarrow")?;
-    let ipc = pyarrow.getattr("ipc")?;
-    let reader = ipc.call_method1("RecordBatchStreamReader", (py_bytes,))?;
-
-    // Read the two batches we wrote
-    let b0 = reader.call_method0("read_next_batch")?;
-    let b1 = reader.call_method0("read_next_batch")?;
-
-    let ev_table = pyarrow.getattr("Table")?.call_method1("from_batches", (vec![b0],))?;
-    let ld_table = pyarrow.getattr("Table")?.call_method1("from_batches", (vec![b1],))?;
+    // One-shot IPC using the new helpers — single stream for both tables.
+    let bytes = batches_to_ipc_bytes(&[&res.eigenvalues, &res.loadings])?;
+    let tables = ipc_bytes_to_pyarrow_tables(py, &bytes)?;
 
     let dict = pyo3::types::PyDict::new(py);
-    dict.set_item("eigenvalues", ev_table)?;
-    dict.set_item("loadings", ld_table)?;
+    if tables.len() >= 2 {
+        dict.set_item("eigenvalues", &tables[0])?;
+        dict.set_item("loadings", &tables[1])?;
+    }
     dict.set_item("n_markers", res.n_markers)?;
     dict.set_item("n_individuals", res.n_individuals)?;
     dict.set_item("n_components", res.n_components)?;
