@@ -24,6 +24,8 @@ from .pyrsx import (  # noqa: F401
     triage,
     triage_to_arrow,
     pca_to_arrow,
+    triage_to_arrow_from_arrow,
+    pca_to_arrow_from_arrow,
 )
 
 # High-level idiomatic API (recommended)
@@ -39,6 +41,8 @@ __all__ = [
     "triage",
     "triage_to_arrow",
     "pca_to_arrow",
+    "triage_to_arrow_from_arrow",
+    "pca_to_arrow_from_arrow",
     "freq",
     "depth",
     "merge",

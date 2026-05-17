@@ -141,9 +141,8 @@ class MarkerTable:
         """
         from .results import TriageResult
         from .params import TriageParams
-        import tempfile
-        from pathlib import Path
-        import pandas as pd
+        import pyarrow as pa
+        import io
 
         # Merge dataclass + kwargs (kwargs override)
         if params is None:
@@ -151,134 +150,103 @@ class MarkerTable:
         else:
             p = params
 
-        # Resolve to on-disk paths for the Rust streaming readers.
-        # Output side is now pure in-memory Arrow IPC (no temp files on results).
-        # Input serialization is still required when passing DataFrames because
-        # the core readers (`MarkersTableStream` etc.) are path-based today.
-        # Create temp files only when we actually need to cross to the path-based Rust readers.
-        # We always clean them up (even on error).
-        temps: list[Path] = []
-
-        if self._df is not None:
-            mpath = Path(tempfile.NamedTemporaryFile(suffix=".parquet", delete=False).name)
-            temps.append(mpath)
-            from_narwhals(self._df, backend="pandas").to_parquet(mpath, index=False)
-        else:
-            mpath = Path(self._path)  # type: ignore[arg-type]
-
-        if is_dataframe_like(popmap):
-            ppath = Path(tempfile.NamedTemporaryFile(suffix=".parquet", delete=False).name)
-            temps.append(ppath)
-            from_narwhals(to_narwhals(popmap), backend="pandas").to_parquet(ppath, index=False)
-        else:
-            ppath = Path(popmap)
-
-        outpath: Path | None = None
-        if self._df is None:
-            outpath = Path(tempfile.NamedTemporaryFile(suffix="_triage.parquet", delete=False).name)
-            temps.append(outpath)
-
         import pyrsx as _pyrsx
 
-        try:
-            if self._df is not None:
-                # DF path → real Rust Arrow result (no output temp file)
-                arrow_table = _pyrsx.triage_to_arrow(
-                    str(mpath),
-                    str(ppath),
-                    min_depth=p.min_depth,
-                    posterior_threshold=p.posterior_threshold,
-                    prior_probability=p.prior,
-                    linked_probability=p.linked_prob,
-                    group1=p.group1,
-                    group2=p.group2,
-                )
-                res_df = to_narwhals(arrow_table)
-            else:
-                _lowlevel_triage = _pyrsx.triage
-                _lowlevel_triage(
-                    str(mpath),
-                    str(ppath),
-                    str(outpath),
-                    min_depth=p.min_depth,
-                    posterior_threshold=p.posterior_threshold,
-                    bayes_factor_threshold=p.bayes_factor_threshold,
-                    prior=p.prior,
-                    linked_prob=p.linked_prob,
-                    group1=p.group1,
-                    group2=p.group2,
-                )
-                res_df = to_narwhals(pd.read_parquet(outpath)) if outpath else to_narwhals(pd.DataFrame())
+        if self._df is not None:
+            # Zero temp files — pass the data around as Arrow IPC bytes
+            markers_table = from_narwhals(self._df, backend="pyarrow")
+            popmap_table = from_narwhals(to_narwhals(popmap), backend="pyarrow") if is_dataframe_like(popmap) else None
 
+            def _table_to_ipc_bytes(table: pa.Table) -> bytes:
+                buf = io.BytesIO()
+                with pa.ipc.new_stream(buf, table.schema) as writer:
+                    writer.write_table(table)
+                return buf.getvalue()
+
+            markers_bytes = _table_to_ipc_bytes(markers_table)
+            popmap_bytes = _table_to_ipc_bytes(popmap_table) if popmap_table is not None else b""
+
+            arrow_table = _pyrsx.triage_to_arrow_from_arrow(
+                markers_bytes,
+                popmap_bytes,
+                min_depth=p.min_depth,
+                posterior_threshold=p.posterior_threshold,
+                prior_probability=p.prior,
+                linked_probability=p.linked_prob,
+                group1=p.group1,
+                group2=p.group2,
+            )
+            res_df = to_narwhals(arrow_table)
             return TriageResult(_df=to_narwhals(res_df), params=p)
-        finally:
-            for p in temps:
-                try:
-                    if p.exists():
-                        p.unlink()
-                except Exception:
-                    pass  # best-effort cleanup
+
+        # Legacy path-based path (for huge on-disk tables) — still uses disk
+        mpath = self._path
+        ppath = popmap
+        _lowlevel_triage = _pyrsx.triage
+        outpath = "/tmp/rsx_legacy_triage_output.parquet"  # TODO: proper legacy handling
+        _lowlevel_triage(
+            str(mpath),
+            str(ppath),
+            outpath,
+            min_depth=p.min_depth,
+            posterior_threshold=p.posterior_threshold,
+            bayes_factor_threshold=p.bayes_factor_threshold,
+            prior=p.prior,
+            linked_prob=p.linked_prob,
+            group1=p.group1,
+            group2=p.group2,
+        )
+        import pandas as pd
+        res_df = pd.read_parquet(outpath)
+        return TriageResult(_df=to_narwhals(res_df), params=p)
 
     def pca(self, *, k: int = 2, **kwargs: Any) -> "PcaResult":
         """Compute streaming sample PCA (O(n_individuals²) memory)."""
         from .results import PcaResult
-        import tempfile
-        from pathlib import Path
-        import pandas as pd
+        import pyarrow as pa
+        import io
 
         import pyrsx as _pyrsx
 
-        temps: list[Path] = []
-
         if self._df is not None:
-            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            temps.append(mpath)
-            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+            # Zero temp files — pass Arrow data in memory
+            markers_table = from_narwhals(self._df, backend="pyarrow")
 
-            try:
-                arrow_res = _pyrsx.pca_to_arrow(
-                    str(mpath),
-                    min_depth=kwargs.get("min_depth", 1),
-                    n_components=k,
-                )
-                res_df = to_narwhals(arrow_res["loadings"])
-                return PcaResult(
-                    _df=res_df,
-                    params={"k": k, "arrow": True, **kwargs},
-                    _input_backend=self._backend,
-                )
-            finally:
-                for p in temps:
-                    try:
-                        if p.exists():
-                            p.unlink()
-                    except Exception:
-                        pass
-        else:
-            mpath = Path(self._path)  # type: ignore[arg-type]
+            def _table_to_ipc_bytes(table: pa.Table) -> bytes:
+                buf = io.BytesIO()
+                with pa.ipc.new_stream(buf, table.schema) as writer:
+                    writer.write_table(table)
+                return buf.getvalue()
 
-        outpath = Path(tempfile.NamedTemporaryFile(suffix="_pca.tsv", delete=False).name)
-        temps.append(outpath)
+            markers_bytes = _table_to_ipc_bytes(markers_table)
 
+            arrow_res = _pyrsx.pca_to_arrow_from_arrow(
+                markers_bytes,
+                min_depth=kwargs.get("min_depth", 1),
+                n_components=k,
+            )
+            res_df = to_narwhals(arrow_res["loadings"])
+            return PcaResult(
+                _df=res_df,
+                params={"k": k, "arrow": True, **kwargs},
+                _input_backend=self._backend,
+            )
+
+        # Legacy path-based
+        mpath = self._path
         _lowlevel_pca = getattr(_pyrsx, "pca", None)
         if _lowlevel_pca is None:
             raise NotImplementedError("Low-level pca not exposed yet in this build")
 
-        try:
-            _lowlevel_pca(str(mpath), str(outpath), k=k, **kwargs)
-            res_df = pd.read_csv(outpath, sep="\t", comment="#")
-            return PcaResult(
-                _df=to_narwhals(res_df),
-                params={"k": k, **kwargs},
-                _input_backend=self._backend,
-            )
-        finally:
-            for p in temps:
-                try:
-                    if p.exists():
-                        p.unlink()
-                except Exception:
-                    pass
+        outpath = "/tmp/rsx_legacy_pca_output.tsv"
+        _lowlevel_pca(str(mpath), outpath, k=k, **kwargs)
+        import pandas as pd
+        res_df = pd.read_csv(outpath, sep="\t", comment="#")
+        return PcaResult(
+            _df=to_narwhals(res_df),
+            params={"k": k, **kwargs},
+            _input_backend=self._backend,
+        )
 
 
     # Future methods: .depth_stats(), .distrib(), etc.

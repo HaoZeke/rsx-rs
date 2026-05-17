@@ -1661,6 +1661,7 @@ dependencies = [
  "parquet",
  "pyo3",
  "rsx-core",
+ "tempfile",
 ]
 
 [[package]]

@@ -28,3 +28,4 @@ pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 # conflict and no visible temp files for the high-level API.
 parquet = { version = "55", features = ["arrow"] }
 arrow = { version = "55", features = ["ipc"] }
+tempfile = "3"

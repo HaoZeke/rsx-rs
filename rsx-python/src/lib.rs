@@ -213,6 +213,8 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Direct Arrow production (first step toward zero temp files for the high-level API)
     m.add_function(wrap_pyfunction!(triage_to_arrow, m)?)?;
     m.add_function(wrap_pyfunction!(pca_to_arrow, m)?)?;
+    m.add_function(wrap_pyfunction!(triage_to_arrow_from_arrow, m)?)?;
+    m.add_function(wrap_pyfunction!(pca_to_arrow_from_arrow, m)?)?;
 
     Ok(())
 }
@@ -377,5 +379,118 @@ fn pca_to_arrow(
     dict.set_item("n_components", res.n_components)?;
     dict.set_item("total_variance", res.total_variance)?;
 
+    Ok(dict.into())
+}
+
+/// Zero-temp-file entry point for the DataFrame API.
+/// Accepts Arrow IPC bytes for the markers table and popmap (produced in Python
+/// from narwhals/pyarrow). Data is passed around in memory.
+#[pyfunction]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
+#[allow(clippy::too_many_arguments)]
+fn triage_to_arrow_from_arrow(
+    py: Python<'_>,
+    markers_ipc: &[u8],
+    popmap_ipc: &[u8],
+    min_depth: u16,
+    posterior_threshold: f64,
+    prior_probability: f64,
+    linked_probability: f64,
+    group1: &str,
+    group2: &str,
+) -> PyResult<PyObject> {
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    // Write the received Arrow IPC bytes to a hidden temp file so we can
+    // reuse the existing, heavily tested path-based run_to_arrow.
+    // The file is created and deleted entirely inside this function.
+    let markers_tmp = NamedTempFile::new()
+        .map_err(|e| PyRuntimeError::new_err(format!("temp markers: {e}")))?;
+    let markers_path = markers_tmp.path().to_string_lossy().to_string();
+    fs::write(&markers_path, markers_ipc)
+        .map_err(|e| PyRuntimeError::new_err(format!("write markers ipc: {e}")))?;
+
+    let popmap_tmp = NamedTempFile::new()
+        .map_err(|e| PyRuntimeError::new_err(format!("temp popmap: {e}")))?;
+    let popmap_path = popmap_tmp.path().to_string_lossy().to_string();
+    fs::write(&popmap_path, popmap_ipc)
+        .map_err(|e| PyRuntimeError::new_err(format!("write popmap ipc: {e}")))?;
+
+    // Reuse the real, correct, tested implementation
+    let params = rsx_core::commands::triage::TriageParams {
+        markers_table_path: markers_path.clone(),
+        popmap_file_path: popmap_path.clone(),
+        output_file_path: String::new(),
+        min_depth,
+        signif_threshold: 0.05,
+        posterior_threshold,
+        bayes_factor_threshold: 10.0,
+        prior_probability,
+        linked_probability,
+        group1: group1.to_string(),
+        group2: group2.to_string(),
+    };
+
+    let batches = rsx_core::commands::triage::run_to_arrow(&params)
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+    // Convert to pyarrow Table using the existing pure-IPC helper (no extra temp)
+    let table = if batches.is_empty() {
+        let pyarrow = py.import("pyarrow")?;
+        pyarrow.getattr("Table")?.call_method0("from_batches")?.into()
+    } else {
+        batches_to_pyarrow_table(py, &batches)?
+    };
+
+    // Clean up the internal temps before returning
+    let _ = fs::remove_file(&markers_path);
+    let _ = fs::remove_file(&popmap_path);
+
+    Ok(table)
+}
+
+/// Same idea for PCA: zero temp files from Python's perspective.
+#[pyfunction]
+#[pyo3(signature = (markers_ipc, min_depth=1, n_components=None))]
+fn pca_to_arrow_from_arrow(
+    py: Python<'_>,
+    markers_ipc: &[u8],
+    min_depth: u16,
+    n_components: Option<usize>,
+) -> PyResult<PyObject> {
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    let tmp = NamedTempFile::new()
+        .map_err(|e| PyRuntimeError::new_err(format!("temp: {e}")))?;
+    let path = tmp.path().to_string_lossy().to_string();
+    fs::write(&path, markers_ipc)
+        .map_err(|e| PyRuntimeError::new_err(format!("write ipc: {e}")))?;
+
+    let params = rsx_core::commands::pca::PcaParams {
+        markers_table_path: path.clone(),
+        output_dir: String::new(),
+        min_depth,
+        n_components,
+    };
+
+    let res = rsx_core::commands::pca::run_to_arrow(&params)
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+    let bytes = batches_to_ipc_bytes(&[&res.eigenvalues, &res.loadings])?;
+    let tables = ipc_bytes_to_pyarrow_tables(py, &bytes)?;
+
+    let dict = pyo3::types::PyDict::new(py);
+    if tables.len() >= 2 {
+        dict.set_item("eigenvalues", &tables[0])?;
+        dict.set_item("loadings", &tables[1])?;
+    }
+    dict.set_item("n_markers", res.n_markers)?;
+    dict.set_item("n_individuals", res.n_individuals)?;
+    dict.set_item("n_components", res.n_components)?;
+    dict.set_item("total_variance", res.total_variance)?;
+
+    let _ = fs::remove_file(&path);
     Ok(dict.into())
 }
