@@ -53,11 +53,21 @@ read -r -a priors <<< "${RSX_PRIORS:-0.001 0.005 0.01 0.02 0.05 0.1}"
 read -r -a psexes <<< "${RSX_PSEX:-0.8 0.85 0.9 0.95}"
 
 workdir=benchmarks/literature-workdir
-markers="$workdir/${dataset}/markers_d10.tsv"
 popmap="$workdir/${dataset}/popmap.tsv"
 
-if [[ ! -f "$markers" || ! -f "$popmap" ]]; then
-    echo "Missing prepared files for $dataset. Run literature_prepare_dataset.sbatch first." >&2
+# Prefer the precomputed d10-filtered table if it exists, otherwise fall back
+# to markers_table.tsv (the analysis applies --min-depth 10 either way).
+if [[ -f "$workdir/${dataset}/markers_d10.tsv" ]]; then
+    markers="$workdir/${dataset}/markers_d10.tsv"
+elif [[ -f "$workdir/${dataset}/markers_table.tsv" ]]; then
+    markers="$workdir/${dataset}/markers_table.tsv"
+else
+    echo "Missing markers table for $dataset (neither markers_d10.tsv nor markers_table.tsv). Run literature_prepare_dataset.sbatch first." >&2
+    exit 3
+fi
+
+if [[ ! -f "$popmap" ]]; then
+    echo "Missing popmap for $dataset. Run literature_prepare_dataset.sbatch first." >&2
     exit 3
 fi
 
