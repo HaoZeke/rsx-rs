@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import os
 import sys
 from collections import defaultdict
@@ -291,7 +292,7 @@ def plot_speed_comparison(path: Path, output_dir: Path, colors: dict[str, str]) 
     if not path.exists():
         return
     import pandas as pd
-    from plotnine import aes, coord_flip, geom_col, ggplot, labs, scale_fill_manual
+    from plotnine import aes, coord_flip, geom_col, geom_hline, geom_point, ggplot, labs, position_jitter, scale_y_log10
 
     comparison = pd.read_csv(path)
     if comparison.empty:
@@ -307,13 +308,74 @@ def plot_speed_comparison(path: Path, output_dir: Path, colors: dict[str, str]) 
     pivot = pivot[(pivot["rust"] > 0) & (pivot["cpp"] > 0)].copy()
     pivot["speedup"] = pivot["cpp"] / pivot["rust"]
     pivot["dataset_label"] = pivot["dataset"].str.replace("_", " ").str.title()
-    pivot["command_depth"] = pivot["command"] + " d" + pivot["min_depth"].fillna("").astype(str).str.replace(".0", "", regex=False)
+    pivot["min_depth_label"] = pivot["min_depth"].fillna("").astype(str).str.replace(".0", "", regex=False)
+    pivot["command_label"] = pivot["command"].where(
+        pivot["min_depth_label"] == "",
+        pivot["command"] + " d" + pivot["min_depth_label"],
+    )
+    order = [
+        "process d1",
+        "depth",
+        "freq d1",
+        "freq d2",
+        "freq d5",
+        "freq d10",
+        "distrib d1",
+        "distrib d2",
+        "distrib d5",
+        "distrib d10",
+        "signif d1",
+        "signif d2",
+        "signif d5",
+        "signif d10",
+    ]
+    observed_order = [label for label in order if label in set(pivot["command_label"])]
+    pivot["command_label"] = pd.Categorical(pivot["command_label"], categories=observed_order, ordered=True)
+
+    def geomean(values):
+        return math.exp(sum(math.log(value) for value in values) / len(values))
+
+    summary = (
+        pivot.groupby("command_label", observed=True)
+        .agg(
+            datasets=("dataset", "count"),
+            rust_seconds=("rust", "sum"),
+            cpp_seconds=("cpp", "sum"),
+            geomean_speedup=("speedup", geomean),
+            min_speedup=("speedup", "min"),
+            max_speedup=("speedup", "max"),
+        )
+        .reset_index()
+    )
+    summary["rust_wins"] = summary["command_label"].map(
+        pivot.groupby("command_label", observed=True)["speedup"].apply(lambda values: int((values > 1.0).sum()))
+    )
+    summary["cpp_wins"] = summary["command_label"].map(
+        pivot.groupby("command_label", observed=True)["speedup"].apply(lambda values: int((values < 1.0).sum()))
+    )
+    summary.to_csv(output_dir / "literature_speedup_summary.tsv", sep="\t", index=False, float_format="%.6g")
+    pivot.rename(columns={"rust": "rust_seconds", "cpp": "cpp_seconds"}).to_csv(
+        output_dir / "literature_speedup_pairs.tsv",
+        sep="\t",
+        index=False,
+        float_format="%.6g",
+    )
     plot = (
-        ggplot(pivot, aes(x="command_depth", y="speedup", fill="dataset_label"))
-        + geom_col(width=0.72)
+        ggplot(summary, aes(x="command_label", y="geomean_speedup"))
+        + geom_col(fill=colors["teal"], width=0.72)
+        + geom_point(
+            pivot,
+            aes(x="command_label", y="speedup"),
+            inherit_aes=False,
+            position=position_jitter(width=0.12, height=0.0),
+            color=colors["coral"],
+            alpha=0.68,
+            size=1.7,
+        )
+        + geom_hline(yintercept=1.0, linetype="dashed", color="#444444", size=0.35)
         + coord_flip()
-        + scale_fill_manual(values=[colors["teal"], colors["sky"], colors["coral"], colors["magenta"], colors["sunshine"]])
-        + labs(x="", y="C++ RADSex / rsx elapsed time", fill="")
+        + scale_y_log10()
+        + labs(x="", y="C++ RADSex / rsx elapsed time (log10)")
         + base_theme()
     )
     save_plot(plot, output_dir, "literature_radsex_speedups", width=7.2, height=5.2)
