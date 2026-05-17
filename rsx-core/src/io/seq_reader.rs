@@ -273,6 +273,7 @@ pub fn count_sequences(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[test]
     fn test_extension_matching() {
@@ -320,5 +321,23 @@ mod tests {
         let upper = pack_2bit(b"ATCG");
         let lower = pack_2bit(b"atcg");
         assert_eq!(upper, lower);
+    }
+
+    #[test]
+    fn test_count_sequences_keeps_distinct_long_reads() {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        let long_a = vec![b'A'; 260];
+        let mut long_b = vec![b'A'; 260];
+        long_b[220] = b'T';
+
+        writeln!(f, ">read1").unwrap();
+        writeln!(f, "{}", std::str::from_utf8(&long_a).unwrap()).unwrap();
+        writeln!(f, ">read2").unwrap();
+        writeln!(f, "{}", std::str::from_utf8(&long_b).unwrap()).unwrap();
+
+        let counts = count_sequences(f.path()).unwrap();
+        assert_eq!(counts.len(), 2);
+        assert_eq!(counts.get(&pack_2bit(&long_a)), Some(&1));
+        assert_eq!(counts.get(&pack_2bit(&long_b)), Some(&1));
     }
 }
