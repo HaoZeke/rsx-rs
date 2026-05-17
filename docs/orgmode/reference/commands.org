@@ -73,24 +73,24 @@ sequences and does not include table-only Bayesian columns.
 
 ** triage
 
-Rank strict and Bayesian marker candidates for biological follow-up.
+Write strict and posterior-supported sex-linked marker evidence for each
+called marker.
 
 #+begin_src bash
 rsx triage -t <table.tsv> -p <popmap.tsv> -o <triage.tsv> [-d 5] [-G M,F] \
   [--posterior-threshold 0.9] [--bayes-factor-threshold 10]
 #+end_src
 
-The output joins RADSex-style strict evidence and Bayesian evidence in one
-marker-level table. Columns include group penetrance, bias direction,
+The output joins RADSex-style Bonferroni evidence and Bayesian evidence in
+one marker-level table. Columns include group penetrance, bias direction,
 p-value, Bonferroni-corrected p-value, Bayes factor, posterior
-P(sex-linked), and =Candidate_Class=. Classes are:
-=strict+posterior=, =strict_only=, =posterior_only=, and
-=bayes_factor_only=.
+P(sex-linked), and =Candidate_Class=. Classes are =strict+posterior=,
+=strict_only=, =posterior_only=, and =bayes_factor_only=.
 
-This command is the core biological triage endpoint. Strict calls remain
-confirmatory; posterior-only rows are validation targets; Bayes-factor-only
-rows are warnings that should be interpreted with depth, frequency, and PCA
-QC outputs.
+Interpretation is directional. A male-biased high-evidence marker is a
+putative Y-linked RAD marker; a female-biased high-evidence marker is a
+putative W-linked RAD marker. Bayes-factor-only rows are not sex-linked
+marker calls unless the posterior and QC outputs also support them.
 
 ** freq
 

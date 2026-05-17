@@ -127,8 +127,8 @@ source-paper sex-associated markers at d=10, =tinca_tinca= is an XX/XY case
 reported without a previously described system and six markers at d=10, and
 =danio_albolineatus= and =notothenia_rossii= are source-paper null cases
 with no SD identified at d=10. The Bayesian plots therefore compare
-strict positive controls, strict null calls, and posterior-ranked candidate
-triage under the same published workflow.
+strict positive controls, strict negative calls, and posterior-supported
+sex-linked marker hypotheses under the same published workflow.
 
 #+begin_src bash
 pixi run -e benchmark plot-literature-benchmarks
@@ -187,14 +187,15 @@ The strongest Bayesian signal in the current panel is
 =danio_albolineatus= at minimum depth 1: 61,191 markers have posterior
 P(sex-linked) > 0.5 and 4,297 markers have posterior > 0.9. The same
 Bonferroni FASTA extraction reports zero significant markers for that
-dataset, so the Bayesian summary adds a biological triage view that is not
-available from strict thresholded FASTA output alone.
+dataset, so the Bayesian summary adds sex-linked marker probabilities that
+are not available from strict thresholded FASTA output alone.
 
 The candidate-recovery figure compares strict Bonferroni FASTA marker counts
-with posterior-ranked candidates at the same dataset/depth settings. This
+with posterior-supported markers at the same dataset/depth settings. This
 grounds the biological-value claim in the published RADSex workflow datasets:
 the Bayesian layer does not change the null-hypothesis test, but it exposes a
-ranked follow-up set when all-or-nothing FASTA extraction is empty.
+sex-linked marker hypothesis set when all-or-nothing FASTA extraction is
+empty.
 
 *** Mode effects on published marker tables
 
@@ -228,9 +229,10 @@ strict path preserves the RADSex interpretation: =plecoglossus_altivelis= and
 =tinca_tinca= are positive controls, while =danio_albolineatus= and
 =notothenia_rossii= remain strict null cases at d=10. Fisher/FDR and G-test/FDR
 show the sensitivity of count-cell testing to exact and likelihood tests on the
-same marker table. The Bayesian table gives a ranked candidate layer: it
-recovers 49 high-posterior candidates for =plecoglossus_altivelis=, expands the
-=tinca_tinca= follow-up set to 11, and distinguishes the two strict nulls
+same marker table. The Bayesian table gives posterior-supported marker
+evidence: it recovers 49 high-posterior markers for
+=plecoglossus_altivelis=, expands the =tinca_tinca= follow-up set to 11,
+and distinguishes the two strict negative datasets
 because =danio_albolineatus= has 30 high-posterior candidates whereas
 =notothenia_rossii= has none at the same threshold.
 
@@ -255,17 +257,17 @@ The generated figure is =docs/figures/literature_bio_unlocks.svg=.
 
 | Dataset | Strict + posterior | Strict only | Posterior only | Bayes-factor only | Interpretation |
 |---------+--------------------+-------------+----------------+-------------------+----------------|
-| =danio_albolineatus= | 0 | 0 | 30 | 158 | posterior triage without strict reclassification |
-| =notothenia_rossii= | 0 | 0 | 0 | 400 | QC restraint on Bayes-factor-only signal |
-| =plecoglossus_altivelis= | 47 | 0 | 2 | 523 | strict recovery plus posterior expansion |
-| =tinca_tinca= | 6 | 0 | 5 | 432 | strict recovery plus posterior expansion |
+| =danio_albolineatus= | 0 | 0 | 30 | 158 | posterior-supported markers below Bonferroni |
+| =notothenia_rossii= | 0 | 0 | 0 | 400 | Bayes-factor evidence rejected by posterior threshold |
+| =plecoglossus_altivelis= | 47 | 0 | 2 | 523 | RADSex signal with posterior-supported additions |
+| =tinca_tinca= | 6 | 0 | 5 | 432 | RADSex signal with posterior-supported additions |
 
 This is the clearest biological distinction unlocked by rsx beyond the
 original RADSex thresholded FASTA endpoint. In the two positive controls,
-posterior ranking recovers every strict d=10 marker and adds two
-=plecoglossus_altivelis= and five =tinca_tinca= follow-up markers. In
-=danio_albolineatus=, rsx exposes 30 high-posterior exploratory candidates
-while preserving the strict null call. In =notothenia_rossii=, 400 rows have
+posterior evidence recovers every strict d=10 marker and adds two
+=plecoglossus_altivelis= and five =tinca_tinca= marker hypotheses. In
+=danio_albolineatus=, rsx exposes 30 high-posterior markers while
+preserving the Bonferroni-negative call. In =notothenia_rossii=, 400 rows have
 Bayes factor > 10 but none have posterior > 0.9, and the singleton fraction is
 52.78%; the posterior/QC layer therefore prevents raw Bayes-factor counts from
 being over-read as biological positives.
@@ -275,9 +277,9 @@ The generated sex-system inference artifact makes the biological call explicit:
 | Dataset | Evidence class | rsx inference | Marker basis |
 |---------+----------------+---------------+--------------|
 | =plecoglossus_altivelis= | confirmatory | XX/XY-supported | 47 male-biased strict markers; 49 male-biased high-posterior markers |
-| =tinca_tinca= | confirmatory | XX/XY-supported | 6 male-biased strict markers; 11 high-posterior markers for secondary triage |
-| =danio_albolineatus= | exploratory | ZZ/ZW-like validation set | 30 high-posterior markers without strict reclassification; 29 are female-biased |
-| =notothenia_rossii= | restrained null | no high-posterior sex-system call | 400 Bayes-factor-only rows, 0 high-posterior rows, 52.78% singleton retained markers |
+| =tinca_tinca= | confirmatory | XX/XY-supported | 6 male-biased strict markers; 11 high-posterior markers for validation |
+| =danio_albolineatus= | hypothesis | putative W-linked marker hypothesis | 30 high-posterior markers without Bonferroni reclassification; 29 are female-biased |
+| =notothenia_rossii= | negative | no sex-linked marker call | 400 Bayes-factor-only rows, 0 high-posterior rows, 52.78% singleton retained markers |
 
 *** Biological inference role of extended features
 
@@ -288,7 +290,7 @@ standing alone as software claims:
 |----------------+-------------+----------------|
 | Sequencing QC | =depth=, =freq=, =pca= | choose depth thresholds and flag outlier libraries |
 | Marker discovery | =distrib=, =signif= | test sex-biased marker presence/absence |
-| Exploratory ranking | FDR, Bayes posterior | prioritize candidates below strict Bonferroni calls |
+| Sex-linkage posterior | FDR, Bayes posterior | identify putative Y-linked/W-linked marker hypotheses below strict Bonferroni calls |
 | Candidate validation | =subset= | inspect marker depths in individuals and outliers |
 | Locus localization | =map= | test whether candidates cluster on a sex chromosome |
 | Cross-run synthesis | =merge=, k-mer deduplication | combine lanes/panels and reduce redundant error variants |
@@ -308,7 +310,7 @@ For the software paper, the novelty claim is the combination of:
 |--------------+----------------------------|
 | Drop-in RADSex compatibility | compare directly with prior RADSex biological results |
 | Bounded-memory full-table algorithms | avoid downsampling rare marker candidates |
-| Additional statistical modes | compare strict tests, FDR, and posterior candidate ranking on the same counts |
+| Additional statistical modes | compare strict tests, FDR, and posterior sex-linkage calls on the same counts |
 | Formal mathematical provenance | make erfc p-values, sparse medians, and streaming PCA auditable |
 | Workflow bindings | keep downstream biological analysis in Python/R-style workflows |
 
@@ -322,7 +324,7 @@ Paper-readiness validation is split by claim:
 | Numerical/statistical routines | =rsx-core/tests/test_precision.rs= and =rsx-core/src/stats.rs= unit tests |
 | Command behavior | =rsx-core/tests/test_pipeline.rs= integration tests |
 | Literature speedup | =benchmarks/results/literature_speed_comparison.csv= and Slurm scripts |
-| Bayesian biological triage | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
+| Bayesian sex-linkage evidence | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
 | Extended mode effects | =benchmarks/results/literature_mode_effects.csv= and mode-effect figures |
 | Biological unlock summary | =benchmarks/results/literature_bio_unlocks.csv=, =literature_candidate_triage.csv=, =literature_sex_system_inference.csv=, and unlock figure |
 | Python workflow surface | =benchmarks/results/literature_binding_results.csv= and =rsx-python/tests/test_pyrsx.py= |
