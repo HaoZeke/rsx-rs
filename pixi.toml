@@ -32,7 +32,7 @@ sphinx-rustdoc-postprocess = ">=0.1.0, <0.2"
 sphinx-click = ">=6.0"
 
 [feature.docs.tasks]
-setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen", description = "Install sphinx-rustdocgen for Rust API docs" }
+setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen --root \"$CONDA_PREFIX\"", description = "Install sphinx-rustdocgen for Rust API docs" }
 mkrst = { cmd = "emacs --batch --load docs/export.el", description = "Export orgmode docs to RST" }
 site = { cmd = "sphinx-build docs/source docs/_build -b html", depends-on = ["mkrst", "setup-rustdocgen"] }
 
