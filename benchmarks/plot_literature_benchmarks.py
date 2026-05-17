@@ -361,31 +361,32 @@ def plot_candidate_recovery(evidence_path: Path, benchmark_path: Path, output_di
     if not evidence_path.exists() or not benchmark_path.exists():
         return
     import pandas as pd
-    from plotnine import aes, coord_flip, facet_wrap, geom_col, ggplot, labs, scale_fill_manual
+    from plotnine import aes, facet_wrap, geom_col, ggplot, labs, position_dodge, scale_fill_manual
 
     rows = candidate_recovery_rows(read_csv_rows(evidence_path), read_csv_rows(benchmark_path))
     if not rows:
         return
     recovery = pd.DataFrame(rows)
-    recovery["depth_label"] = "d" + recovery["min_depth"].astype(str)
-    recovery["facet_label"] = recovery["dataset_label"] + " " + recovery["depth_label"]
+    recovery["min_depth_numeric"] = recovery["min_depth"].astype(int)
+    recovery["depth_label"] = "d" + recovery["min_depth_numeric"].astype(str)
     order = ["Strict Bonferroni FASTA", "Posterior > 0.9", "Posterior > 0.5"]
     recovery["metric"] = pd.Categorical(recovery["metric"], categories=order, ordered=True)
+    depth_order = [f"d{depth}" for depth in sorted(recovery["min_depth_numeric"].unique())]
+    recovery["depth_label"] = pd.Categorical(recovery["depth_label"], categories=depth_order, ordered=True)
     palette = {
         "Strict Bonferroni FASTA": colors["teal"],
         "Posterior > 0.9": colors["magenta"],
         "Posterior > 0.5": colors["sky"],
     }
     plot = (
-        ggplot(recovery, aes(x="metric", y="log10_marker_count_plus_one", fill="metric"))
-        + geom_col(width=0.7)
-        + coord_flip()
-        + facet_wrap("~ facet_label", scales="free_y")
+        ggplot(recovery, aes(x="depth_label", y="log10_marker_count_plus_one", fill="metric"))
+        + geom_col(position=position_dodge(width=0.74), width=0.68)
+        + facet_wrap("~ dataset_label", ncol=2)
         + scale_fill_manual(values=palette)
-        + labs(x="", y="log10(markers + 1)", fill="")
+        + labs(x="Minimum depth", y="log10(markers + 1)", fill="")
         + base_theme()
     )
-    save_plot(plot, output_dir, "literature_candidate_recovery", width=7.2, height=6.2)
+    save_plot(plot, output_dir, "literature_candidate_recovery", width=7.2, height=5.2)
 
 
 def plot_speed_comparison(path: Path, output_dir: Path, colors: dict[str, str]) -> None:
