@@ -129,15 +129,15 @@ tracked measured outputs are:
 
 The tracked =docs/figures/literature_speedup_summary.tsv= reports 56 paired
 C++ RADSex vs rsx timings across four datasets, command groups, and minimum
-depths. Rust wins 54 of 56 pairs. Geometric-mean speedups are:
+depths. Rust wins all 56 pairs. Geometric-mean speedups are:
 
 | Command family | Geometric mean speedup |
 |----------------+------------------------|
-| =process=      |                  2.09x |
-| =depth=        |                  6.98x |
-| =freq=         |                 26.35x |
-| =distrib=      |                 29.76x |
-| =signif=       |                  1.38x |
+| =process=      |                  1.83x |
+| =depth=        |                  2.99x |
+| =freq=         |                  4.57x |
+| =distrib=      |                  5.81x |
+| =signif=       |                  1.36x |
 
 ** Bayesian evidence summary
 
@@ -164,6 +164,17 @@ Every paper claim should point to a real run:
 | Bayesian biological value | Same =distrib= outputs and popmaps    | =literature_candidate_recovery.svg= |
 | Python ease of use       | Published marker table via =pyrsx=    | =literature_binding_results.csv= |
 | Streaming PCA/stat tests | Published marker table via =pyrsx=    | =literature_binding_results.csv= |
+
+The tracked binding run uses the published =notothenia_rossii= RADSex
+workflow marker table at minimum depth 10:
+
+| Feature | API call | Time (s) | Output rows | Output size |
+|---------+----------+----------+-------------+-------------|
+| Python bindings | =pyrsx.freq= | 2.43 | 42 | 378 B |
+| Python bindings | =pyrsx.depth= | 4.90 | 42 | 2,263 B |
+| Statistical tests | =pyrsx.distrib= Fisher/FDR | 2.06 | 467 | 16,755 B |
+| Streaming PCA | =pyrsx.pca= | 4.50 | 56 | 2,590 B |
+| Bayesian marker evidence | =pyrsx.signif(bayes=True)= | 8.72 | 1,208 | 263,013 B |
 
 ** Reporting split
 

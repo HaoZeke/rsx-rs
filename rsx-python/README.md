@@ -34,7 +34,7 @@ pyrsx.merge(["table1.tsv", "table2.tsv"], "merged.tsv")
 ## Features
 
 - All rsx commands accessible from Python
-- 8.91x geometric-mean speedup on the tracked literature comparison panel
+- 3.14x geometric-mean speedup on the tracked Slurm literature comparison panel
 - Bounded-memory streaming for arbitrarily large datasets
 - Multiple statistical tests: chi-squared, Fisher's exact, G-test
 - Multiple corrections: Bonferroni, Benjamini-Hochberg FDR

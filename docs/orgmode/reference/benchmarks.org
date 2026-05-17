@@ -146,12 +146,11 @@ v1.2.0 built in the Pixi benchmark environment. The C++ checkout requires
 the standard =<cstdint>= include fix for modern GCC, but the RADSex command
 behavior is otherwise unchanged.
 
-Across 56 paired command/dataset/depth timings, rsx-rs is faster in 54
-pairs. The geometric-mean speedup is 8.91x. Process-stage speedup is 2.09x
-geometric mean across the four literature datasets. =freq= and =distrib=
-show 26.35x and 29.76x geometric-mean speedups, respectively. =signif=
-is closer: 1.38x geometric mean, with two =plecoglossus_altivelis= depth
-rows where C++ is slightly faster.
+Across 56 paired command/dataset/depth timings on the Slurm panel, rsx-rs
+is faster in all 56 pairs. The geometric-mean speedup is 3.14x.
+Process-stage speedup is 1.83x geometric mean across the four literature
+datasets. =freq= and =distrib= show 4.57x and 5.81x geometric-mean
+speedups, respectively. =signif= is closer at 1.36x geometric mean.
 
 On Slurm clusters, submit per-dataset compute-only comparisons as an array
 job after the FASTQ files and marker tables have been prepared:
@@ -209,6 +208,16 @@ job-specific Slurm result CSV. It exercises =pyrsx.freq=, =pyrsx.depth=,
 =pyrsx.distrib(test='fisher', correction='fdr')=, =pyrsx.pca=, and
 =pyrsx.signif(bayes=True)= on a published RADSex workflow dataset, giving the
 paper an ease-of-use claim backed by real inputs and measured outputs.
+
+The tracked Slurm result for =notothenia_rossii= at minimum depth 10 is:
+
+| Feature | API call | Time (s) | Output rows | Output size |
+|---------+----------+----------+-------------+-------------|
+| Python bindings | =pyrsx.freq= | 2.43 | 42 | 378 B |
+| Python bindings | =pyrsx.depth= | 4.90 | 42 | 2,263 B |
+| Statistical tests | =pyrsx.distrib= Fisher/FDR | 2.06 | 467 | 16,755 B |
+| Streaming PCA | =pyrsx.pca= | 4.50 | 56 | 2,590 B |
+| Bayesian marker evidence | =pyrsx.signif(bayes=True)= | 8.72 | 1,208 | 263,013 B |
 
 ** Raw timing data (seconds, median of 3 runs)
 
