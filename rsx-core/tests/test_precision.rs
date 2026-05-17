@@ -288,6 +288,80 @@ fn test_markers_table_crlf_depth_fields() {
     let depth_markers = depth_stream.collect().unwrap();
     assert_eq!(depth_markers[1].individual_depths.as_slice(), &[5, 0]);
     assert_eq!(depth_markers[1].n_individuals, 1);
+
+    let full_config = ParserConfig {
+        store_sequence: true,
+        store_depths: true,
+        compute_groups: false,
+        min_depth: 5,
+    };
+    let full_stream = MarkersTableStream::open(&table, None, full_config).unwrap();
+    let full_markers = full_stream.collect().unwrap();
+    assert_eq!(full_markers[1].id, "1");
+    assert_eq!(full_markers[1].sequence, "CCCC");
+    assert_eq!(full_markers[1].individual_depths.as_slice(), &[5, 0]);
+    assert_eq!(full_markers[1].n_individuals, 1);
+}
+
+#[cfg(feature = "parallel")]
+#[test]
+fn test_marker_table_parallel_fold_matches_serial_frequency() {
+    use rsx_core::markers_table::{MarkersTableStream, ParserConfig};
+
+    let dir = test_dir().join("parallel_fold_frequency");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    let n_markers = 20_000usize;
+    writeln!(f, "#Number of markers : {n_markers}").unwrap();
+    writeln!(f, "id\tsequence\tind1\tind2\tind3\tind4\tind5\tind6").unwrap();
+    for marker in 0..n_markers {
+        write!(f, "{marker}\tACGTACGT").unwrap();
+        for ind in 0..6usize {
+            let depth = if (marker + ind) % 3 == 0 { 7 } else { 0 };
+            write!(f, "\t{depth}").unwrap();
+        }
+        writeln!(f).unwrap();
+    }
+
+    let serial_config = ParserConfig {
+        store_sequence: false,
+        store_depths: false,
+        compute_groups: false,
+        min_depth: 1,
+    };
+    let serial_stream = MarkersTableStream::open(&table, None, serial_config).unwrap();
+    let mut serial = vec![0u32; 7];
+    serial_stream
+        .for_each(|marker| {
+            serial[marker.n_individuals as usize] += 1;
+        })
+        .unwrap();
+
+    let parallel_config = ParserConfig {
+        store_sequence: false,
+        store_depths: false,
+        compute_groups: false,
+        min_depth: 1,
+    };
+    let parallel_stream = MarkersTableStream::open(&table, None, parallel_config).unwrap();
+    let parallel = parallel_stream
+        .par_fold_reduce(
+            vec![0u32; 7],
+            |frequency, marker| {
+                frequency[marker.n_individuals as usize] += 1;
+            },
+            |mut left, right| {
+                for (dst, src) in left.iter_mut().zip(right) {
+                    *dst += src;
+                }
+                left
+            },
+        )
+        .unwrap();
+
+    assert_eq!(parallel, serial);
 }
 
 // === End-to-end golden tests with known outputs ===

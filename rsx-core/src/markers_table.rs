@@ -238,53 +238,44 @@ impl MarkersTableStream {
     {
         let min_depth = self.config.min_depth;
         let mut marker = Marker::new(self.n_individuals);
-        let mut temp = Vec::with_capacity(256);
-        let mut field_n: usize = 0;
+        let mut pos = 0;
 
-        for &byte in data {
-            match byte {
-                b'\t' => {
-                    handle_field(
-                        &mut marker,
-                        &temp,
-                        field_n,
-                        min_depth,
-                        self.config.store_depths,
-                    );
-                    temp.clear();
-                    field_n += 1;
-                }
-                b'\n' => {
-                    if field_n >= 2 {
-                        handle_field(
-                            &mut marker,
-                            &temp,
-                            field_n,
-                            min_depth,
-                            self.config.store_depths,
-                        );
-                    }
-                    temp.clear();
-                    field_n = 0;
-                    f(&marker);
-                    marker.reset(false);
-                }
-                b'\r' => {}
-                _ => {
-                    temp.push(byte);
-                }
+        while pos < data.len() {
+            let line_end = memchr::memchr(b'\n', &data[pos..])
+                .map(|p| pos + p)
+                .unwrap_or(data.len());
+
+            let line = strip_cr(&data[pos..line_end]);
+            pos = line_end + 1;
+
+            let tabs: Vec<usize> = memchr::memchr_iter(b'\t', line).collect();
+            if tabs.len() < 2 {
+                continue;
             }
-        }
 
-        if field_n >= 2 {
-            handle_field(
-                &mut marker,
-                &temp,
-                field_n,
-                min_depth,
-                self.config.store_depths,
-            );
+            marker.id.clear();
+            marker.id.push_str(std::str::from_utf8(&line[0..tabs[0]]).unwrap_or(""));
+
+            let seq_start = tabs[0] + 1;
+            let seq_end = tabs[1];
+            marker.sequence.clear();
+            marker.sequence.push_str(std::str::from_utf8(&line[seq_start..seq_end]).unwrap_or(""));
+
+            for_each_depth_field(line, tabs[1], |col, field| {
+                let depth = fast_parse_u16(field);
+                if col < self.n_individuals as usize {
+                    if self.config.store_depths {
+                        marker.individual_depths[col] = depth;
+                    }
+                    if depth >= min_depth {
+                        marker.presence.set(col);
+                        marker.n_individuals += 1;
+                    }
+                }
+            });
+
             f(&marker);
+            marker.reset(false);
         }
     }
 
@@ -416,41 +407,6 @@ impl MarkersTableStream {
             .reduce(|| init.clone(), reduce);
 
         Ok(result)
-    }
-}
-
-#[inline(always)]
-fn handle_field(
-    marker: &mut Marker,
-    temp: &[u8],
-    field_n: usize,
-    min_depth: u16,
-    store_depths: bool,
-) {
-    match field_n {
-        0 => {
-            marker.id.clear();
-            marker.id.push_str(std::str::from_utf8(temp).unwrap_or(""));
-        }
-        1 => {
-            marker.sequence.clear();
-            marker
-                .sequence
-                .push_str(std::str::from_utf8(temp).unwrap_or(""));
-        }
-        _ => {
-            let depth = fast_parse_u16(temp);
-            let idx = field_n - 2;
-            if idx < marker.individual_depths.len() {
-                if store_depths {
-                    marker.individual_depths[idx] = depth;
-                }
-                if depth >= min_depth {
-                    marker.presence.set(idx);
-                    marker.n_individuals += 1;
-                }
-            }
-        }
     }
 }
 
