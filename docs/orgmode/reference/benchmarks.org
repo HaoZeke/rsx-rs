@@ -74,25 +74,25 @@ All commands operate in bounded memory (< 500MB for any input size).
 
 | Scale  | Command | C++ (s) | Rust (s) | Speedup |
 |--------+---------+---------+----------+---------|
-| small  | process |   0.018 |    0.005 | 3.6x    |
 | small  | freq    |   0.016 |    0.004 | 4.0x    |
-| small  | depth   |   0.017 |    0.004 | 4.3x    |
-| small  | distrib |   0.016 |    0.003 | 5.3x    |
-| small  | signif  |   0.016 |    0.005 | 3.2x    |
-| small  | subset  |   0.015 |    0.004 | 4.0x    |
-| small  | map     |   0.049 |    0.023 | 2.1x    |
-| medium | process |   0.066 |    0.026 | 2.5x    |
-| medium | freq    |   0.014 |    0.007 | 2.0x    |
-| medium | depth   |   0.026 |    0.010 | 2.6x    |
-| medium | distrib |   0.031 |    0.008 | 3.9x    |
-| medium | signif  |   0.021 |    0.011 | 1.9x    |
-| medium | subset  |   0.026 |    0.013 | 2.0x    |
-| medium | map     |   0.431 |    0.263 | 1.6x    |
-| large  | freq    |   0.129 |    0.067 | 1.9x    |
-| large  | depth   |   0.302 |    0.119 | 2.5x    |
-| large  | distrib |   0.189 |    0.076 | 2.5x    |
-| large  | signif  |   0.271 |    0.123 | 2.2x    |
-| large  | subset  |   0.198 |    0.086 | 2.3x    |
+| small  | distrib |   0.015 |    0.003 | 5.0x    |
+| small  | signif  |   0.015 |    0.003 | 5.0x    |
+| small  | depth   |   0.016 |    0.003 | 5.3x    |
+| small  | subset  |   0.016 |    0.003 | 5.3x    |
+| small  | map     |   0.042 |    0.021 | 2.0x    |
+| small  | process |   0.016 |    0.009 | 1.8x    |
+| medium | freq    |   0.015 |    0.006 | 2.5x    |
+| medium | distrib |   0.019 |    0.007 | 2.7x    |
+| medium | signif  |   0.021 |    0.013 | 1.6x    |
+| medium | depth   |   0.025 |    0.005 | 5.0x    |
+| medium | subset  |   0.026 |    0.014 | 1.9x    |
+| medium | map     |   0.407 |    0.228 | 1.8x    |
+| medium | process |   0.058 |    0.038 | 1.5x    |
+| large  | freq    |   0.114 |    0.044 | 2.6x    |
+| large  | distrib |   0.138 |    0.057 | 2.4x    |
+| large  | signif  |   0.189 |    0.137 | 1.4x    |
+| large  | depth   |   0.240 |    0.067 | 3.6x    |
+| large  | subset  |   0.170 |    0.118 | 1.4x    |
 
 ** Why Rust is faster
 
@@ -160,21 +160,33 @@ allocation in the inner parsing loop.
 ** Reproducing
 
 #+begin_src bash
-# Generate test data
-python3 benchmarks/generate_data.py
+# Use the benchmark environment
+pixi install -e benchmark
+
+# Optional: regenerate equivalent synthetic data without overwriting
+# the tracked manuscript reference data.
+pixi run -e benchmark generate-data
 
 # Build C++ radsex (requires patching for GCC 15)
 cd /path/to/radsex && make -j4
 
-# Build Rust rsx-rs
-cd /path/to/rsx-rs && cargo build --release
-
-# Run benchmarks
-bash benchmarks/run_benchmarks.sh
+# Run benchmarks against the tracked reference data.
+cd /path/to/rsx-rs
+CPP_RADSEX=/path/to/radsex/bin/radsex pixi run -e benchmark run-benchmarks
 
 # Print summary
-python3 benchmarks/plot_benchmarks.py
+pixi run -e benchmark plot-benchmarks
+
+# Validate and prepare the DOI-deposition package.
+pixi run -e benchmark test-package
+pixi run -e benchmark package-figshare
 #+end_src
+
+By default the benchmark harness reads =benchmarks/data/= and writes
+=benchmarks/results/benchmark_results.csv=. Set =BENCH_DATA= or
+=BENCH_RESULTS= only when using alternate data or result locations. The
+tracked CSV and =repro/benchmarks.org= are the reference inputs for the
+manuscript numbers.
 
 ** Golden file compatibility
 
