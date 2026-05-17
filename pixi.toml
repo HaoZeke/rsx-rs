@@ -45,10 +45,13 @@ site = { cmd = "sphinx-build docs/source docs/_build -b html", depends-on = ["mk
 [feature.python.dependencies]
 python = ">=3.11"
 pip = "*"
+pyarrow = ">=14"
+pandas = ">=2.2,<3"
 
 [feature.python.pypi-dependencies]
 maturin = ">=1.0, <2"
 pytest = ">=8"
+narwhals = ">=1.0"
 
 [feature.python.tasks]
 build-python = { cmd = "cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release" }

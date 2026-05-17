@@ -30,9 +30,21 @@ class DataFrameAdapter(Protocol):
     def __narwhals_dataframe__(self) -> Any: ...
 
 
+def _from_native(df: Any, *, pass_through: bool = False) -> Any:
+    """Bridge nw.from_native across the narwhals 1.x / 2.x signature change.
+
+    narwhals 1.x: keyword was `strict` (default True; False = pass through).
+    narwhals 2.x: keyword is `pass_through` (default False = strict).
+    """
+    try:
+        return nw.from_native(df, pass_through=pass_through)
+    except TypeError:
+        return nw.from_native(df, strict=not pass_through)  # type: ignore[call-arg]
+
+
 def to_narwhals(df: IntoDataFrame | NWDataFrame) -> NWDataFrame:
     """Convert any supported DataFrame-like to a narwhals DataFrame."""
-    return nw.from_native(df, strict=False)  # type: ignore[return-value]
+    return _from_native(df, pass_through=True)  # type: ignore[return-value]
 
 
 def from_narwhals(
@@ -67,7 +79,9 @@ def from_narwhals(
 def is_dataframe_like(obj: Any) -> bool:
     """Check whether an object can be treated as a DataFrame by our adapters."""
     try:
-        nw.from_native(obj, strict=False)
-        return True
+        result = _from_native(obj, pass_through=True)
     except Exception:
         return False
+    # narwhals 2.x: pass_through=True returns the input unchanged when not
+    # recognized; only treat as DataFrame-like if it really wrapped it.
+    return result is not obj or hasattr(obj, "__dataframe__")
