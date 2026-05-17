@@ -50,12 +50,12 @@ def plot_evidence(
     x: str = "dataset",
     fill: str = "candidate_class",
     theme: Any | None = None,
+    **kwargs: Any,
 ) -> Any:
     """
-    Create a nice evidence class breakdown plot using plotnine + ruhi theme.
+    Evidence class breakdown plot using plotnine + the ruhi colorscheme.
 
-    Expects a DataFrame with columns for the grouping variable and the
-    evidence class (e.g. "strict+posterior", "posterior_only", "bayes_factor_only").
+    This is the default plotting experience for TriageResult.
     """
     from plotnine import (
         ggplot,
@@ -64,6 +64,7 @@ def plot_evidence(
         labs,
         scale_fill_manual,
         position_dodge,
+        theme as p9_theme,
     )
 
     if theme is None:
@@ -71,13 +72,12 @@ def plot_evidence(
 
     p = (
         ggplot(df, aes(x=x, fill=fill))
-        + geom_bar(position=position_dodge, stat="count")
+        + geom_bar(position=position_dodge, stat="count", **kwargs)
         + scale_fill_manual(values=RUHI_PALETTE)
         + labs(
-            x="Dataset",
+            x="",
             y="Number of markers",
             fill="Evidence class",
-            title="rsx Triage Evidence Classes",
         )
         + theme
     )

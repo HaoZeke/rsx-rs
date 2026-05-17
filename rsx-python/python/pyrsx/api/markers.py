@@ -88,20 +88,21 @@ class MarkerTable:
     def n_markers(self) -> int:
         if self._df is not None:
             return len(self._df)
-        # Fall back to counting lines if we only have a path (cheap for now)
-        # In a real implementation we would cache a header count.
         with open(self._path) as f:  # type: ignore[arg-type]
-            return sum(1 for _ in f) - 1  # subtract header
+            return sum(1 for _ in f) - 1
 
     @property
     def n_individuals(self) -> int:
         if self._df is not None:
-            # Assume first two columns are id + sequence, rest are samples
             return len(self._df.columns) - 2
-        # Parse header from file
         with open(self._path) as f:  # type: ignore[arg-type]
             header = next(f).strip().split("\t")
             return len(header) - 2
+
+    @property
+    def df(self) -> nw.DataFrame | None:
+        """The underlying narwhals DataFrame if the table was created in-memory."""
+        return self._df
 
     def __repr__(self) -> str:
         return (
@@ -110,7 +111,6 @@ class MarkerTable:
         )
 
     def summary(self) -> str:
-        """Return a human-readable one-line summary."""
         return (
             f"MarkerTable with {self.n_markers} markers across "
             f"{self.n_individuals} individuals"
@@ -188,7 +188,36 @@ class MarkerTable:
             _input_backend=self._backend,
         )
 
-    # Future methods: .pca(), .depth_stats(), .distrib(), etc.
+    def pca(self, *, k: int = 2, **kwargs: Any) -> "PcaResult":
+        """Compute streaming sample PCA (O(n_individuals²) memory)."""
+        from .results import PcaResult
+        import tempfile
+        from pathlib import Path
+        import pandas as pd
+
+        if self._df is not None:
+            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+        else:
+            mpath = self._path  # type: ignore[assignment]
+
+        outpath = Path(tempfile.NamedTemporaryFile(suffix="_pca.tsv", delete=False).name)
+
+        import pyrsx as _pyrsx
+        _lowlevel_pca = getattr(_pyrsx, "pca", None)
+        if _lowlevel_pca is None:
+            raise NotImplementedError("Low-level pca not exposed yet in this build")
+
+        _lowlevel_pca(str(mpath), str(outpath), k=k, **kwargs)
+
+        res_df = pd.read_csv(outpath, sep="\t", comment="#")
+        return PcaResult(
+            _df=to_narwhals(res_df),
+            params={"k": k, **kwargs},
+            _input_backend=self._backend,
+        )
+
+    # Future methods: .depth_stats(), .distrib(), etc.
 
     # ------------------------------------------------------------------ #
     # Export / conversion
