@@ -147,6 +147,8 @@ def run_dataset(dataset_dir: Path, dataset: str, output_dir: Path, min_depth: in
             str(popmap),
             str(distrib_out),
             min_depth=min_depth,
+            group1="male",
+            group2="female",
             test="fisher",
             correction="fdr",
         )
@@ -187,6 +189,8 @@ def run_dataset(dataset_dir: Path, dataset: str, output_dir: Path, min_depth: in
                 str(popmap),
                 str(signif_out),
                 min_depth=min_depth,
+                group1="male",
+                group2="female",
                 correction="none",
                 test="chisq",
                 bayes=True,
