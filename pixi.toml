@@ -82,6 +82,7 @@ siuba = "*"
 [feature.benchmark.tasks]
 generate-data = { cmd = "python benchmarks/generate_data.py --outdir benchmarks/data-regenerated", description = "Regenerate synthetic RAD-seq benchmark data into benchmarks/data-regenerated" }
 build-rsx = { cmd = "cargo build --release", description = "Build the rsx release binary used by the benchmark harness" }
+build-radsex-cpp = { cmd = "bash benchmarks/build_radsex_cpp.sh", description = "Build C++ RADSex for same-input literature comparisons" }
 run-benchmarks = { cmd = "bash benchmarks/run_benchmarks.sh", description = "Run the benchmark suite against benchmarks/data", depends-on = ["build-rsx"] }
 plot-benchmarks = { cmd = "python benchmarks/plot_benchmarks.py --input benchmarks/results/benchmark_results.csv --output docs/figures", description = "Generate benchmark summary and SVG plots from results CSV" }
 check-benchmark-docs = { cmd = "python benchmarks/check_benchmark_docs.py --csv benchmarks/results/benchmark_results.csv --docs docs/orgmode/reference/benchmarks.org", description = "Validate benchmark documentation against the tracked CSV" }
