@@ -10,18 +10,23 @@ All commands match the original C++ RADSex CLI interface exactly.
 Build a marker depth table from demultiplexed reads.
 
 #+begin_src bash
-rsx process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth]
+rsx process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth] [-k kmer_size]
 #+end_src
 
-| Flag | Default | Description |
-|------+---------+-------------|
-| =-i= |         | Directory of FASTQ/FASTA files (gzip supported) |
-| =-o= |         | Output markers depth table |
-| =-T= | 1       | Number of threads |
-| =-d= | 1       | Minimum depth to retain a marker |
+| Flag | Default | Description                                                |
+|------+---------+------------------------------------------------------------|
+| =-i= |         | Directory of FASTQ/FASTA files (gzip supported)            |
+| =-o= |         | Output markers depth table                                 |
+| =-T= | 1       | Number of threads                                          |
+| =-d= | 1       | Minimum depth to retain a marker                           |
+| =-k= |         | Optional canonical k-mer deduplication before table output |
 
 Supported extensions: =.fq=, =.fastq=, =.fasta=, =.fa=, =.fna= (optionally =.gz=).
 Individual names are derived from filenames.
+
+Optional =-k= / =--kmer-dedup= groups markers by canonical k-mer of the
+given size before output. The representative marker from each k-mer group is
+the sequence with the highest total depth.
 
 ** distrib
 
@@ -50,28 +55,21 @@ rsx signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.
   [--correction bonferroni|fdr|none] [--test chisq|fisher|gtest] [--bayes] [-a]
 #+end_src
 
-| Flag           | Default     | Description                                    |
-|----------------+-------------+------------------------------------------------|
-| =--correction= | bonferroni  | Multiple testing: bonferroni, fdr, none        |
-| =--test=       | chisq       | Statistical test: chisq, fisher, gtest         |
-| =--bayes=      |             | Add Bayes Factor + posterior P(sex-linked) cols |
-| =-a=           |             | Output FASTA instead of table                  |
+| Flag           | Default    | Description                                      |
+|----------------+------------+--------------------------------------------------|
+| =--correction= | bonferroni | Multiple testing: bonferroni, fdr, none          |
+| =--test=       | chisq      | Statistical test: chisq, fisher, gtest           |
+| =--bayes=      |            | Add Bayes Factor + posterior P(sex-linked) cols  |
+| =-a=           |            | Output FASTA instead of table                    |
 
 Two-pass streaming: pass 1 counts markers, pass 2 writes directly.
 O(n_individuals) memory. FDR correction collects p-values first (uses
 more memory but still bounded).
 
-** process
-
-#+begin_src bash
-rsx process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth] [-k kmer_size]
-#+end_src
-
-Optional =-k= / =--kmer-dedup=: group markers by canonical k-mer of the
-given size before output. Collapses sequencing error variants, reducing
-the number of markers tested (more statistical power). The k-mer
-deduplication keeps the representative marker with highest total depth
-from each group.
+=--bayes= is table output. It adds =Bayes_Factor= and
+=Posterior_SexLinked= columns, where the posterior treats either compared
+group as the enriched sex-linked group. FASTA output with =-a= emits marker
+sequences and does not include table-only Bayesian columns.
 
 ** freq
 

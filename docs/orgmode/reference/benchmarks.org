@@ -89,7 +89,8 @@ The RADSex paper workflow describes the literature panel and its
 parameters in its public =data/info.tsv= and =config.yaml=. The medaka
 example gives a published benchmark target for =process=, =distrib=,
 =signif=, and =map= on a public dataset. The executable benchmark task
-queries NCBI SRA metadata, downloads reads with =fastq-dump=, runs the
+queries NCBI SRA metadata, downloads ENA FASTQ files with MD5 validation
+(with =--download-method fastq-dump= available as a fallback), runs the
 command set, and writes measured rows to
 =benchmarks/results/literature_benchmark_results.csv=:
 
@@ -102,6 +103,64 @@ For a single public literature dataset:
 #+begin_src bash
 pixi run -e benchmark run-literature-medaka
 #+end_src
+
+*** Completed biological benchmark panel
+
+The tracked paper-facing panel currently contains four completed datasets
+downloaded from the RADSex literature BioProject. These are full FASTQ runs,
+not synthetic marker tables.
+
+| Dataset                  | Samples | Bases        | Markers    | Total runtime (s) |
+|--------------------------+---------+--------------+------------+-------------------|
+| =danio_albolineatus=     |      58 | 10,200,185,246 | 29,357,812 |           967.408 |
+| =notothenia_rossii=      |      42 | 10,468,745,314 | 11,337,736 |           714.357 |
+| =plecoglossus_altivelis= |      65 |  9,924,715,896 |  7,338,124 |           748.643 |
+| =tinca_tinca=            |      43 | 11,257,335,754 |  6,932,387 |           988.278 |
+
+The paper figures are generated from the tracked CSV files:
+
+#+begin_src bash
+pixi run -e benchmark plot-literature-benchmarks
+#+end_src
+
+The generated figure and table assets are written to =docs/figures/=:
+
+- =literature_runtime_breakdown.svg=
+- =literature_marker_throughput.svg=
+- =literature_downstream_times.svg=
+- =literature_bayesian_evidence.svg=
+- =literature_radsex_speedups.svg=
+- =literature_benchmark_summary.tsv=
+- =literature_speedup_summary.tsv=
+- =literature_speedup_pairs.tsv=
+
+*** Literature speed comparison
+
+The same downloaded FASTQ inputs were processed by rsx-rs and by C++ RADSex
+v1.2.0 built in the Pixi benchmark environment. The C++ checkout requires
+the standard =<cstdint>= include fix for modern GCC, but the RADSex command
+behavior is otherwise unchanged.
+
+Across 56 paired command/dataset/depth timings, rsx-rs is faster in 54
+pairs. The geometric-mean speedup is 8.91x. Process-stage speedup is 2.09x
+geometric mean across the four literature datasets. =freq= and =distrib=
+show 26.35x and 29.76x geometric-mean speedups, respectively. =signif=
+is closer: 1.38x geometric mean, with two =plecoglossus_altivelis= depth
+rows where C++ is slightly faster.
+
+*** Bayesian biological evidence
+
+Bayesian evidence is summarized from the aggregated =distrib= tables without
+materializing marker-level multi-GB =signif --bayes= outputs. The summary is
+tracked in =benchmarks/results/literature_bayesian_evidence.csv= and plotted
+in =docs/figures/literature_bayesian_evidence.svg=.
+
+The strongest Bayesian signal in the current panel is
+=danio_albolineatus= at minimum depth 1: 61,191 markers have posterior
+P(sex-linked) > 0.5 and 4,297 markers have posterior > 0.9. The same
+Bonferroni FASTA extraction reports zero significant markers for that
+dataset, so the Bayesian summary adds a biological triage view that is not
+available from strict thresholded FASTA output alone.
 
 ** Raw timing data (seconds, median of 3 runs)
 

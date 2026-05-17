@@ -66,12 +66,72 @@ Run the full literature panel:
 pixi run -e benchmark run-literature-benchmarks
 #+end_src
 
+Generate Bayesian evidence summaries from completed =distrib= outputs:
+
+#+begin_src bash
+pixi run -e benchmark analyze-literature-bayes
+#+end_src
+
+Run same-input C++ RADSex vs rsx timing comparisons after building the C++
+binary:
+
+#+begin_src bash
+pixi run -e benchmark compare-literature-radsex --radsex /path/to/radsex/bin/radsex
+#+end_src
+
+Regenerate paper figures and summary TSVs:
+
+#+begin_src bash
+pixi run -e benchmark plot-literature-benchmarks
+#+end_src
+
 The runner writes raw downloads and command outputs under
 =benchmarks/literature-workdir/=, which is intentionally ignored by git. The
 tracked measured outputs are:
 
 - =benchmarks/results/literature_benchmark_results.csv=
+- =benchmarks/results/literature_bayesian_evidence.csv=
+- =benchmarks/results/literature_speed_comparison.csv=
 - =docs/figures/literature_benchmark_summary.tsv=
+- =docs/figures/literature_speedup_summary.tsv=
+- =docs/figures/literature_speedup_pairs.tsv=
+
+** Completed measurements
+
+| Dataset                  | Samples | Markers    | Total rsx runtime (s) | Significant FASTA markers |
+|--------------------------+---------+------------+-----------------------+---------------------------|
+| =danio_albolineatus=     |      58 | 29,357,812 |               967.408 |                         0 |
+| =notothenia_rossii=      |      42 | 11,337,736 |               714.357 |                         0 |
+| =plecoglossus_altivelis= |      65 |  7,338,124 |               748.643 |                       153 |
+| =tinca_tinca=            |      43 |  6,932,387 |               988.278 |                        24 |
+
+** Speed comparison summary
+
+The tracked =docs/figures/literature_speedup_summary.tsv= reports 56 paired
+C++ RADSex vs rsx timings across four datasets, command groups, and minimum
+depths. Rust wins 54 of 56 pairs. Geometric-mean speedups are:
+
+| Command family | Geometric mean speedup |
+|----------------+------------------------|
+| =process=      |                  2.09x |
+| =depth=        |                  6.98x |
+| =freq=         |                 26.35x |
+| =distrib=      |                 29.76x |
+| =signif=       |                  1.38x |
+
+** Bayesian evidence summary
+
+The Bayesian evidence table is generated from =distrib= count cells. It
+keeps compact biological evidence summaries without writing marker-level
+multi-GB Bayesian =signif= tables.
+
+| Dataset                  | Depth | Posterior > 0.5 | Posterior > 0.9 |
+|--------------------------+-------+-----------------+-----------------|
+| =danio_albolineatus=     |     1 |          61,191 |           4,297 |
+| =danio_albolineatus=     |     2 |          26,962 |           1,726 |
+| =plecoglossus_altivelis= |     1 |             880 |             498 |
+| =tinca_tinca=            |     1 |             127 |              21 |
+| =notothenia_rossii=      |     1 |               5 |               1 |
 
 ** Reporting split
 
