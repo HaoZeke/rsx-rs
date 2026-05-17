@@ -329,10 +329,11 @@ pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::e
         Field::new("cumulative", DataType::Float64, false),
     ]);
 
-    let mut comp_b = StringBuilder::new();
-    let mut ev_b = Float64Builder::new();
-    let mut frac_b = Float64Builder::new();
-    let mut cum_b = Float64Builder::new();
+    let n_rows = c.n_components;
+    let mut comp_b = StringBuilder::with_capacity(n_rows, n_rows * 4);
+    let mut ev_b = Float64Builder::with_capacity(n_rows);
+    let mut frac_b = Float64Builder::with_capacity(n_rows);
+    let mut cum_b = Float64Builder::with_capacity(n_rows);
 
     let mut cumulative = 0.0;
     for (k, &idx) in c.sorted_indices.iter().take(c.n_components).enumerate() {
@@ -363,8 +364,10 @@ pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::e
     }
     let loadings_schema = Schema::new(loading_fields);
 
-    let mut ind_b = StringBuilder::new();
-    let mut pc_builders: Vec<Float64Builder> = (0..c.n_components).map(|_| Float64Builder::new()).collect();
+    let n_ind = c.n_individuals;
+    let n_pc = c.n_components;
+    let mut ind_b = StringBuilder::with_capacity(n_ind, n_ind * 16);
+    let mut pc_builders: Vec<Float64Builder> = (0..n_pc).map(|_| Float64Builder::with_capacity(n_ind)).collect();
 
     for (i, name) in c.individual_names.iter().enumerate() {
         ind_b.append_value(name);

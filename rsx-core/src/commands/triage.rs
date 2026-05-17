@@ -265,27 +265,28 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
     };
 
     // === Direct-to-builder streaming (no intermediate Vec<OutRow>) ===
-    // Declare all builders before the stream so we can append inside the closure.
-    let mut id_b = StringBuilder::new();
-    let mut seq_b = StringBuilder::new();
-    let mut g1n_b = StringBuilder::new();
-    let mut g1p_b = UInt32Builder::new();
-    let mut g1t_b = UInt32Builder::new();
-    let mut g1pen_b = Float64Builder::new();
-    let mut g2n_b = StringBuilder::new();
-    let mut g2p_b = UInt32Builder::new();
-    let mut g2t_b = UInt32Builder::new();
-    let mut g2pen_b = Float64Builder::new();
-    let mut dir_b = StringBuilder::new();
-    let mut bias_b = Float64Builder::new();
-    let mut p_b = Float64Builder::new();
-    let mut cp_b = Float64Builder::new();
-    let mut bf_b = Float64Builder::new();
-    let mut post_b = Float64Builder::new();
-    let mut strict_b = BooleanBuilder::new();
-    let mut pcall_b = BooleanBuilder::new();
-    let mut bfcall_b = BooleanBuilder::new();
-    let mut class_b = StringBuilder::new();
+    // Pre-size builders with n_markers as safe upper bound (qualifying rows will be << n_markers).
+    let cap = n_markers as usize;
+    let mut id_b = StringBuilder::with_capacity(cap, cap * 16);
+    let mut seq_b = StringBuilder::with_capacity(cap, cap * 64);
+    let mut g1n_b = StringBuilder::with_capacity(cap, cap * 8);
+    let mut g1p_b = UInt32Builder::with_capacity(cap);
+    let mut g1t_b = UInt32Builder::with_capacity(cap);
+    let mut g1pen_b = Float64Builder::with_capacity(cap);
+    let mut g2n_b = StringBuilder::with_capacity(cap, cap * 8);
+    let mut g2p_b = UInt32Builder::with_capacity(cap);
+    let mut g2t_b = UInt32Builder::with_capacity(cap);
+    let mut g2pen_b = Float64Builder::with_capacity(cap);
+    let mut dir_b = StringBuilder::with_capacity(cap, cap * 16);
+    let mut bias_b = Float64Builder::with_capacity(cap);
+    let mut p_b = Float64Builder::with_capacity(cap);
+    let mut cp_b = Float64Builder::with_capacity(cap);
+    let mut bf_b = Float64Builder::with_capacity(cap);
+    let mut post_b = Float64Builder::with_capacity(cap);
+    let mut strict_b = BooleanBuilder::with_capacity(cap);
+    let mut pcall_b = BooleanBuilder::with_capacity(cap);
+    let mut bfcall_b = BooleanBuilder::with_capacity(cap);
+    let mut class_b = StringBuilder::with_capacity(cap, cap * 16);
 
     // Streaming pass – append qualifying rows directly into the Arrow builders
     stream.for_each(|marker| {

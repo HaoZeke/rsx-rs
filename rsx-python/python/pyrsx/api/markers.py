@@ -151,8 +151,10 @@ class MarkerTable:
         else:
             p = params
 
-        # Resolve to on-disk paths — use Parquet for the roundtrip (columnar, fast, compressible).
-        # This is the first step toward "no temp files" (true zero-copy Arrow will come from Rust).
+        # Resolve to on-disk paths for the Rust streaming readers.
+        # Output side is now pure in-memory Arrow IPC (no temp files on results).
+        # Input serialization is still required when passing DataFrames because
+        # the core readers (`MarkersTableStream` etc.) are path-based today.
         if self._df is not None:
             mpath = Path(tempfile.NamedTemporaryFile(suffix=".parquet", delete=False).name)
             from_narwhals(self._df, backend="pandas").to_parquet(mpath, index=False)
@@ -169,8 +171,8 @@ class MarkerTable:
 
         import pyrsx as _pyrsx
 
-        # Prefer the new direct Arrow path when we have in-memory data.
-        # This removes the temp file from the caller's perspective.
+        # Use the real Rust Arrow emitter for the result (pure in-memory IPC).
+        # The input table is still written to a temp file for the Rust reader.
         if self._df is not None:
             # Preferred path: Rust produces the data directly as Arrow
             arrow_table = _pyrsx.triage_to_arrow(
@@ -221,8 +223,8 @@ class MarkerTable:
         import pyrsx as _pyrsx
 
         if self._df is not None:
-            # Preferred fast path: write only the input table to temp (still small),
-            # then use the real Rust Arrow emitter.
+            # Write input to temp for the Rust reader, then use the real in-memory
+            # Arrow emitter (one-shot IPC for eigenvalues + loadings).
             mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
             from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
 
