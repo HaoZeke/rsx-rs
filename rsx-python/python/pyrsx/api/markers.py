@@ -38,22 +38,16 @@ class MarkerTable:
         path: str | Path | None = None,
         backend: Literal["pandas", "polars", "pyarrow", "auto"] = "auto",
     ) -> None:
-        """
-        Internal constructor. Prefer the classmethods `from_path` or
-        `from_dataframe`.
-        """
         if (data is None) == (path is None):
             raise ValueError("Exactly one of `data` or `path` must be provided.")
 
         self._path: Path | None = Path(path) if path is not None else None
         self._df: nw.DataFrame | None = None
-        self._backend = backend
+        self._backend: Literal[...] = backend
 
         if data is not None:
             if not is_dataframe_like(data):
-                raise TypeError(
-                    f"Expected a DataFrame-like object, got {type(data)}"
-                )
+                raise TypeError(f"Expected DataFrame-like, got {type(data)}")
             self._df = to_narwhals(data)
 
     # ------------------------------------------------------------------ #
@@ -101,20 +95,27 @@ class MarkerTable:
 
     @property
     def df(self) -> nw.DataFrame | None:
-        """The underlying narwhals DataFrame if the table was created in-memory."""
+        """Narwhals DataFrame when in-memory. Great for siuba/plotnine."""
         return self._df
 
-    def __repr__(self) -> str:
-        return (
-            f"MarkerTable(n_markers={self.n_markers}, "
-            f"n_individuals={self.n_individuals})"
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        if self._df is not None:
+            return getattr(self._df, name)
+        raise AttributeError(
+            f"MarkerTable (path-backed) has no attribute '{name}'. "
+            "Load it with from_dataframe() or access via .df after materializing."
         )
 
+    def __len__(self) -> int:
+        return self.n_markers
+
+    def __repr__(self) -> str:
+        return f"MarkerTable(n_markers={self.n_markers}, n_individuals={self.n_individuals})"
+
     def summary(self) -> str:
-        return (
-            f"MarkerTable with {self.n_markers} markers across "
-            f"{self.n_individuals} individuals"
-        )
+        return f"MarkerTable with {self.n_markers} markers across {self.n_individuals} individuals"
 
     # ------------------------------------------------------------------ #
     # Core analysis methods (stubs that will grow)
@@ -145,20 +146,21 @@ class MarkerTable:
         else:
             p = params
 
-        # Resolve to on-disk paths (tempfile roundtrip for v1 of the high-level API)
+        # Resolve to on-disk paths — use Parquet for the roundtrip (columnar, fast, compressible).
+        # This is the first step toward "no temp files" (true zero-copy Arrow will come from Rust).
         if self._df is not None:
-            mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
+            mpath = Path(tempfile.NamedTemporaryFile(suffix=".parquet", delete=False).name)
+            from_narwhals(self._df, backend="pandas").to_parquet(mpath, index=False)
         else:
             mpath = self._path  # type: ignore[assignment]
 
         if is_dataframe_like(popmap):
-            ppath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
-            from_narwhals(to_narwhals(popmap), backend="pandas").to_csv(ppath, sep="\t", index=False)
+            ppath = Path(tempfile.NamedTemporaryFile(suffix=".parquet", delete=False).name)
+            from_narwhals(to_narwhals(popmap), backend="pandas").to_parquet(ppath, index=False)
         else:
             ppath = Path(popmap)
 
-        outpath = Path(tempfile.NamedTemporaryFile(suffix="_triage.tsv", delete=False).name)
+        outpath = Path(tempfile.NamedTemporaryFile(suffix="_triage.parquet", delete=False).name)
 
         import pyrsx as _pyrsx
         _lowlevel_triage = _pyrsx.triage
@@ -176,7 +178,8 @@ class MarkerTable:
             group2=p.group2,
         )
 
-        res_df = pd.read_csv(outpath, sep="\t", comment="#")
+        # Read Parquet directly with pandas (very efficient columnar path)
+        res_df = pd.read_parquet(outpath)
         return TriageResult(
             _df=to_narwhals(res_df),
             params={

@@ -14,3 +14,8 @@ crate-type = ["cdylib"]
 [dependencies]
 rsx-core = { path = "../rsx-core", features = ["parallel"] }
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
+
+# Arrow support for zero-copy / direct data production (no more temp files)
+arrow-array = "54"
+arrow-schema = "54"
+# We will use pyo3 to return PyArrow objects (pragmatic high-perf path)

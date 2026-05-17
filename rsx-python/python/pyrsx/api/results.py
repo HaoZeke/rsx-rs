@@ -33,7 +33,7 @@ class TriageResult:
     """
 
     _df: nw.DataFrame
-    params: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any]
     _input_backend: Literal["pandas", "polars", "pyarrow", "auto"] = "auto"
 
     def __post_init__(self) -> None:
