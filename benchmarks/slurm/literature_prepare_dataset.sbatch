@@ -41,4 +41,5 @@ job_id=${SLURM_JOB_ID:-manual}
     --dataset "$dataset" \
     --workdir benchmarks/literature-workdir \
     --results "benchmarks/results/slurm/literature_benchmark_results_${dataset}_${job_id}.csv" \
-    --summary "benchmarks/results/slurm/literature_benchmark_summary_${dataset}_${job_id}.tsv"
+    --summary "benchmarks/results/slurm/literature_benchmark_summary_${dataset}_${job_id}.tsv" \
+    --force
