@@ -194,6 +194,27 @@ grounds the biological-value claim in the published RADSex workflow datasets:
 the Bayesian layer does not change the null-hypothesis test, but it exposes a
 ranked follow-up set when all-or-nothing FASTA extraction is empty.
 
+*** Biological inference role of extended features
+
+The extended rsx features map to biological interpretation tasks rather than
+standing alone as software claims:
+
+| Inference task | rsx feature | Biological use |
+|----------------+-------------+----------------|
+| Sequencing QC | =depth=, =freq=, =pca= | choose depth thresholds and flag outlier libraries |
+| Marker discovery | =distrib=, =signif= | test sex-biased marker presence/absence |
+| Exploratory ranking | FDR, Bayes posterior | prioritize candidates below strict Bonferroni calls |
+| Candidate validation | =subset= | inspect marker depths in individuals and outliers |
+| Locus localization | =map= | test whether candidates cluster on a sex chromosome |
+| Cross-run synthesis | =merge=, k-mer deduplication | combine lanes/panels and reduce redundant error variants |
+| Reproducible analysis | Python bindings, C API | integrate outputs into notebooks and workflow languages |
+
+The bounded-memory implementation supports inference by allowing the full
+marker table to be analyzed without downsampling. That matters for RAD-seq
+sex-determination studies because rare candidate markers are sensitive to
+minimum-depth thresholds, sequencing-error duplication, and sample-level
+library effects.
+
 *** Python binding feature evidence
 
 The =pyrsx= bindings expose the same Rust core through Python calls for
