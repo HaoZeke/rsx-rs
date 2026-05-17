@@ -57,6 +57,9 @@ compilers = ">=1.8"
 [feature.mpi.tasks]
 build-mpi = { cmd = "MPICC=$CONDA_PREFIX/bin/mpicc CC=$CONDA_PREFIX/bin/mpicc C_INCLUDE_PATH=$CONDA_PREFIX/include LIBRARY_PATH=$CONDA_PREFIX/lib RUSTFLAGS='-C target-cpu=native' cargo build --release --features mpi" }
 
+[feature.benchmark]
+platforms = ["linux-64"]
+
 [feature.benchmark.dependencies]
 python = ">=3.11"
 bc = "*"
