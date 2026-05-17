@@ -64,6 +64,7 @@ build-rsx = { cmd = "cargo build --release", description = "Build the rsx releas
 run-benchmarks = { cmd = "bash benchmarks/run_benchmarks.sh", description = "Run the benchmark suite against benchmarks/data", depends-on = ["build-rsx"] }
 plot-benchmarks = { cmd = "python benchmarks/plot_benchmarks.py --input benchmarks/results/benchmark_results.csv --output docs/figures", description = "Generate benchmark summary and SVG plots from results CSV" }
 package-figshare = { cmd = "bash repro/benchmarks/package_for_figshare.sh", description = "Prepare the benchmark data package for DOI deposition" }
+test-package = { cmd = "bash repro/benchmarks/test_package_for_figshare.sh", description = "Validate the benchmark DOI package layout" }
 
 [environments]
 default = { features = ["dev"], solve-group = "default" }

@@ -5,15 +5,16 @@ Reproducibility materials for the benchmarks reported in the rsx BMC Bioinformat
 If you use this repository or its parts please cite the corresponding publication.
 
 *** Primary Publication
-R. Goswami and R. Goswami, “rsx: a high-performance streaming toolkit for RAD-seq sex determination,” BMC Bioinformatics, 2026 (submitted).
+Rohit Goswami and Ruhila Goswami, "rsx: a high-performance streaming toolkit for RAD-seq sex determination," manuscript prepared for BMC Bioinformatics.
 
 ** Replication data
-The exact input data, generated marker tables, and benchmark result CSV used for the numbers in the manuscript are in the repository under `benchmarks/data/` and `benchmarks/results/`. The package script in `repro/benchmarks/` prepares the same files for DOI deposition.
+The exact input data, generated marker tables, and benchmark result CSV used for the numbers in the manuscript are in the repository under `benchmarks/data/` and `benchmarks/results/`. The package script in `repro/benchmarks/` prepares the same layout for DOI deposition.
 
 To use:
 
 1. Use the tracked `benchmarks/data/` and `benchmarks/results/benchmark_results.csv` directly, or prepare a deposition package with `pixi run -e benchmark package-figshare`.
-2. Set `BENCH_DATA` or `BENCH_RESULTS` only when using alternate data or result locations.
+2. The package preserves the `benchmarks/data/` and `benchmarks/results/` paths expected by the scripts.
+3. Set `BENCH_DATA` or `BENCH_RESULTS` only when using alternate data or result locations.
 
 See the sections below for regenerating or re-running.
 
