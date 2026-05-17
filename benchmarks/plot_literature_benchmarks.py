@@ -267,7 +267,7 @@ def plot_bayesian_evidence(path: Path, output_dir: Path, colors: dict[str, str])
         id_vars=["dataset_label", "min_depth"],
         value_vars=["markers_bf_gt_10", "markers_posterior_gt_0_9"],
         var_name="metric",
-        value_name="markers",
+        value_name="marker_count",
     )
     long["metric"] = long["metric"].map(
         {
@@ -275,9 +275,9 @@ def plot_bayesian_evidence(path: Path, output_dir: Path, colors: dict[str, str])
             "markers_posterior_gt_0_9": "Posterior > 0.9",
         }
     )
-    long["markers"] = long["markers"] / 1_000_000.0
+    long["marker_count"] = long["marker_count"] / 1_000_000.0
     plot = (
-        ggplot(long, aes(x="factor(min_depth)", y="markers", fill="metric"))
+        ggplot(long, aes(x="factor(min_depth)", y="marker_count", fill="metric"))
         + geom_col(position="dodge", width=0.72)
         + facet_wrap("~ dataset_label", scales="free_y")
         + scale_fill_manual(values={"Bayes factor > 10": colors["sky"], "Posterior > 0.9": colors["magenta"]})
