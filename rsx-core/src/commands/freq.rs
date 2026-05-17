@@ -27,8 +27,23 @@ pub fn run(params: &FreqParams) -> Result<(), Box<dyn std::error::Error>> {
     let stream = MarkersTableStream::open(table_path, None, config)?;
     let n_individuals = stream.header.n_individuals as usize;
 
-    let mut frequency: Vec<u32> = vec![0; n_individuals + 1];
+    #[cfg(feature = "parallel")]
+    let frequency = stream.par_fold_reduce(
+        vec![0u32; n_individuals + 1],
+        |freq, marker| {
+            freq[marker.n_individuals as usize] += 1;
+        },
+        |mut a, b| {
+            for (dst, src) in a.iter_mut().zip(b) {
+                *dst += src;
+            }
+            a
+        },
+    )?;
 
+    #[cfg(not(feature = "parallel"))]
+    let mut frequency: Vec<u32> = vec![0; n_individuals + 1];
+    #[cfg(not(feature = "parallel"))]
     stream.for_each(|marker| {
         frequency[marker.n_individuals as usize] += 1;
     })?;

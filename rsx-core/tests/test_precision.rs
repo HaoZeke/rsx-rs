@@ -253,6 +253,43 @@ fn test_bitset_group_counts_consistent() {
     }
 }
 
+#[test]
+fn test_markers_table_crlf_depth_fields() {
+    use rsx_core::markers_table::{MarkersTableStream, ParserConfig};
+
+    let dir = test_dir().join("markers_crlf");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    f.write_all(
+        b"#Number of markers : 2\r\nid\tsequence\tind1\tind2\r\n0\tAAAA\t1\t0\r\n1\tCCCC\t5\t0\r\n",
+    )
+    .unwrap();
+
+    let fast_config = ParserConfig {
+        store_sequence: false,
+        store_depths: false,
+        compute_groups: false,
+        min_depth: 1,
+    };
+    let fast_stream = MarkersTableStream::open(&table, None, fast_config).unwrap();
+    let fast_markers = fast_stream.collect().unwrap();
+    assert_eq!(fast_markers[0].n_individuals, 1);
+    assert_eq!(fast_markers[1].n_individuals, 1);
+
+    let depth_config = ParserConfig {
+        store_sequence: false,
+        store_depths: true,
+        compute_groups: false,
+        min_depth: 5,
+    };
+    let depth_stream = MarkersTableStream::open(&table, None, depth_config).unwrap();
+    let depth_markers = depth_stream.collect().unwrap();
+    assert_eq!(depth_markers[1].individual_depths.as_slice(), &[5, 0]);
+    assert_eq!(depth_markers[1].n_individuals, 1);
+}
+
 // === End-to-end golden tests with known outputs ===
 
 #[test]

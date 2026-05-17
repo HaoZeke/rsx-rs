@@ -127,10 +127,8 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
         (groups.group2.clone(), &mask_g2),
     ];
 
-    // For FDR: collect p-values first, then apply BH, then write
+    // For FDR: collect p-values first, then apply BH, then write.
     if matches!(params.correction, CorrectionMethod::Fdr) {
-        // Collect all p-values and marker data
-        let mut p_values: Vec<f64> = Vec::new();
         // Store marker data for FDR output, including the original id for TSV identity.
         // BH ranking requires p-values and row data for the full table.
         struct FdrEntry {
@@ -140,6 +138,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
             g1: u32,
             g2: u32,
         }
+        let mut p_values: Vec<f64> = Vec::new();
         let mut marker_data: Vec<FdrEntry> = Vec::new();
 
         stream2.for_each(|marker| {
@@ -180,7 +179,7 @@ pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     } else {
-        // Bonferroni or none: stream directly
+        // Bonferroni or none: stream qualifying markers in table order.
         stream2.for_each(|marker| {
             if marker.n_individuals > 0 {
                 let g1 = marker.presence.count_masked(&mask_g1);

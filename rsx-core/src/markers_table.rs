@@ -16,6 +16,9 @@ use crate::popmap::Popmap;
 use memmap2::Mmap;
 use std::path::Path;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Configuration for the markers table parser.
 pub struct ParserConfig {
     pub store_sequence: bool,
@@ -110,7 +113,7 @@ impl MarkersTableStream {
     }
 
     /// Process all markers. Uses fast path when sequence isn't needed.
-    pub fn for_each<F>(&self, mut f: F) -> std::io::Result<()>
+    pub fn for_each<F>(&self, f: F) -> std::io::Result<()>
     where
         F: FnMut(&Marker),
     {
@@ -118,23 +121,12 @@ impl MarkersTableStream {
         if data.is_empty() {
             return Ok(());
         }
-
-        if !self.config.store_sequence && !self.config.store_depths && self.config.min_depth <= 1 {
-            // FAST PATH: skip id+seq, threshold=1 means just check != "0"
-            self.for_each_fast_d1(data, &mut f);
-        } else if !self.config.store_sequence {
-            // MEDIUM PATH: skip id+seq, but need integer parse for depth
-            self.for_each_skip_seq(data, &mut f);
-        } else {
-            // SLOW PATH: need sequence (for signif/subset FASTA output)
-            self.for_each_full(data, &mut f);
-        }
-
-        Ok(())
+        self.dispatch_on_slice(data, f)
     }
 
     /// Fast path: min_depth=1, no sequence or depth values needed.
     /// Skip id+seq fields. Check "0" vs non-"0" without integer parse.
+    /// Uses one delimiter pass over each line.
     #[inline]
     fn for_each_fast_d1<F>(&self, data: &[u8], f: &mut F)
     where
@@ -144,50 +136,50 @@ impl MarkersTableStream {
         let mut pos = 0;
 
         while pos < data.len() {
-            // Find end of line
             let line_end = memchr::memchr(b'\n', &data[pos..])
                 .map(|p| pos + p)
                 .unwrap_or(data.len());
 
-            let line = &data[pos..line_end];
+            let line = strip_cr(&data[pos..line_end]);
             pos = line_end + 1;
 
-            // Skip id field (find 1st tab)
-            let tab1 = match memchr::memchr(b'\t', line) {
-                Some(p) => p,
-                None => continue,
-            };
-            // Skip sequence field (find 2nd tab)
-            let tab2 = match memchr::memchr(b'\t', &line[tab1 + 1..]) {
-                Some(p) => tab1 + 1 + p,
-                None => continue,
-            };
+            // Collect tab positions once for the line.
+            let tabs: Vec<usize> = memchr::memchr_iter(b'\t', line).collect();
+            if tabs.len() < 2 {
+                continue;
+            }
 
-            // Parse depth fields: everything after tab2
+            let tab2 = tabs[1];
+            let depth_start = tab2 + 1;
+            let depth_section = &line[depth_start..];
+
             let mut col = 0usize;
-            let mut field_start = tab2 + 1;
+            let mut field_start = 0usize;
 
-            while field_start < line.len() {
-                // Find next tab or end of line
-                let field_end = memchr::memchr(b'\t', &line[field_start..])
-                    .map(|p| field_start + p)
-                    .unwrap_or(line.len());
+            for &abs_tab in tabs.iter().skip(2) {
+                let rel_tab = abs_tab - depth_start;
+                let field = &depth_section[field_start..rel_tab];
 
-                let field = &line[field_start..field_end];
-
-                // min_depth=1: present iff field != "0"
                 let is_zero = field.len() == 1 && field[0] == b'0';
                 if !is_zero && !field.is_empty() && col < self.n_individuals as usize {
                     marker.presence.set(col);
                     marker.n_individuals += 1;
                 }
-
                 col += 1;
-                field_start = field_end + 1;
+                field_start = rel_tab + 1;
+            }
+
+            if field_start < depth_section.len() {
+                let field = &depth_section[field_start..];
+                let is_zero = field.len() == 1 && field[0] == b'0';
+                if !is_zero && !field.is_empty() && col < self.n_individuals as usize {
+                    marker.presence.set(col);
+                    marker.n_individuals += 1;
+                }
             }
 
             f(&marker);
-            marker.reset(true); // keep_sequence=true (no sequence to clear)
+            marker.reset(true);
         }
     }
 
@@ -206,10 +198,10 @@ impl MarkersTableStream {
                 .map(|p| pos + p)
                 .unwrap_or(data.len());
 
-            let line = &data[pos..line_end];
+            let line = strip_cr(&data[pos..line_end]);
             pos = line_end + 1;
 
-            // Skip id + sequence
+            // Skip id + sequence.
             let tab1 = match memchr::memchr(b'\t', line) {
                 Some(p) => p,
                 None => continue,
@@ -219,15 +211,7 @@ impl MarkersTableStream {
                 None => continue,
             };
 
-            let mut col = 0usize;
-            let mut field_start = tab2 + 1;
-
-            while field_start < line.len() {
-                let field_end = memchr::memchr(b'\t', &line[field_start..])
-                    .map(|p| field_start + p)
-                    .unwrap_or(line.len());
-
-                let field = &line[field_start..field_end];
+            for_each_depth_field(line, tab2, |col, field| {
                 let depth = fast_parse_u16(field);
 
                 if col < self.n_individuals as usize {
@@ -239,10 +223,7 @@ impl MarkersTableStream {
                         marker.n_individuals += 1;
                     }
                 }
-
-                col += 1;
-                field_start = field_end + 1;
-            }
+            });
 
             f(&marker);
             marker.reset(true);
@@ -316,6 +297,129 @@ impl MarkersTableStream {
     pub fn iter(&self) -> impl Iterator<Item = Marker> {
         self.collect().unwrap_or_default().into_iter()
     }
+
+    /// Returns line-aligned chunks of the data for parallel processing.
+    /// Target chunk size ~1 MiB for good granularity on large tables.
+    #[cfg(feature = "parallel")]
+    fn make_line_aligned_chunks<'a>(&self, data: &'a [u8], target: usize) -> Vec<&'a [u8]> {
+        let mut chunks = Vec::new();
+        let mut start = 0usize;
+        while start < data.len() {
+            let mut end = (start + target).min(data.len());
+            if end < data.len() {
+                if let Some(rel) = memchr::memchr(b'\n', &data[end..]) {
+                    end = end + rel + 1;
+                } else {
+                    end = data.len();
+                }
+            }
+            if end > start {
+                chunks.push(&data[start..end]);
+            }
+            start = end;
+        }
+        chunks
+    }
+
+    /// Parallel for_each when the "parallel" feature is enabled.
+    /// Splits the mmap into ~1 MiB line-aligned chunks and processes them
+    /// concurrently with rayon. The closure must be `Send + Sync`.
+    ///
+    /// Use this for strong scaling on large marker tables (100k+ rows) on
+    /// multi-core machines for commands like distrib, signif (non-FDR), freq, depth.
+    ///
+    /// For FDR in signif, the caller must use a thread-safe collector (e.g. DashMap
+    /// or crossbeam channel + final sort by original order).
+    #[cfg(feature = "parallel")]
+    pub fn par_for_each<F>(&self, f: F) -> std::io::Result<()>
+    where
+        F: Fn(&Marker) + Send + Sync,
+    {
+        let data = &self.mmap[self.data_start..];
+        if data.is_empty() {
+            return Ok(());
+        }
+
+        let target_chunk = 1 << 20;
+        let chunks = self.make_line_aligned_chunks(data, target_chunk);
+
+        chunks
+            .into_par_iter()
+            .try_for_each(|chunk| self.process_slice_serial(chunk, &f))
+    }
+
+    /// Internal dispatcher: run the appropriate specialized parser on a data slice,
+    /// feeding every marker to the given visitor.
+    fn dispatch_on_slice<F>(&self, slice: &[u8], mut visit: F) -> std::io::Result<()>
+    where
+        F: FnMut(&Marker),
+    {
+        if !self.config.store_sequence
+            && !self.config.store_depths
+            && self.config.min_depth <= 1
+        {
+            self.for_each_fast_d1(slice, &mut visit);
+        } else if !self.config.store_sequence {
+            self.for_each_skip_seq(slice, &mut visit);
+        } else {
+            self.for_each_full(slice, &mut visit);
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "parallel")]
+    fn process_slice_serial<F>(&self, slice: &[u8], f: &F) -> std::io::Result<()>
+    where
+        F: Fn(&Marker),
+    {
+        self.dispatch_on_slice(slice, |m| f(m))
+    }
+
+    /// Parallel fold + reduce for accumulation without per-marker locking.
+    ///
+    /// This is the ergonomic high-level API for strong scaling.
+    ///
+    /// Each rayon thread processes one or more chunks, maintaining a local `Acc`
+    /// and calling `fold(&mut local, &marker)` for every marker. At the end the
+    /// per-chunk accumulators are combined with `reduce`.
+    ///
+    /// This enables lock-free parallel accumulation for:
+    /// - distrib 2D tables
+    /// - per-individual depth/freq stats
+    /// - FDR p-value collection (fold into Vec of (p, metadata))
+    #[cfg(feature = "parallel")]
+    pub fn par_fold_reduce<Acc, Fold, Reduce>(
+        &self,
+        init: Acc,
+        fold: Fold,
+        reduce: Reduce,
+    ) -> std::io::Result<Acc>
+    where
+        Acc: Send + Sync + Clone,
+        Fold: Fn(&mut Acc, &Marker) + Send + Sync + Clone,
+        Reduce: Fn(Acc, Acc) -> Acc + Send + Sync,
+    {
+        let data = &self.mmap[self.data_start..];
+        if data.is_empty() {
+            return Ok(init);
+        }
+
+        let target_chunk = 1 << 20;
+        let chunks = self.make_line_aligned_chunks(data, target_chunk);
+
+        let result = chunks
+            .into_par_iter()
+            .map(|chunk| {
+                let mut local = init.clone();
+                let _ = self.dispatch_on_slice(chunk, |marker| {
+                    fold(&mut local, marker);
+                });
+                local
+            })
+            .reduce(|| init.clone(), reduce);
+
+        Ok(result)
+    }
 }
 
 #[inline(always)]
@@ -351,4 +455,39 @@ fn handle_field(
             }
         }
     }
+}
+
+/// Calls `f(col, field_bytes)` for every depth field after the second tab.
+/// Uses `memchr_iter` for a single pass over the depth section.
+#[inline]
+fn for_each_depth_field<F>(line: &[u8], tab2: usize, mut f: F)
+where
+    F: FnMut(usize, &[u8]),
+{
+    let depth_start = tab2 + 1;
+    if depth_start >= line.len() {
+        return;
+    }
+
+    let depth_section = &line[depth_start..];
+    let mut col = 0usize;
+    let mut field_start = 0usize;
+
+    for tab_pos in memchr::memchr_iter(b'\t', depth_section) {
+        let field = &depth_section[field_start..tab_pos];
+        f(col, field);
+        col += 1;
+        field_start = tab_pos + 1;
+    }
+
+    // Last field
+    if field_start < depth_section.len() {
+        let field = &depth_section[field_start..];
+        f(col, field);
+    }
+}
+
+#[inline(always)]
+fn strip_cr(line: &[u8]) -> &[u8] {
+    line.strip_suffix(b"\r").unwrap_or(line)
 }

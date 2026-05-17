@@ -51,8 +51,6 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let rows = (total_g1 + 1) as usize;
     let cols = (total_g2 + 1) as usize;
-    let mut distribution: Vec<Vec<u64>> = vec![vec![0; cols]; rows];
-    let mut n_markers: u64 = 0;
 
     // Pre-compute group masks for popcount-based counting
     let mask_g1 =
@@ -60,9 +58,35 @@ pub fn run(params: &DistribParams) -> Result<(), Box<dyn std::error::Error>> {
     let mask_g2 =
         GroupMask::from_columns(&stream.groups, &groups.group2, stream.header.n_individuals);
 
+    #[cfg(feature = "parallel")]
+    let (distribution, n_markers) = stream.par_fold_reduce(
+        (vec![vec![0u64; cols]; rows], 0u64),
+        |(dist, n), marker| {
+            if marker.n_individuals > 0 {
+                let g1 = marker.presence.count_masked(&mask_g1) as usize;
+                let g2 = marker.presence.count_masked(&mask_g2) as usize;
+                dist[g1][g2] += 1;
+                *n += 1;
+            }
+        },
+        |(mut a, na), (b, nb)| {
+            for (row_a, row_b) in a.iter_mut().zip(b) {
+                for (cell_a, cell_b) in row_a.iter_mut().zip(row_b) {
+                    *cell_a += cell_b;
+                }
+            }
+            (a, na + nb)
+        },
+    )?;
+
+    #[cfg(not(feature = "parallel"))]
+    let mut distribution: Vec<Vec<u64>> = vec![vec![0; cols]; rows];
+    #[cfg(not(feature = "parallel"))]
+    let mut n_markers: u64 = 0;
+
+    #[cfg(not(feature = "parallel"))]
     stream.for_each(|marker| {
         if marker.n_individuals > 0 {
-            // popcount: O(1) per group instead of HashMap lookup
             let g1 = marker.presence.count_masked(&mask_g1) as usize;
             let g2 = marker.presence.count_masked(&mask_g2) as usize;
             distribution[g1][g2] += 1;
