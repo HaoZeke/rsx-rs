@@ -52,6 +52,7 @@ pytest = ">=8"
 [feature.python.tasks]
 build-python = { cmd = "cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release" }
 test-python = { cmd = "pytest rsx-python/tests/", depends-on = ["build-python"] }
+run-literature-bindings = { cmd = "python benchmarks/run_literature_bindings.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_binding_results.csv --dataset notothenia_rossii --min-depth 10", depends-on = ["build-python"] }
 
 [feature.mpi.dependencies]
 mpich = "*"
@@ -90,6 +91,7 @@ run-literature-benchmarks = { cmd = "python benchmarks/run_literature_benchmarks
 run-literature-medaka = { cmd = "python benchmarks/run_literature_benchmarks.py --manifest benchmarks/literature_datasets.tsv --dataset oryzias_latipes --results benchmarks/results/literature_benchmark_results.csv --summary docs/figures/literature_benchmark_summary.tsv", description = "Download and run the public medaka literature benchmark", depends-on = ["build-rsx"] }
 analyze-literature-bayes = { cmd = "python benchmarks/analyze_bayesian_evidence.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_bayesian_evidence.csv", description = "Summarize Bayesian sex-linkage evidence from literature distribution tables" }
 compare-literature-radsex = { cmd = "python benchmarks/compare_literature_radsex.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_speed_comparison.csv", description = "Run same-input rsx vs C++ RADSex timing comparisons on downloaded literature data", depends-on = ["build-rsx"] }
+merge-literature-slurm-results = { cmd = "python benchmarks/merge_literature_results.py --input-dir benchmarks/results/slurm --pattern 'literature_speed_comparison_*.csv' --output benchmarks/results/literature_speed_comparison.csv", description = "Merge Slurm per-dataset literature comparison CSVs" }
 plot-literature-benchmarks = { cmd = "python benchmarks/plot_literature_benchmarks.py --input benchmarks/results/literature_benchmark_results.csv --bayesian benchmarks/results/literature_bayesian_evidence.csv --comparison benchmarks/results/literature_speed_comparison.csv --output docs/figures", description = "Generate paper figures from literature benchmark and Bayesian evidence CSVs" }
 package-figshare = { cmd = "bash repro/benchmarks/package_for_figshare.sh", description = "Prepare the benchmark data package for DOI deposition" }
 test-package = { cmd = "bash repro/benchmarks/test_package_for_figshare.sh", description = "Validate the benchmark DOI package layout" }
@@ -99,4 +101,5 @@ default = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
 benchmark = { features = ["benchmark"], solve-group = "default" }
 python = { features = ["python"], solve-group = "default" }
+paper = { features = ["benchmark", "python"], solve-group = "default" }
 mpi = { features = ["dev", "mpi"], solve-group = "default" }

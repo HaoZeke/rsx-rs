@@ -6,7 +6,8 @@
 
 Rust rewrite of [[https://github.com/RomainFeron/RADSex][RADSex]], a
 computational pipeline for analyzing sex-determination using RAD-Sequencing
-data. Drop-in CLI replacement with C FFI for language bindings.
+data. Drop-in CLI replacement with Python bindings and C FFI for downstream
+workflow integration.
 
 ** Features
 
@@ -20,7 +21,8 @@ data. Drop-in CLI replacement with C FFI for language bindings.
 - Parallel file processing via [[https://docs.rs/rayon][rayon]]
 - minimap2 alignment (replaces BWA-MEM)
 - Optional Parquet output for merge (=--features parquet-io=)
-- C API with cbindgen for R/Python/C++ integration
+- Python bindings for notebook and workflow use; C API with cbindgen for
+  R/Python/C++ integration
 - Cross-platform: Linux, macOS (Intel + Apple Silicon), Windows (without map)
 - SymPy/Sollya mathematical proofs for all optimizations
 

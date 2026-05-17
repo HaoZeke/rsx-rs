@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import math
 from pathlib import Path
 
 from benchmarks.analyze_bayesian_evidence import (
@@ -9,7 +10,9 @@ from benchmarks.analyze_bayesian_evidence import (
 )
 from benchmarks.plot_literature_benchmarks import (
     FALLBACK_RUHI_COLORS,
+    candidate_recovery_rows,
     load_ruhi_colors,
+    prepare_compute_phase_rows,
     summarize_dataset_rows,
 )
 
@@ -63,8 +66,43 @@ class LiteraturePlotTests(unittest.TestCase):
         self.assertEqual(summary[0]["markers"], "100")
         self.assertEqual(summary[0]["analysis_seconds"], "2.000")
         self.assertEqual(summary[0]["total_seconds"], "7.000")
+        self.assertEqual(summary[0]["compute_seconds"], "4.000")
         self.assertEqual(summary[0]["markers_per_second"], "50.000")
         self.assertEqual(summary[0]["significant_markers"], "4")
+
+    def test_compute_phase_rows_exclude_downloads(self):
+        rows = [
+            {"dataset": "toy_species", "dataset_label": "Toy Species", "command": "download", "elapsed_seconds": 30.0},
+            {"dataset": "toy_species", "dataset_label": "Toy Species", "command": "process", "elapsed_seconds": 2.0},
+            {"dataset": "toy_species", "dataset_label": "Toy Species", "command": "freq", "elapsed_seconds": 0.5},
+            {"dataset": "toy_species", "dataset_label": "Toy Species", "command": "signif", "elapsed_seconds": 1.5},
+        ]
+
+        phases = prepare_compute_phase_rows(rows)
+
+        self.assertEqual(
+            phases,
+            [
+                {"dataset": "toy_species", "dataset_label": "Toy Species", "phase": "Process", "elapsed_seconds": 2.0},
+                {"dataset": "toy_species", "dataset_label": "Toy Species", "phase": "Downstream analysis", "elapsed_seconds": 2.0},
+            ],
+        )
+
+    def test_candidate_recovery_rows_compare_strict_and_posterior_counts(self):
+        evidence = [
+            {"dataset": "toy_species", "min_depth": "1", "markers_posterior_gt_0_9": "9", "markers_posterior_gt_0_5": "12"},
+        ]
+        benchmark = [
+            {"dataset": "toy_species", "command": "signif", "min_depth": "1", "significant_markers": "0"},
+        ]
+
+        rows = candidate_recovery_rows(evidence, benchmark)
+
+        self.assertEqual(rows[0]["metric"], "Strict Bonferroni FASTA")
+        self.assertEqual(rows[0]["marker_count"], 0)
+        self.assertEqual(rows[1]["metric"], "Posterior > 0.9")
+        self.assertEqual(rows[1]["marker_count"], 9)
+        self.assertAlmostEqual(rows[1]["log10_marker_count_plus_one"], math.log10(10.0))
 
     def test_ruhi_palette_falls_back_to_chemparseplot_colors(self):
         colors = load_ruhi_colors()

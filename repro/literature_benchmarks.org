@@ -79,6 +79,22 @@ binary:
 pixi run -e benchmark compare-literature-radsex --radsex /path/to/radsex/bin/radsex
 #+end_src
 
+On a Slurm cluster, use the per-dataset array script so the comparison stage
+measures compute time from prepared FASTQ/marker-table inputs rather than
+download throughput:
+
+#+begin_src bash
+sbatch --export=ALL,RSX_REPO=$PWD,RADSEX_BIN=/path/to/radsex \
+  benchmarks/slurm/literature_radsex_compare.sbatch
+pixi run -e benchmark merge-literature-slurm-results
+#+end_src
+
+Run Python-binding feature evidence on a published RADSex workflow dataset:
+
+#+begin_src bash
+pixi run -e paper run-literature-bindings
+#+end_src
+
 Regenerate paper figures and summary TSVs:
 
 #+begin_src bash
@@ -92,6 +108,7 @@ tracked measured outputs are:
 - =benchmarks/results/literature_benchmark_results.csv=
 - =benchmarks/results/literature_bayesian_evidence.csv=
 - =benchmarks/results/literature_speed_comparison.csv=
+- =benchmarks/results/literature_binding_results.csv=
 - =docs/figures/literature_benchmark_summary.tsv=
 - =docs/figures/literature_speedup_summary.tsv=
 - =docs/figures/literature_speedup_pairs.tsv=
@@ -132,6 +149,18 @@ multi-GB Bayesian =signif= tables.
 | =plecoglossus_altivelis= |     1 |             880 |             498 |
 | =tinca_tinca=            |     1 |             127 |              21 |
 | =notothenia_rossii=      |     1 |               5 |               1 |
+
+** Feature evidence matrix
+
+Every paper claim should point to a real run:
+
+| Feature claim           | Dataset basis                         | Result artifact |
+|-------------------------+---------------------------------------+-----------------|
+| RADSex CLI compatibility | Four RADSex workflow FASTQ datasets   | =literature_speed_comparison.csv= |
+| Faster compute           | Same inputs vs C++ RADSex v1.2.0      | =literature_radsex_speedups.svg= |
+| Bayesian biological value | Same =distrib= outputs and popmaps    | =literature_candidate_recovery.svg= |
+| Python ease of use       | Published marker table via =pyrsx=    | =literature_binding_results.csv= |
+| Streaming PCA/stat tests | Published marker table via =pyrsx=    | =literature_binding_results.csv= |
 
 ** Reporting split
 

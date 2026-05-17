@@ -117,7 +117,10 @@ not synthetic marker tables.
 | =plecoglossus_altivelis= |      65 |  9,924,715,896 |  7,338,124 |           748.643 |
 | =tinca_tinca=            |      43 | 11,257,335,754 |  6,932,387 |           988.278 |
 
-The paper figures are generated from the tracked CSV files:
+The paper figures are generated from the tracked CSV files. The runtime
+figure reports compute time only (=process= plus downstream analysis);
+download time is retained in the raw CSV for reproducibility accounting but
+is not used as a performance claim.
 
 #+begin_src bash
 pixi run -e benchmark plot-literature-benchmarks
@@ -126,9 +129,11 @@ pixi run -e benchmark plot-literature-benchmarks
 The generated figure and table assets are written to =docs/figures/=:
 
 - =literature_runtime_breakdown.svg=
+- =literature_compute_breakdown.svg=
 - =literature_marker_throughput.svg=
 - =literature_downstream_times.svg=
 - =literature_bayesian_evidence.svg=
+- =literature_candidate_recovery.svg=
 - =literature_radsex_speedups.svg=
 - =literature_benchmark_summary.tsv=
 - =literature_speedup_summary.tsv=
@@ -148,6 +153,16 @@ show 26.35x and 29.76x geometric-mean speedups, respectively. =signif=
 is closer: 1.38x geometric mean, with two =plecoglossus_altivelis= depth
 rows where C++ is slightly faster.
 
+On Slurm clusters, submit per-dataset compute-only comparisons as an array
+job after the FASTQ files and marker tables have been prepared:
+
+#+begin_src bash
+sbatch --export=ALL,RSX_REPO=$PWD,RADSEX_BIN=/path/to/radsex \
+  benchmarks/slurm/literature_radsex_compare.sbatch
+pixi run -e benchmark merge-literature-slurm-results
+pixi run -e benchmark plot-literature-benchmarks
+#+end_src
+
 *** Bayesian biological evidence
 
 Bayesian evidence is summarized from the aggregated =distrib= tables without
@@ -161,6 +176,36 @@ P(sex-linked) > 0.5 and 4,297 markers have posterior > 0.9. The same
 Bonferroni FASTA extraction reports zero significant markers for that
 dataset, so the Bayesian summary adds a biological triage view that is not
 available from strict thresholded FASTA output alone.
+
+The candidate-recovery figure compares strict Bonferroni FASTA marker counts
+with posterior-ranked candidates at the same dataset/depth settings. This
+grounds the biological-value claim in the published RADSex workflow datasets:
+the Bayesian layer does not change the null-hypothesis test, but it exposes a
+ranked follow-up set when all-or-nothing FASTA extraction is empty.
+
+*** Python binding feature evidence
+
+The =pyrsx= bindings expose the same Rust core through Python calls for
+workflow notebooks and downstream analysis code. The literature binding run
+uses the downloaded RADSex marker table and popmap rather than synthetic test
+fixtures:
+
+#+begin_src bash
+pixi run -e paper run-literature-bindings
+#+end_src
+
+On Slurm:
+
+#+begin_src bash
+sbatch --export=ALL,RSX_REPO=$PWD,RSX_DATASET=notothenia_rossii \
+  benchmarks/slurm/literature_bindings_features.sbatch
+#+end_src
+
+The run writes =benchmarks/results/literature_binding_results.csv= or a
+job-specific Slurm result CSV. It exercises =pyrsx.freq=, =pyrsx.depth=,
+=pyrsx.distrib(test='fisher', correction='fdr')=, =pyrsx.pca=, and
+=pyrsx.signif(bayes=True)= on a published RADSex workflow dataset, giving the
+paper an ease-of-use claim backed by real inputs and measured outputs.
 
 ** Raw timing data (seconds, median of 3 runs)
 
