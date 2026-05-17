@@ -67,6 +67,7 @@ fn create_test_fastq_dir(dir: &std::path::Path) -> PathBuf {
     input_dir
 }
 
+#[cfg(feature = "map")]
 fn create_test_genome(dir: &std::path::Path) -> PathBuf {
     let path = dir.join("genome.fa");
     let mut f = std::fs::File::create(&path).unwrap();
