@@ -68,7 +68,10 @@ channels = ["bioconda"]
 [feature.benchmark.dependencies]
 python = ">=3.11,<3.13"
 bc = "*"
+cmake = "*"
 compilers = ">=1.8"
+git = "*"
+make = "*"
 matplotlib-base = "*"
 pandas = ">=2.2,<3"
 pkg-config = "*"
