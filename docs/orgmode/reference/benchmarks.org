@@ -215,6 +215,51 @@ sex-determination studies because rare candidate markers are sensitive to
 minimum-depth thresholds, sequencing-error duplication, and sample-level
 library effects.
 
+*** Novelty claim
+
+For the software paper, the novelty claim is the combination of:
+
+| Contribution | Biological/inference value |
+|--------------+----------------------------|
+| Drop-in RADSex compatibility | compare directly with prior RADSex biological results |
+| Bounded-memory full-table algorithms | avoid downsampling rare marker candidates |
+| Additional statistical modes | compare strict tests, FDR, and posterior candidate ranking on the same counts |
+| Formal mathematical provenance | make erfc p-values, sparse medians, and streaming PCA auditable |
+| Workflow bindings | keep downstream biological analysis in Python/R-style workflows |
+
+*** Validation layers
+
+Paper-readiness validation is split by claim:
+
+| Claim | Validation artifact |
+|-------+---------------------|
+| Mathematical identities | =scripts/sympy/chi2_cdf_derivation.py=, =sparse_median_proof.py=, =tucker_covariance_proof.py= |
+| Numerical/statistical routines | =rsx-core/tests/test_precision.rs= and =rsx-core/src/stats.rs= unit tests |
+| Command behavior | =rsx-core/tests/test_pipeline.rs= integration tests |
+| Literature speedup | =benchmarks/results/literature_speed_comparison.csv= and Slurm scripts |
+| Bayesian biological triage | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
+| Python workflow surface | =benchmarks/results/literature_binding_results.csv= and =rsx-python/tests/test_pyrsx.py= |
+
+The math scripts verify the erfc form of the one-degree chi-squared
+p-value, sparse median indexing, and streaming Gram/PCA equivalence.
+The precision tests cover known chi-squared values, p-value monotonicity
+and symmetry, group-count consistency, Fisher's exact test, the G-test,
+Benjamini-Hochberg adjustment, Bayes factors, posterior symmetry, and
+empirical-Bayes EM convergence.
+
+Recent validation runs:
+
+- =pixi run derive= in =scripts/=: passed the chi-squared erfc derivation,
+  critical-value checks, and f32/f64 relative-error checks.
+- =pixi run python sympy/sparse_median_proof.py=: passed sparse-median
+  examples and complexity check.
+- =pixi run python sympy/tucker_covariance_proof.py=: passed Gram/SVD/Tucker
+  equivalence on a sparse matrix.
+- Remote =cargo test --workspace= on =elja=: 60 core unit tests, 10 pipeline
+  integration tests, and 13 precision tests passed.
+- Remote =pixi run -e python test-python= on =elja=: 16 Python binding tests
+  passed after a release extension build.
+
 *** Python binding feature evidence
 
 The =pyrsx= bindings expose the same Rust core through Python calls for
