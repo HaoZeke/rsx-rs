@@ -261,9 +261,16 @@ def parse_ena_fastq_report(report: str) -> dict[str, list[FastqRemote]]:
     return rows
 
 
-def fetch_ena_fastq_report(samples: list[Sample], retries: int = 5) -> dict[str, list[FastqRemote]]:
-    report = fetch_text(ena_report_url(sample.accession for sample in samples), retries=retries)
-    return parse_ena_fastq_report(report)
+def fetch_ena_fastq_report(
+    samples: list[Sample],
+    retries: int = 5,
+    fetcher=fetch_text,
+) -> dict[str, list[FastqRemote]]:
+    fastqs: dict[str, list[FastqRemote]] = {}
+    for sample in samples:
+        report = fetcher(ena_report_url([sample.accession]), retries=retries)
+        fastqs.update(parse_ena_fastq_report(report))
+    return fastqs
 
 
 def read_dataset_metadata(dataset_dir: Path) -> list[Sample]:

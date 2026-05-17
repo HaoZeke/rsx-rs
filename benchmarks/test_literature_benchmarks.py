@@ -8,6 +8,7 @@ from benchmarks.run_literature_benchmarks import (
     count_data_rows,
     download_fastq_urls,
     download_samples,
+    fetch_ena_fastq_report,
     marker_count_from_table,
     parse_ena_fastq_report,
     parse_sra_experiment_xml,
@@ -81,6 +82,26 @@ class LiteratureBenchmarkTests(unittest.TestCase):
         self.assertEqual(files["SRR000001"][0].url, "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR000/SRR000001/SRR000001.fastq.gz")
         self.assertEqual(files["SRR000001"][0].bytes, 4)
         self.assertEqual(files["SRR000001"][0].md5, "098f6bcd4621d373cade4e832627b4f6")
+
+    def test_fetch_ena_fastq_report_queries_each_accession(self):
+        calls = []
+
+        def fake_fetch(url, retries=5):
+            calls.append(url)
+            accession = url.split("accession=")[1].split("&")[0]
+            return ENA_REPORT.replace("SRR000001", accession)
+
+        files = fetch_ena_fastq_report(
+            [
+                Sample("sample1", "SRR000001", "female", 1, 4, 4),
+                Sample("sample2", "SRR000002", "male", 1, 4, 4),
+            ],
+            fetcher=fake_fetch,
+        )
+
+        self.assertEqual(set(files), {"SRR000001", "SRR000002"})
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn(",", calls[0])
 
     def test_download_fastq_urls_validates_md5_and_concatenates_members(self):
         with tempfile.TemporaryDirectory() as tmp:
