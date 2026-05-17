@@ -62,11 +62,11 @@ platforms = ["linux-64"]
 channels = ["bioconda"]
 
 [feature.benchmark.dependencies]
-python = ">=3.11"
+python = ">=3.11,<3.13"
 bc = "*"
 compilers = ">=1.8"
 matplotlib-base = "*"
-pandas = "*"
+pandas = ">=2.2,<3"
 pkg-config = "*"
 plotnine = "*"
 sra-tools = "*"
