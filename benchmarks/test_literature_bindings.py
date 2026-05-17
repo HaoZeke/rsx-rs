@@ -34,6 +34,13 @@ class LiteratureBindingsFeatureTests(unittest.TestCase):
 
             self.assertEqual(count_data_rows(path), 2)
 
+    def test_count_data_rows_counts_string_identifiers_after_header(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "depth.tsv"
+            path.write_text("sample\tgroup\tdepth\nERR0001\tF\t17\nERR0002\tM\t23\n")
+
+            self.assertEqual(count_data_rows(path), 2)
+
     def test_merge_csv_files_writes_single_header(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

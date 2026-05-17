@@ -40,14 +40,16 @@ def count_data_rows(path: Path) -> int:
     if path.is_dir():
         return sum(count_data_rows(child) for child in path.iterdir() if child.is_file())
     rows = 0
+    saw_header = False
     with path.open() as handle:
         for line in handle:
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
-            if rows == 0 and ("\t" in stripped) and not stripped.split("\t", 1)[0].isdigit():
-                rows += 0
+            if not saw_header and ("\t" in stripped) and not stripped.split("\t", 1)[0].isdigit():
+                saw_header = True
                 continue
+            saw_header = True
             rows += 1
     return rows
 
