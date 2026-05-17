@@ -165,11 +165,12 @@ def order_by_total(frame, phase_runtime, summary):
 
 
 def base_theme():
-    from plotnine import element_rect, element_text, theme, theme_bw
+    from plotnine import element_blank, element_line, element_rect, element_text, theme, theme_bw
 
     return theme_bw(base_size=10) + theme(
         figure_size=(7.2, 4.6),
-        panel_grid_minor=element_rect(fill="white", colour="white"),
+        panel_grid_major=element_line(color="#E6E6E6", size=0.35),
+        panel_grid_minor=element_blank(),
         legend_title=element_text(size=9),
         legend_text=element_text(size=8),
         axis_text_x=element_text(rotation=0),
