@@ -155,63 +155,69 @@ class MarkerTable:
         # Output side is now pure in-memory Arrow IPC (no temp files on results).
         # Input serialization is still required when passing DataFrames because
         # the core readers (`MarkersTableStream` etc.) are path-based today.
+        # Create temp files only when we actually need to cross to the path-based Rust readers.
+        # We always clean them up (even on error).
+        temps: list[Path] = []
+
         if self._df is not None:
             mpath = Path(tempfile.NamedTemporaryFile(suffix=".parquet", delete=False).name)
+            temps.append(mpath)
             from_narwhals(self._df, backend="pandas").to_parquet(mpath, index=False)
         else:
-            mpath = self._path  # type: ignore[assignment]
+            mpath = Path(self._path)  # type: ignore[arg-type]
 
         if is_dataframe_like(popmap):
             ppath = Path(tempfile.NamedTemporaryFile(suffix=".parquet", delete=False).name)
+            temps.append(ppath)
             from_narwhals(to_narwhals(popmap), backend="pandas").to_parquet(ppath, index=False)
         else:
             ppath = Path(popmap)
 
-        outpath = Path(tempfile.NamedTemporaryFile(suffix="_triage.parquet", delete=False).name)
+        outpath: Path | None = None
+        if self._df is None:
+            outpath = Path(tempfile.NamedTemporaryFile(suffix="_triage.parquet", delete=False).name)
+            temps.append(outpath)
 
         import pyrsx as _pyrsx
 
-        # Use the real Rust Arrow emitter for the result (pure in-memory IPC).
-        # The input table is still written to a temp file for the Rust reader.
-        if self._df is not None:
-            # Preferred path: Rust produces the data directly as Arrow
-            arrow_table = _pyrsx.triage_to_arrow(
-                str(mpath),
-                str(ppath),
-                min_depth=p.min_depth,
-                posterior_threshold=p.posterior_threshold,
-                prior_probability=p.prior,
-                linked_probability=p.linked_prob,
-                group1=p.group1,
-                group2=p.group2,
-            )
-            res_df = to_narwhals(arrow_table)   # thin adapter, no heavy Python work
-        else:
-            # Legacy path-based usage (still supported)
-            _lowlevel_triage = _pyrsx.triage
-            _lowlevel_triage(
-                str(mpath),
-                str(ppath),
-                str(outpath),
-                min_depth=p.min_depth,
-                posterior_threshold=p.posterior_threshold,
-                bayes_factor_threshold=p.bayes_factor_threshold,
-                prior=p.prior,
-                linked_prob=p.linked_prob,
-                group1=p.group1,
-                group2=p.group2,
-            )
-            res_df = to_narwhals(pd.read_parquet(outpath))  # still thin
-        return TriageResult(
-            _df=to_narwhals(res_df),
-            params={
-                "min_depth": p.min_depth,
-                "posterior_threshold": p.posterior_threshold,
-                "prior": p.prior,
-                "linked_prob": p.linked_prob,
-            },
-            _input_backend=self._backend,
-        )
+        try:
+            if self._df is not None:
+                # DF path → real Rust Arrow result (no output temp file)
+                arrow_table = _pyrsx.triage_to_arrow(
+                    str(mpath),
+                    str(ppath),
+                    min_depth=p.min_depth,
+                    posterior_threshold=p.posterior_threshold,
+                    prior_probability=p.prior,
+                    linked_probability=p.linked_prob,
+                    group1=p.group1,
+                    group2=p.group2,
+                )
+                res_df = to_narwhals(arrow_table)
+            else:
+                _lowlevel_triage = _pyrsx.triage
+                _lowlevel_triage(
+                    str(mpath),
+                    str(ppath),
+                    str(outpath),
+                    min_depth=p.min_depth,
+                    posterior_threshold=p.posterior_threshold,
+                    bayes_factor_threshold=p.bayes_factor_threshold,
+                    prior=p.prior,
+                    linked_prob=p.linked_prob,
+                    group1=p.group1,
+                    group2=p.group2,
+                )
+                res_df = to_narwhals(pd.read_parquet(outpath)) if outpath else to_narwhals(pd.DataFrame())
+
+            return TriageResult(_df=to_narwhals(res_df), params=p)
+        finally:
+            for p in temps:
+                try:
+                    if p.exists():
+                        p.unlink()
+                except Exception:
+                    pass  # best-effort cleanup
 
     def pca(self, *, k: int = 2, **kwargs: Any) -> "PcaResult":
         """Compute streaming sample PCA (O(n_individuals²) memory)."""
@@ -222,42 +228,58 @@ class MarkerTable:
 
         import pyrsx as _pyrsx
 
+        temps: list[Path] = []
+
         if self._df is not None:
-            # Write input to temp for the Rust reader, then use the real in-memory
-            # Arrow emitter (one-shot IPC for eigenvalues + loadings).
             mpath = Path(tempfile.NamedTemporaryFile(suffix=".tsv", delete=False).name)
+            temps.append(mpath)
             from_narwhals(self._df, backend="pandas").to_csv(mpath, sep="\t", index=False)
 
-            arrow_res = _pyrsx.pca_to_arrow(
-                str(mpath),
-                min_depth=kwargs.get("min_depth", 1),
-                n_components=k,
-            )
-            # loadings is the main table users plot (individuals in PC space)
-            res_df = to_narwhals(arrow_res["loadings"])
-            # We can also stash eigenvalues / provenance on the result later
-            return PcaResult(
-                _df=res_df,
-                params={"k": k, "arrow": True, **kwargs},
-                _input_backend=self._backend,
-            )
+            try:
+                arrow_res = _pyrsx.pca_to_arrow(
+                    str(mpath),
+                    min_depth=kwargs.get("min_depth", 1),
+                    n_components=k,
+                )
+                res_df = to_narwhals(arrow_res["loadings"])
+                return PcaResult(
+                    _df=res_df,
+                    params={"k": k, "arrow": True, **kwargs},
+                    _input_backend=self._backend,
+                )
+            finally:
+                for p in temps:
+                    try:
+                        if p.exists():
+                            p.unlink()
+                    except Exception:
+                        pass
         else:
-            mpath = self._path  # type: ignore[assignment]
+            mpath = Path(self._path)  # type: ignore[arg-type]
 
         outpath = Path(tempfile.NamedTemporaryFile(suffix="_pca.tsv", delete=False).name)
+        temps.append(outpath)
 
         _lowlevel_pca = getattr(_pyrsx, "pca", None)
         if _lowlevel_pca is None:
             raise NotImplementedError("Low-level pca not exposed yet in this build")
 
-        _lowlevel_pca(str(mpath), str(outpath), k=k, **kwargs)
+        try:
+            _lowlevel_pca(str(mpath), str(outpath), k=k, **kwargs)
+            res_df = pd.read_csv(outpath, sep="\t", comment="#")
+            return PcaResult(
+                _df=to_narwhals(res_df),
+                params={"k": k, **kwargs},
+                _input_backend=self._backend,
+            )
+        finally:
+            for p in temps:
+                try:
+                    if p.exists():
+                        p.unlink()
+                except Exception:
+                    pass
 
-        res_df = pd.read_csv(outpath, sep="\t", comment="#")
-        return PcaResult(
-            _df=to_narwhals(res_df),
-            params={"k": k, **kwargs},
-            _input_backend=self._backend,
-        )
 
     # Future methods: .depth_stats(), .distrib(), etc.
 
