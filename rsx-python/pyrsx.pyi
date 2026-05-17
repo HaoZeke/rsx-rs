@@ -74,6 +74,36 @@ def signif(
     """
     ...
 
+def triage(
+    table_path: str,
+    popmap_path: str,
+    output_file: str,
+    min_depth: int = 1,
+    signif_threshold: float = 0.05,
+    posterior_threshold: float = 0.9,
+    bayes_factor_threshold: float = 10.0,
+    prior_probability: float = 0.01,
+    linked_probability: float = 0.9,
+    group1: str = "",
+    group2: str = "",
+) -> None:
+    """Rank strict and Bayesian marker candidates.
+
+    Args:
+        table_path: Path to marker depth table.
+        popmap_path: Path to population map.
+        output_file: Path to triage table.
+        min_depth: Minimum depth to consider a marker present.
+        signif_threshold: Family-wise p-value threshold for strict calls.
+        posterior_threshold: Posterior P(sex-linked) threshold.
+        bayes_factor_threshold: Bayes factor threshold.
+        prior_probability: Prior probability that a marker is sex-linked.
+        linked_probability: Expected marker prevalence in the linked sex.
+        group1: Name of first group.
+        group2: Name of second group.
+    """
+    ...
+
 def freq(
     table_path: str,
     output_file: str,

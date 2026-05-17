@@ -9,6 +9,7 @@ from . import merge as _merge
 from . import pca as _pca
 from . import process as _process
 from . import signif as _signif
+from . import triage as _triage
 
 
 @click.group()
@@ -75,6 +76,32 @@ def signif(markers_table, popmap, output_file, min_depth, signif_threshold,
             signif_threshold=signif_threshold, group1=g1, group2=g2,
             correction=correction, test=test_method,
             output_fasta=output_fasta, bayes=bayes)
+    click.echo(f"Wrote {output_file}")
+
+
+@main.command()
+@click.option("-t", "--markers-table", required=True)
+@click.option("-p", "--popmap", required=True)
+@click.option("-o", "--output-file", required=True)
+@click.option("-d", "--min-depth", default=1, show_default=True)
+@click.option("-S", "--signif-threshold", default=0.05, show_default=True)
+@click.option("--posterior-threshold", default=0.9, show_default=True)
+@click.option("--bayes-factor-threshold", default=10.0, show_default=True)
+@click.option("--prior-probability", default=0.01, show_default=True)
+@click.option("--linked-probability", default=0.9, show_default=True)
+@click.option("-G", "--groups", default="")
+def triage(markers_table, popmap, output_file, min_depth, signif_threshold,
+           posterior_threshold, bayes_factor_threshold, prior_probability,
+           linked_probability, groups):
+    """Rank strict and Bayesian marker candidates for biological follow-up."""
+    g1, g2 = _parse_groups(groups)
+    _triage(markers_table, popmap, output_file, min_depth=min_depth,
+            signif_threshold=signif_threshold,
+            posterior_threshold=posterior_threshold,
+            bayes_factor_threshold=bayes_factor_threshold,
+            prior_probability=prior_probability,
+            linked_probability=linked_probability,
+            group1=g1, group2=g2)
     click.echo(f"Wrote {output_file}")
 
 

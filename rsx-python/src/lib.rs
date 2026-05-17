@@ -97,6 +97,39 @@ fn signif(
     .map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
+/// Triage strict and Bayesian marker candidates.
+#[pyfunction]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, posterior_threshold=0.9, bayes_factor_threshold=10.0, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
+#[allow(clippy::too_many_arguments)]
+fn triage(
+    table_path: &str,
+    popmap_path: &str,
+    output_file: &str,
+    min_depth: u16,
+    signif_threshold: f32,
+    posterior_threshold: f64,
+    bayes_factor_threshold: f64,
+    prior_probability: f64,
+    linked_probability: f64,
+    group1: &str,
+    group2: &str,
+) -> PyResult<()> {
+    rsx_core::commands::triage::run(&rsx_core::commands::triage::TriageParams {
+        markers_table_path: table_path.to_string(),
+        popmap_file_path: popmap_path.to_string(),
+        output_file_path: output_file.to_string(),
+        min_depth,
+        signif_threshold,
+        posterior_threshold,
+        bayes_factor_threshold,
+        prior_probability,
+        linked_probability,
+        group1: group1.to_string(),
+        group2: group2.to_string(),
+    })
+    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+}
+
 /// Compute marker frequency distribution.
 #[pyfunction]
 #[pyo3(signature = (table_path, output_file, min_depth=1))]
@@ -171,6 +204,7 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(process, m)?)?;
     m.add_function(wrap_pyfunction!(distrib, m)?)?;
     m.add_function(wrap_pyfunction!(signif, m)?)?;
+    m.add_function(wrap_pyfunction!(triage, m)?)?;
     m.add_function(wrap_pyfunction!(freq, m)?)?;
     m.add_function(wrap_pyfunction!(depth, m)?)?;
     m.add_function(wrap_pyfunction!(merge, m)?)?;

@@ -93,6 +93,40 @@ enum Commands {
         output_bayes: bool,
     },
 
+    /// Rank strict and Bayesian marker candidates for biological follow-up
+    Triage {
+        /// Path to a marker depths table
+        #[arg(short = 't', long = "markers-table")]
+        markers_table: String,
+        /// Path to a population map file
+        #[arg(short = 'p', long = "popmap")]
+        popmap: String,
+        /// Path to the output file
+        #[arg(short = 'o', long = "output-file")]
+        output_file: String,
+        /// Minimum depth to consider a marker present
+        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        min_depth: u16,
+        /// Names of groups to compare
+        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
+        groups: Option<Vec<String>>,
+        /// P-value significance threshold for strict calls
+        #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
+        signif_threshold: f32,
+        /// Posterior P(sex-linked) threshold
+        #[arg(long = "posterior-threshold", default_value = "0.9")]
+        posterior_threshold: f64,
+        /// Bayes factor threshold
+        #[arg(long = "bayes-factor-threshold", default_value = "10.0")]
+        bayes_factor_threshold: f64,
+        /// Prior probability that a marker is sex-linked
+        #[arg(long = "prior-probability", default_value = "0.01")]
+        prior_probability: f64,
+        /// Expected marker prevalence in the linked sex
+        #[arg(long = "linked-probability", default_value = "0.9")]
+        linked_probability: f64,
+    },
+
     /// Compute marker frequencies in all individuals
     Freq {
         /// Path to a marker depths table
@@ -334,6 +368,34 @@ fn main() {
                 test_method: test,
                 output_fasta,
                 output_bayes,
+                group1: g1,
+                group2: g2,
+            })
+        }
+
+        Commands::Triage {
+            markers_table,
+            popmap,
+            output_file,
+            min_depth,
+            ref groups,
+            signif_threshold,
+            posterior_threshold,
+            bayes_factor_threshold,
+            prior_probability,
+            linked_probability,
+        } => {
+            let (g1, g2) = extract_groups(groups);
+            commands::triage::run(&commands::triage::TriageParams {
+                markers_table_path: markers_table,
+                popmap_file_path: popmap,
+                output_file_path: output_file,
+                min_depth,
+                signif_threshold,
+                posterior_threshold,
+                bayes_factor_threshold,
+                prior_probability,
+                linked_probability,
                 group1: g1,
                 group2: g2,
             })
