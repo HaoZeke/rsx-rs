@@ -11,7 +11,10 @@ workflow integration.
 
 ** Features
 
-- All 7 original commands: =process=, =distrib=, =signif=, =depth=, =freq=, =map=, =subset=
+- Original RADSex-compatible commands: =process=, =distrib=, =signif=,
+  =depth=, =freq=, =map=, =subset=
+- Marker-level triage command: strict calls, Bayes factors, posterior
+  P(sex-linked), penetrance, bias direction, and candidate class
 - =merge= command: external sort-merge for 75M+ sequence tables
 - =pca= command: streaming sample PCA in O(n_individuals^2) memory
 - Bayesian marker evidence: Bayes factors and symmetric posterior

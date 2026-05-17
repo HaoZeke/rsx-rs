@@ -149,7 +149,7 @@ def merge(output_file, buffer_size, output_parquet, input_files):
 @click.option("-r", "--components", default=None, type=int,
               help="Number of components (default: all).")
 def pca(markers_table, output_dir, min_depth, components):
-    """Streaming PCA of the depth matrix (Tucker mode-2 decomposition).
+    """Streaming PCA of the depth matrix.
 
     Memory: O(n_individuals^2). Works on arbitrarily large tables.
     """

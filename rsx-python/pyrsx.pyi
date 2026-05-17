@@ -159,7 +159,7 @@ def pca(
     min_depth: int = 1,
     n_components: int | None = None,
 ) -> None:
-    """Streaming PCA of the depth matrix (Tucker mode-2 decomposition).
+    """Streaming PCA of the depth matrix.
 
     Computes principal components via streaming Gram eigendecomposition.
     Memory: O(n_individuals^2), works on arbitrarily large tables.
