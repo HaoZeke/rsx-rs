@@ -1,4 +1,42 @@
-"""Type stubs for pyrsx."""
+"""Type stubs for pyrsx (high-level + low-level API)."""
+
+# --------------------------------------------------------------------------- #
+# High-level API (recommended)
+# --------------------------------------------------------------------------- #
+
+from typing import Any, Literal
+
+class MarkerTable:
+    """High-level representation of a RAD marker depth table."""
+
+    @classmethod
+    def from_path(
+        cls,
+        path: str,
+        *,
+        backend: Literal["pandas", "polars", "pyarrow", "auto"] = "auto",
+    ) -> MarkerTable: ...
+    @classmethod
+    def from_dataframe(
+        cls,
+        df: Any,
+        *,
+        backend: Literal["pandas", "polars", "pyarrow", "auto"] = "auto",
+    ) -> MarkerTable: ...
+
+    @property
+    def n_markers(self) -> int: ...
+    @property
+    def n_individuals(self) -> int: ...
+
+    def summary(self) -> str: ...
+    def to_dataframe(self, *, backend: str = "auto") -> Any: ...
+
+    def triage(self, *, popmap: Any, min_depth: int = 10, **kwargs: Any) -> Any: ...
+
+# --------------------------------------------------------------------------- #
+# Low-level direct bindings (for power users / compatibility)
+# --------------------------------------------------------------------------- #
 
 def process(
     input_dir: str,
