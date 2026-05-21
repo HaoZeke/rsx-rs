@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # literature_biology_prior_sensitivity.sbatch
 # Re-run rsx triage on real literature marker tables with varied --prior and --linked-prob.
-# Produces the data for prior sensitivity analysis (vissue internal-issue).
+# Produces the data for prior sensitivity analysis.
 #
 # Usage on elja (example):
 #   RSX_DATASETS="danio_albolineatus notothenia_rossii plecoglossus_altivelis tinca_tinca" \
@@ -44,7 +44,6 @@ if (( index < 0 || index >= ${#datasets[@]} )); then
 fi
 
 dataset=${datasets[$index]}
-job_id=${SLURM_JOB_ID:-manual}
 results_dir=${RSX_SLURM_RESULTS_DIR:-benchmarks/results/slurm}
 mkdir -p "$results_dir"
 
@@ -78,7 +77,7 @@ fi
 
 for pi in "${priors[@]}"; do
   for p_sex in "${psexes[@]}"; do
-    out_tsv="$results_dir/triage_${dataset}_pi${pi}_psex${p_sex}_${job_id}.tsv"
+    out_tsv="$results_dir/triage_${dataset}_pi${pi}_psex${p_sex}.tsv"
     echo "Running rsx triage for $dataset pi=$pi p_sex=$p_sex"
 
     "$pixi" run -e benchmark rsx triage \

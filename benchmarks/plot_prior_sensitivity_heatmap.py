@@ -36,7 +36,7 @@ from plotnine import (
 )
 
 FILE_RE = re.compile(
-    r"^triage_(?P<dataset>.+?)_pi(?P<pi>[0-9.]+)_psex(?P<psex>[0-9.]+)\.tsv$"
+    r"^triage_(?P<dataset>.+?)_pi(?P<pi>[0-9.]+)_psex(?P<psex>[0-9.]+)(?:_(?P<run_id>[^.]+))?\.tsv$"
 )
 
 
@@ -76,10 +76,21 @@ def collect(slurm_dir: Path) -> pd.DataFrame:
                 "dataset": meta["dataset"],
                 "prior": float(meta["pi"]),
                 "linked_prob": float(meta["psex"]),
+                "source_path": str(tsv),
+                "source_mtime": tsv.stat().st_mtime,
                 **summary,
             }
         )
-    return pd.DataFrame(rows).sort_values(["dataset", "prior", "linked_prob"])
+    if not rows:
+        return pd.DataFrame(rows)
+    return (
+        pd.DataFrame(rows)
+        .sort_values(["dataset", "prior", "linked_prob", "source_mtime"])
+        .drop_duplicates(["dataset", "prior", "linked_prob"], keep="last")
+        .drop(columns=["source_mtime"])
+        .sort_values(["dataset", "prior", "linked_prob"])
+        .reset_index(drop=True)
+    )
 
 
 def plot_heatmap(summary: pd.DataFrame, output_dir: Path) -> None:

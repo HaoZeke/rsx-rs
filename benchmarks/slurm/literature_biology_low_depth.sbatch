@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # literature_biology_low_depth.sbatch
 # Run the full literature analysis pipeline at low depths (3,5,8,10) on real data.
-# Produces data for low-depth power curves (vissue internal-issue).
+# Produces data for low-depth power curves.
 #
 #SBATCH --job-name=rsx-bio-lowdepth
 #SBATCH --output=rsx-bio-lowdepth-%A_%a.out
@@ -34,8 +34,7 @@ read -r -a datasets <<< "${RSX_DATASETS:-danio_albolineatus notothenia_rossii pl
 index=${SLURM_ARRAY_TASK_ID:-0}
 dataset=${datasets[$index]}
 
-# Depths to test for power curves
-depths=(3 5 8 10)
+read -r -a depths <<< "${RSX_DEPTHS:-3 5 8 10}"
 
 workdir=benchmarks/literature-workdir
 
@@ -47,7 +46,7 @@ for d in "${depths[@]}"; do
     --workdir "$workdir" \
     --results "benchmarks/results/lowdepth_${dataset}_d${d}.csv" \
     --dataset "$dataset" \
-    --min-depth "$d" || true
+    --min-depth "$d"
 done
 
 echo "Low-depth runs for $dataset complete."

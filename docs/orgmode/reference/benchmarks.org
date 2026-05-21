@@ -303,6 +303,7 @@ same eight modes to =min_depth in {3, 5, 8, 10}=, giving 128 rows tracked in
 #+begin_src bash
 sbatch --export=ALL,RSX_REPO=$PWD \
   benchmarks/slurm/literature_biology_low_depth.sbatch
+pixi run -e benchmark python benchmarks/collect_lowdepth_sweep.py
 pixi run -e paper python benchmarks/summarise_depth_stability.py
 #+end_src
 
@@ -486,7 +487,7 @@ giving the paper an ease-of-use claim backed by real inputs measured
 end-to-end on four datasets, not one.
 
 Aggregated tracked timings per dataset at =min_depth=10= (latest tracked
-=literature_binding_results.csv= run on build-host):
+=literature_binding_results.csv= run):
 
 | Dataset                  | =pyrsx.freq= | =pyrsx.depth= | =pyrsx.distrib= (Fisher/FDR) | =pyrsx.pca= | =pyrsx.signif(bayes=True)= |
 |--------------------------+--------------+---------------+------------------------------+-------------+-----------------------------|
@@ -563,8 +564,8 @@ exercise the Parquet path.
 pixi run -e paper python benchmarks/bench_marker_source.py
 #+end_src
 
-Tracked wall-time in =benchmarks/results/marker_source_paths.csv= (build-host,
-4 datasets x 3 sources x 3 commands, =min_depth=10=):
+Tracked wall-time in =benchmarks/results/marker_source_paths.csv= (4 datasets
+x 3 sources x 3 commands, =min_depth=10=):
 
 | Dataset                  | Command  | Path (s) | In-memory Arrow (s) | Spilled Parquet (s) | Arrow slowdown | Parquet slowdown |
 |--------------------------+----------+----------+---------------------+---------------------+----------------+-------------------|
