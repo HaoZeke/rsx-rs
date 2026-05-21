@@ -44,7 +44,15 @@ min_depth=${RSX_MIN_DEPTH:-10}
 n_components=${RSX_N_COMPONENTS:-4}
 mkdir -p "$results_dir"
 
-"$pixi" run -e paper build-python
+build_lock=${RSX_BUILD_PYTHON_LOCK:-benchmarks/results/.build-python.lock}
+mkdir -p "$(dirname "$build_lock")"
+(
+    flock 9
+    if ! "$pixi" run -e paper python -c 'import pyrsx' >/dev/null 2>&1; then
+        "$pixi" run -e paper build-python
+    fi
+) 9>"$build_lock"
+
 "$pixi" run -e paper python benchmarks/run_literature_bindings.py \
     --workdir benchmarks/literature-workdir \
     --results "$results_dir/literature_binding_results_${dataset}_${job_id}.csv" \

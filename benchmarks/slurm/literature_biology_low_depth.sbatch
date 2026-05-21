@@ -38,7 +38,14 @@ read -r -a depths <<< "${RSX_DEPTHS:-3 5 8 10}"
 
 workdir=benchmarks/literature-workdir
 
-"$pixi" run -e paper build-python
+build_lock=${RSX_BUILD_PYTHON_LOCK:-benchmarks/results/.build-python.lock}
+mkdir -p "$(dirname "$build_lock")"
+(
+  flock 9
+  if ! "$pixi" run -e paper python -c 'import pyrsx' >/dev/null 2>&1; then
+    "$pixi" run -e paper build-python
+  fi
+) 9>"$build_lock"
 
 for d in "${depths[@]}"; do
   echo "=== $dataset min_depth=$d ==="

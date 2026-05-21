@@ -53,9 +53,18 @@ class LiteratureSweepCollectionTests(unittest.TestCase):
     def test_lowdepth_slurm_builds_python_extension_in_paper_environment(self):
         script = Path("benchmarks/slurm/literature_biology_low_depth.sbatch").read_text()
 
+        self.assertIn('flock', script)
+        self.assertIn('import pyrsx', script)
         self.assertIn('run -e paper build-python', script)
         self.assertIn('run -e paper python benchmarks/analyze_literature_modes.py', script)
         self.assertNotIn('|| true', script)
+
+    def test_binding_slurm_builds_python_extension_once_under_lock(self):
+        script = Path("benchmarks/slurm/literature_bindings_features.sbatch").read_text()
+
+        self.assertIn('flock', script)
+        self.assertIn('import pyrsx', script)
+        self.assertIn('run -e paper build-python', script)
 
     def test_prior_sensitivity_slurm_runs_release_binary_not_pixi_task(self):
         script = Path("benchmarks/slurm/literature_biology_prior_sensitivity.sbatch").read_text()
