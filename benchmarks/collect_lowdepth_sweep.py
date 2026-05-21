@@ -14,16 +14,27 @@ import pandas as pd
 SHARD_RE = re.compile(r"^lowdepth_(?P<dataset>.+)_d(?P<depth>[0-9]+)\.csv$")
 
 
+def iter_shards(shard_dir: Path) -> list[Path]:
+    def key(path: Path) -> tuple[str, int]:
+        match = SHARD_RE.match(path.name)
+        if not match:
+            return (path.name, -1)
+        meta = match.groupdict()
+        return (meta["dataset"], int(meta["depth"]))
+
+    return sorted(
+        (p for p in shard_dir.glob("lowdepth_*_d*.csv") if SHARD_RE.match(p.name)),
+        key=key,
+    )
+
+
 def collect_shards(shard_dir: Path) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
-    for path in sorted(shard_dir.glob("lowdepth_*_d*.csv")):
-        if not SHARD_RE.match(path.name):
-            continue
-        frames.append(pd.read_csv(path))
+    for path in iter_shards(shard_dir):
+        frames.append(pd.read_csv(path, dtype=str))
     if not frames:
         return pd.DataFrame()
-    combined = pd.concat(frames, ignore_index=True)
-    return combined.sort_values(["dataset", "min_depth", "mode"]).reset_index(drop=True)
+    return pd.concat(frames, ignore_index=True)
 
 
 def main() -> int:
@@ -48,7 +59,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    shards = [p for p in args.shard_dir.glob("lowdepth_*_d*.csv") if SHARD_RE.match(p.name)]
+    shards = iter_shards(args.shard_dir)
     if args.expected_shards and len(shards) != args.expected_shards:
         print(
             f"expected {args.expected_shards} low-depth shards under {args.shard_dir}, found {len(shards)}",

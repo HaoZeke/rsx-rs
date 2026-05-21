@@ -76,7 +76,6 @@ def collect(slurm_dir: Path) -> pd.DataFrame:
                 "dataset": meta["dataset"],
                 "prior": float(meta["pi"]),
                 "linked_prob": float(meta["psex"]),
-                "source_path": str(tsv),
                 "source_mtime": tsv.stat().st_mtime,
                 **summary,
             }

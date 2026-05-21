@@ -67,6 +67,15 @@ def main() -> int:
         rows.append(record)
 
     summary = pd.DataFrame(rows).sort_values(["dataset", "min_depth"]).reset_index(drop=True)
+    summary = summary[
+        [
+            "dataset",
+            "min_depth",
+            "significant_markers",
+            "posterior_gt_0_9",
+            "bayes_factor_gt_10",
+        ]
+    ]
     args.summary.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(args.summary, index=False)
     print(f"Wrote {args.summary} ({len(summary)} rows)")

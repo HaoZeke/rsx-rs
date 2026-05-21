@@ -47,7 +47,7 @@ class LiteratureSweepCollectionTests(unittest.TestCase):
 
             combined = collect_shards(root)
 
-        self.assertEqual(combined["min_depth"].tolist(), [3, 5])
+        self.assertEqual(combined["min_depth"].tolist(), ["3", "5"])
         self.assertEqual(combined["mode"].tolist(), ["alpha", "beta"])
 
 
