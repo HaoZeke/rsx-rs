@@ -91,7 +91,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                                 .or_insert_with(|| vec![0u16; n_individuals]);
                             entry[idx] = count;
                         }
-                        log::info!("Finished processing individual {}", f.individual_name);
+                        log::debug!("Finished processing individual {}", f.individual_name);
                     }
                     Err(e) => log::error!("Error processing {}: {e}", f.path.display()),
                 });
@@ -104,7 +104,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                 .par_iter()
                 .filter_map(|f| {
                     count_sequences(&f.path).ok().map(|c| {
-                        log::info!("Finished processing individual {}", f.individual_name);
+                        log::debug!("Finished processing individual {}", f.individual_name);
                         (f.individual_name.clone(), c)
                     })
                 })
