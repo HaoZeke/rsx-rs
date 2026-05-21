@@ -91,6 +91,15 @@ class LiteratureBindingsFeatureTests(unittest.TestCase):
         ]:
             self.assertIn(f"--dataset {dataset}", command)
 
+    def test_paper_python_tasks_use_import_guard_before_building(self):
+        pixi = tomllib.loads(Path("pixi.toml").read_text())
+        tasks = pixi["feature"]["python"]["tasks"]
+
+        self.assertIn("ensure-python", tasks)
+        self.assertIn("import pyrsx", tasks["ensure-python"]["cmd"])
+        self.assertEqual(tasks["run-literature-bindings"]["depends-on"], ["ensure-python"])
+        self.assertEqual(tasks["analyze-literature-modes"]["depends-on"], ["ensure-python"])
+
     def test_binding_slurm_script_is_dataset_array_with_collatable_outputs(self):
         script = Path("benchmarks/slurm/literature_bindings_features.sbatch").read_text()
 

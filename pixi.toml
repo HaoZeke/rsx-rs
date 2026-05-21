@@ -55,9 +55,10 @@ narwhals = ">=1.0"
 
 [feature.python.tasks]
 build-python = { cmd = "cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release" }
+ensure-python = { cmd = "python -c 'import pyrsx' >/dev/null 2>&1 || (cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release)" }
 test-python = { cmd = "pytest rsx-python/tests/", depends-on = ["build-python"] }
-run-literature-bindings = { cmd = "python benchmarks/run_literature_bindings.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_binding_results.csv --dataset danio_albolineatus --dataset notothenia_rossii --dataset plecoglossus_altivelis --dataset tinca_tinca --min-depth 10", depends-on = ["build-python"] }
-analyze-literature-modes = { cmd = "python benchmarks/analyze_literature_modes.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_mode_effects.csv --dataset danio_albolineatus --dataset notothenia_rossii --dataset plecoglossus_altivelis --dataset tinca_tinca --min-depth 10", depends-on = ["build-python"] }
+run-literature-bindings = { cmd = "python benchmarks/run_literature_bindings.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_binding_results.csv --dataset danio_albolineatus --dataset notothenia_rossii --dataset plecoglossus_altivelis --dataset tinca_tinca --min-depth 10", depends-on = ["ensure-python"] }
+analyze-literature-modes = { cmd = "python benchmarks/analyze_literature_modes.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_mode_effects.csv --dataset danio_albolineatus --dataset notothenia_rossii --dataset plecoglossus_altivelis --dataset tinca_tinca --min-depth 10", depends-on = ["ensure-python"] }
 
 [feature.mpi.dependencies]
 mpich = "*"
