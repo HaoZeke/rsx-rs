@@ -142,7 +142,7 @@ const PACKED_DNA_INLINE_CAPACITY: usize = 48;
 /// Only the used prefix participates in Hash/Eq. Converts to Vec<u8> for
 /// public APIs and serialization boundaries.
 #[derive(Clone, Copy)]
-struct PackedDna {
+pub(crate) struct PackedDna {
     data: [u8; 48],
     len: u8,
 }
