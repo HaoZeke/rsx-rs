@@ -38,11 +38,13 @@ read -r -a depths <<< "${RSX_DEPTHS:-3 5 8 10}"
 
 workdir=benchmarks/literature-workdir
 
+"$pixi" run -e paper build-python
+
 for d in "${depths[@]}"; do
   echo "=== $dataset min_depth=$d ==="
 
   # Re-use the existing mode analysis but with custom min_depth
-  "$pixi" run -e benchmark python benchmarks/analyze_literature_modes.py \
+  "$pixi" run -e paper python benchmarks/analyze_literature_modes.py \
     --workdir "$workdir" \
     --results "benchmarks/results/lowdepth_${dataset}_d${d}.csv" \
     --dataset "$dataset" \

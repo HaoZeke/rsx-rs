@@ -50,6 +50,13 @@ class LiteratureSweepCollectionTests(unittest.TestCase):
         self.assertEqual(combined["min_depth"].tolist(), ["3", "5"])
         self.assertEqual(combined["mode"].tolist(), ["alpha", "beta"])
 
+    def test_lowdepth_slurm_builds_python_extension_in_paper_environment(self):
+        script = Path("benchmarks/slurm/literature_biology_low_depth.sbatch").read_text()
+
+        self.assertIn('run -e paper build-python', script)
+        self.assertIn('run -e paper python benchmarks/analyze_literature_modes.py', script)
+        self.assertNotIn('|| true', script)
+
 
 if __name__ == "__main__":
     unittest.main()
