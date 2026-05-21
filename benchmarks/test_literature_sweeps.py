@@ -57,6 +57,13 @@ class LiteratureSweepCollectionTests(unittest.TestCase):
         self.assertIn('run -e paper python benchmarks/analyze_literature_modes.py', script)
         self.assertNotIn('|| true', script)
 
+    def test_prior_sensitivity_slurm_runs_release_binary_not_pixi_task(self):
+        script = Path("benchmarks/slurm/literature_biology_prior_sensitivity.sbatch").read_text()
+
+        self.assertIn('target/release/rsx not found', script)
+        self.assertIn('run -e benchmark --executable target/release/rsx triage', script)
+        self.assertNotIn('run -e benchmark rsx triage', script)
+
     def test_slurm_dataset_defaults_use_paper_panel_order(self):
         expected = "danio_albolineatus notothenia_rossii plecoglossus_altivelis tinca_tinca"
         for path in [

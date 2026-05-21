@@ -47,6 +47,11 @@ dataset=${datasets[$index]}
 results_dir=${RSX_SLURM_RESULTS_DIR:-benchmarks/results/slurm}
 mkdir -p "$results_dir"
 
+if [[ ! -x target/release/rsx ]]; then
+    echo "target/release/rsx not found; submit benchmarks/slurm/rsx_release_build.sbatch before this job" >&2
+    exit 2
+fi
+
 # Default grids (override via env)
 read -r -a priors <<< "${RSX_PRIORS:-0.001 0.005 0.01 0.02 0.05 0.1}"
 read -r -a psexes <<< "${RSX_PSEX:-0.8 0.85 0.9 0.95}"
@@ -80,7 +85,7 @@ for pi in "${priors[@]}"; do
     out_tsv="$results_dir/triage_${dataset}_pi${pi}_psex${p_sex}.tsv"
     echo "Running rsx triage for $dataset pi=$pi p_sex=$p_sex"
 
-    "$pixi" run -e benchmark rsx triage \
+    "$pixi" run -e benchmark --executable target/release/rsx triage \
       -t "$markers" \
       -p "$popmap" \
       -o "$out_tsv" \
