@@ -15,7 +15,7 @@ use mpi::traits::*;
 use crate::commands::process::ProcessParams;
 
 #[cfg(feature = "mpi")]
-use crate::io::seq_reader::{count_sequences, get_input_files, PackedDnaKey};
+use crate::io::seq_reader::{PackedDnaKey, count_sequences_packed, get_input_files};
 #[cfg(feature = "mpi")]
 use std::io::Write;
 
@@ -74,7 +74,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
 
     // Process local files with rayon
     #[cfg(feature = "parallel")]
-    let local_results: Vec<(String, ahash::AHashMap<Vec<u8>, u16>)> = {
+    let local_results: Vec<(String, ahash::AHashMap<PackedDnaKey, u16>)> = {
         use rayon::prelude::*;
         rayon::ThreadPoolBuilder::new()
             .num_threads(params.n_threads as usize)
@@ -83,7 +83,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
 
         my_files
             .par_iter()
-            .filter_map(|f| match count_sequences(&f.path) {
+            .filter_map(|f| match count_sequences_packed(&f.path) {
                 Ok(counts) => {
                     log::info!("MPI rank {}: finished {}", rank, f.individual_name);
                     Some((f.individual_name.clone(), counts))
@@ -99,7 +99,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
     #[cfg(not(feature = "parallel"))]
     let local_results: Vec<(String, ahash::AHashMap<PackedDnaKey, u16>)> = my_files
         .iter()
-        .filter_map(|f| match count_sequences(&f.path) {
+        .filter_map(|f| match count_sequences_packed(&f.path) {
             Ok(counts) => Some((f.individual_name.clone(), counts)),
             Err(e) => {
                 log::error!("MPI rank {}: error {}: {e}", rank, f.path.display());
@@ -109,7 +109,8 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
         .collect();
 
     // Merge local results into a local global map
-    let mut local_global: ahash::AHashMap<PackedDnaKey, Vec<(String, u16)>> = ahash::AHashMap::new();
+    let mut local_global: ahash::AHashMap<PackedDnaKey, Vec<(String, u16)>> =
+        ahash::AHashMap::new();
     for (name, counts) in &local_results {
         for (seq, &count) in counts {
             local_global
@@ -226,7 +227,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
 fn serialize_counts(counts: &ahash::AHashMap<PackedDnaKey, Vec<(String, u16)>>) -> Vec<u8> {
     let mut buf = Vec::new();
     for (seq, entries) in counts {
-        let seq_bytes: Vec<u8> = seq.as_slice().to_vec();  // wire format stays bytes
+        let seq_bytes: Vec<u8> = seq.as_slice().to_vec();
         buf.extend_from_slice(&(seq_bytes.len() as u32).to_le_bytes());
         buf.extend_from_slice(&seq_bytes);
         buf.extend_from_slice(&(entries.len() as u32).to_le_bytes());

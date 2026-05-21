@@ -105,7 +105,7 @@ fn base_to_2bit(base: u8) -> u8 {
         b'G' | b'g' => 0b10,
         b'T' | b't' => 0b11,
         _ => {
-            // Cold path for invalid bases (already sanitized upstream in most callers)
+            // Ambiguous bases use the same two-bit code path as the byte-key API.
             0b00
         }
     }
@@ -139,8 +139,8 @@ const PACKED_DNA_INLINE_CAPACITY: usize = 48;
 
 /// Compact stack-allocated key for 2-bit packed DNA (up to 188 bp / 47 bytes packed + len).
 /// Used in the hot per-file counting map to avoid per-read heap allocation.
-/// Only the used prefix participates in Hash/Eq. Converts to Vec<u8> only when
-/// promoting to the long-lived global marker table.
+/// Only the used prefix participates in Hash/Eq. Converts to Vec<u8> for
+/// public APIs and serialization boundaries.
 #[derive(Clone, Copy)]
 struct PackedDna {
     data: [u8; 48],
@@ -247,10 +247,9 @@ pub fn unpack_2bit(packed: &[u8]) -> Vec<u8> {
     seq
 }
 
-/// Count occurrences of each unique sequence in a single file.
-/// Uses 2-bit packed DNA keys for 4x memory reduction.
-/// Returns a map of packed_sequence -> count.
-pub fn count_sequences(
+/// Count occurrences of each unique sequence in a single file using compact
+/// internal keys.
+pub(crate) fn count_sequences_packed(
     path: &Path,
 ) -> Result<ahash::AHashMap<PackedDnaKey, u16>, Box<dyn std::error::Error + Send + Sync>> {
     use needletail::parse_fastx_file;
@@ -268,9 +267,19 @@ pub fn count_sequences(
         *entry = entry.saturating_add(1);
     }
 
-    // Return the allocation-friendly PackedDnaKey form directly.
-    // Conversion to Vec<u8> (if ever needed) happens only at serialization time.
     Ok(counts)
+}
+
+/// Count occurrences of each unique sequence in a single file.
+/// Uses 2-bit packed DNA keys for 4x memory reduction.
+/// Returns a map of packed_sequence -> count.
+pub fn count_sequences(
+    path: &Path,
+) -> Result<ahash::AHashMap<Vec<u8>, u16>, Box<dyn std::error::Error + Send + Sync>> {
+    Ok(count_sequences_packed(path)?
+        .into_iter()
+        .map(|(k, v)| (k.into(), v))
+        .collect())
 }
 
 #[cfg(test)]
@@ -342,5 +351,20 @@ mod tests {
         assert_eq!(counts.len(), 2);
         assert_eq!(counts.get(&pack_2bit(&long_a)), Some(&1));
         assert_eq!(counts.get(&pack_2bit(&long_b)), Some(&1));
+    }
+
+    #[test]
+    fn test_count_sequences_packed_uses_inline_short_read_key() {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        writeln!(f, ">read1").unwrap();
+        writeln!(f, "ATCGATCG").unwrap();
+        writeln!(f, ">read2").unwrap();
+        writeln!(f, "ATCGATCG").unwrap();
+
+        let counts = count_sequences_packed(f.path()).unwrap();
+        assert_eq!(counts.len(), 1);
+        let (key, count) = counts.iter().next().unwrap();
+        assert!(matches!(key, PackedDnaKey::Inline(_)));
+        assert_eq!(*count, 2);
     }
 }

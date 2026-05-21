@@ -7,7 +7,7 @@
 //! DashMap during file processing. No sequential merge bottleneck.
 //! Sequences stored as 2-bit packed DNA (4x memory reduction).
 
-use crate::io::seq_reader::{count_sequences, get_input_files, unpack_2bit, PackedDnaKey};
+use crate::io::seq_reader::{PackedDnaKey, count_sequences_packed, get_input_files, unpack_2bit};
 use std::io::Write;
 use std::path::Path;
 
@@ -25,7 +25,8 @@ pub struct ProcessParams {
 
 const PARALLEL_MERGE_MIN_CAPACITY: usize = 1_024;
 const PARALLEL_MERGE_MAX_CAPACITY: usize = 4_000_000;
-const ESTIMATED_BYTES_PER_MARKER: u64 = 128;
+// Tuned for typical RAD tag length plus the packed key and table-entry overhead.
+const ESTIMATED_BYTES_PER_MARKER: u64 = 64;
 
 fn parallel_merge_capacity_from_bytes(input_bytes: u64) -> usize {
     let estimated = input_bytes / ESTIMATED_BYTES_PER_MARKER;
@@ -82,7 +83,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 
             input_files
                 .par_iter()
-                .for_each(|f| match count_sequences(&f.path) {
+                .for_each(|f| match count_sequences_packed(&f.path) {
                     Ok(counts) => {
                         let idx = individual_indices[&f.individual_name];
                         for (packed_seq, count) in counts {
@@ -103,7 +104,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             let per_file: Vec<_> = input_files
                 .par_iter()
                 .filter_map(|f| {
-                    count_sequences(&f.path).ok().map(|c| {
+                    count_sequences_packed(&f.path).ok().map(|c| {
                         log::debug!("Finished processing individual {}", f.individual_name);
                         (f.individual_name.clone(), c)
                     })
@@ -128,7 +129,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut global = {
         let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
         for f in &input_files {
-            match count_sequences(&f.path) {
+            match count_sequences_packed(&f.path) {
                 Ok(counts) => {
                     let idx = individual_indices[&f.individual_name];
                     for (packed_seq, count) in counts {
@@ -181,7 +182,8 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                 keep.insert(b);
             }
         }
-        let kept_keys: ahash::AHashSet<PackedDnaKey> = keep.iter().map(|&i| keys[i].clone()).collect();
+        let kept_keys: ahash::AHashSet<PackedDnaKey> =
+            keep.iter().map(|&i| keys[i].clone()).collect();
         global.retain(|k, _| kept_keys.contains(k));
         log::info!("K-mer dedup: retained {} markers", global.len());
     }
@@ -233,7 +235,10 @@ mod tests {
     fn parallel_merge_capacity_scales_with_input_size() {
         assert_eq!(parallel_merge_capacity_from_bytes(0), 1_024);
         assert_eq!(parallel_merge_capacity_from_bytes(8 * 512), 1_024);
-        assert_eq!(parallel_merge_capacity_from_bytes(5_000 * 128), 5_000);
+        assert_eq!(
+            parallel_merge_capacity_from_bytes(5_000 * ESTIMATED_BYTES_PER_MARKER),
+            5_000
+        );
         assert_eq!(
             parallel_merge_capacity_from_bytes(10_000_000 * 128),
             4_000_000
@@ -254,6 +259,6 @@ mod tests {
             });
         }
 
-        assert_eq!(estimate_parallel_merge_capacity(&input_files), 16_384);
+        assert_eq!(estimate_parallel_merge_capacity(&input_files), 32_768);
     }
 }
