@@ -28,7 +28,7 @@ fi
 
 : "${RADSEX_BIN:?Set RADSEX_BIN to the C++ RADSex executable path}"
 
-read -r -a datasets <<< "${RSX_DATASETS:-notothenia_rossii danio_albolineatus tinca_tinca plecoglossus_altivelis}"
+read -r -a datasets <<< "${RSX_DATASETS:-danio_albolineatus notothenia_rossii plecoglossus_altivelis tinca_tinca}"
 index=${SLURM_ARRAY_TASK_ID:-0}
 if (( index < 0 || index >= ${#datasets[@]} )); then
     echo "SLURM_ARRAY_TASK_ID=$index is outside ${#datasets[@]} configured datasets" >&2

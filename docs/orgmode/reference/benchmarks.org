@@ -474,12 +474,15 @@ pixi run -e paper run-literature-bindings
 On Slurm:
 
 #+begin_src bash
-sbatch --export=ALL,RSX_REPO=$PWD,RSX_DATASET=notothenia_rossii \
-  benchmarks/slurm/literature_bindings_features.sbatch
+sbatch --export=ALL,RSX_REPO=$PWD \
+  --array=0-3 benchmarks/slurm/literature_bindings_features.sbatch
+pixi run -e benchmark merge-literature-binding-slurm-results
 #+end_src
 
-The run writes =benchmarks/results/literature_binding_results.csv=
-(aggregated across the four datasets) and a per-dataset CSV alongside.
+The Pixi task writes =benchmarks/results/literature_binding_results.csv=
+aggregated across the four datasets. The Slurm array writes per-dataset shards
+under =benchmarks/results/slurm/=, and the merge task refreshes the same
+aggregated CSV.
 It exercises =pyrsx.freq=, =pyrsx.depth=,
 =pyrsx.distrib(test='fisher', correction='fdr')=, =pyrsx.pca=, and
 =pyrsx.signif(bayes=True)= on each published RADSex workflow dataset,

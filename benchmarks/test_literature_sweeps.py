@@ -57,6 +57,17 @@ class LiteratureSweepCollectionTests(unittest.TestCase):
         self.assertIn('run -e paper python benchmarks/analyze_literature_modes.py', script)
         self.assertNotIn('|| true', script)
 
+    def test_slurm_dataset_defaults_use_paper_panel_order(self):
+        expected = "danio_albolineatus notothenia_rossii plecoglossus_altivelis tinca_tinca"
+        for path in [
+            Path("benchmarks/slurm/literature_prepare_dataset.sbatch"),
+            Path("benchmarks/slurm/literature_radsex_compare.sbatch"),
+            Path("benchmarks/slurm/literature_biology_prior_sensitivity.sbatch"),
+            Path("benchmarks/slurm/literature_biology_low_depth.sbatch"),
+        ]:
+            with self.subTest(path=path):
+                self.assertIn(f"RSX_DATASETS:-{expected}", path.read_text())
+
 
 if __name__ == "__main__":
     unittest.main()
