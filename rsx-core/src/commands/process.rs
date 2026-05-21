@@ -54,8 +54,11 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         if n_individuals >= 8 {
             use dashmap::DashMap;
 
+            // Pre-reserve a large capacity for the common RAD-seq case (millions of unique
+            // tags across the panel). This eliminates most of the concurrent resize cost
+            // in the hot par_iter insertion phase without changing any semantics or output.
             let dm: DashMap<Vec<u8>, Vec<u16>, ahash::RandomState> =
-                DashMap::with_hasher(ahash::RandomState::new());
+                DashMap::with_capacity_and_hasher(4_000_000, ahash::RandomState::new());
 
             input_files
                 .par_iter()
