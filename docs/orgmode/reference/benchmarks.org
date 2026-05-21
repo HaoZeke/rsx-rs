@@ -105,16 +105,16 @@ pixi run -e benchmark run-literature-medaka
 
 *** Completed biological benchmark panel
 
-The tracked paper-facing panel currently contains four completed datasets
+The tracked paper-facing panel contains four completed datasets
 downloaded from the RADSex literature BioProject. These are full FASTQ runs,
 not synthetic marker tables.
 
 | Dataset                  | Samples | Bases        | Markers    | Total runtime (s) |
 |--------------------------+---------+--------------+------------+-------------------|
-| =danio_albolineatus=     |      58 | 10,200,185,246 | 29,357,812 |           967.408 |
-| =notothenia_rossii=      |      42 | 10,468,745,314 | 11,337,736 |           714.357 |
-| =plecoglossus_altivelis= |      65 |  9,924,715,896 |  7,338,124 |           748.643 |
-| =tinca_tinca=            |      43 | 11,257,335,754 |  6,932,387 |           988.278 |
+| =danio_albolineatus=     |      58 | 10,200,185,246 | 29,357,812 |         1,240.187 |
+| =notothenia_rossii=      |      42 | 10,468,745,314 | 11,337,736 |         1,104.048 |
+| =plecoglossus_altivelis= |      65 |  9,924,715,896 |  7,338,124 |         1,045.383 |
+| =tinca_tinca=            |      43 | 11,257,335,754 |  6,932,387 |         1,020.880 |
 
 The paper figures are generated from the tracked CSV files. The runtime
 figure reports compute time only (=process= plus downstream analysis);
@@ -160,10 +160,13 @@ the standard =<cstdint>= include fix for modern GCC, but the RADSex command
 behavior is otherwise unchanged.
 
 Across 56 paired command/dataset/depth timings on the Slurm panel, rsx-rs
-is faster in all 56 pairs. The geometric-mean speedup is 3.14x.
-Process-stage speedup is 1.83x geometric mean across the four literature
-datasets. =freq= and =distrib= show 4.57x and 5.81x geometric-mean
-speedups, respectively. =signif= is closer at 1.36x geometric mean.
+is faster in 49 pairs. The geometric-mean speedup is 6.81x when speedup is
+defined as C++ wall time divided by Rust wall time. The process-stage
+geometric-mean speedup is 2.47x across the four literature datasets.
+=depth=, =freq=, and =distrib= favor rsx-rs in every paired run, with
+geometric-mean speedups of 5.43x, 19.29x, and 21.40x, respectively.
+=signif= is mixed: rsx-rs is faster in 9 of 16 paired runs, with a 1.04x
+geometric-mean speedup.
 
 On Slurm clusters, submit per-dataset compute-only comparisons as an array
 job after the FASTQ files and marker tables have been prepared:
@@ -311,7 +314,7 @@ pixi run -e paper python benchmarks/summarise_depth_stability.py
 |--------------------------+-----------+--------+-----------------+-------------------|
 | =danio_albolineatus=     |         3 |      0 |             690 |             1,316 |
 | =danio_albolineatus=     |         5 |      0 |             143 |               782 |
-| =danio_albolineatus=     |         8 |      0 |               0 |                 0 |
+| =danio_albolineatus=     |         8 |      0 |              45 |               301 |
 | =danio_albolineatus=     |        10 |      0 |              30 |               174 |
 | =notothenia_rossii=      |         3 |      0 |               2 |               527 |
 | =notothenia_rossii=      |         5 |      0 |               1 |               486 |
@@ -339,10 +342,12 @@ The two strict-null datasets behave differently across depths.
 =notothenia_rossii= stays strict-zero at every depth and its posterior
 > 0.9 count never exceeds 2, which corroborates the negative call from the
 =d=10= mode-effects table. =danio_albolineatus= is strict-zero everywhere
-but its Bayesian counts collapse to zero at =d=8= before reappearing at
-=d=10= (30 high-posterior, 174 Bayes-factor); this is the same dataset that
-shows the highest prior sensitivity in the heatmap above, and the d=8 dip
-deserves a flagged note in the paper rather than a smooth-trend claim.
+but its Bayesian counts contract sharply from =d=3= to =d=10=, retaining
+45 high-posterior and 301 Bayes-factor markers at =d=8= and 30
+high-posterior plus 174 Bayes-factor markers at =d=10=. This is the same
+dataset that shows the highest prior sensitivity in the heatmap above, so
+the paper should present it as a prior- and depth-sensitive hypothesis set
+rather than a stable sex-determination call.
 
 The depth-stability table is what motivates citing the
 =plecoglossus_altivelis= strict numbers at the standard RADSex =d=10=
