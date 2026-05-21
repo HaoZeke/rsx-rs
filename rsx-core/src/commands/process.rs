@@ -23,6 +23,26 @@ pub struct ProcessParams {
     pub kmer_dedup: Option<usize>,
 }
 
+const PARALLEL_MERGE_MIN_CAPACITY: usize = 1_024;
+const PARALLEL_MERGE_MAX_CAPACITY: usize = 4_000_000;
+const ESTIMATED_BYTES_PER_MARKER: u64 = 128;
+
+fn parallel_merge_capacity_from_bytes(input_bytes: u64) -> usize {
+    let estimated = input_bytes / ESTIMATED_BYTES_PER_MARKER;
+    estimated.clamp(
+        PARALLEL_MERGE_MIN_CAPACITY as u64,
+        PARALLEL_MERGE_MAX_CAPACITY as u64,
+    ) as usize
+}
+
+fn estimate_parallel_merge_capacity(input_files: &[crate::io::seq_reader::InputFile]) -> usize {
+    let input_bytes = input_files
+        .iter()
+        .filter_map(|f| std::fs::metadata(&f.path).ok())
+        .fold(0_u64, |acc, meta| acc.saturating_add(meta.len()));
+    parallel_merge_capacity_from_bytes(input_bytes)
+}
+
 /// Run the `process` command.
 pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("RADSex process started");
@@ -54,11 +74,11 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         if n_individuals >= 8 {
             use dashmap::DashMap;
 
-            // Pre-reserve a large capacity for the common RAD-seq case (millions of unique
-            // tags across the panel). This eliminates most of the concurrent resize cost
-            // in the hot par_iter insertion phase without changing any semantics or output.
+            // Size the shared table from observed input bytes so small panels stay light
+            // while large RAD panels start near a useful capacity.
+            let initial_capacity = estimate_parallel_merge_capacity(&input_files);
             let dm: DashMap<Vec<u8>, Vec<u16>, ahash::RandomState> =
-                DashMap::with_capacity_and_hasher(4_000_000, ahash::RandomState::new());
+                DashMap::with_capacity_and_hasher(initial_capacity, ahash::RandomState::new());
 
             input_files
                 .par_iter()
@@ -213,13 +233,27 @@ mod tests {
     fn parallel_merge_capacity_scales_with_input_size() {
         assert_eq!(parallel_merge_capacity_from_bytes(0), 1_024);
         assert_eq!(parallel_merge_capacity_from_bytes(8 * 512), 1_024);
-        assert_eq!(
-            parallel_merge_capacity_from_bytes(5_000 * 128),
-            5_000
-        );
+        assert_eq!(parallel_merge_capacity_from_bytes(5_000 * 128), 5_000);
         assert_eq!(
             parallel_merge_capacity_from_bytes(10_000_000 * 128),
             4_000_000
         );
+    }
+
+    #[test]
+    fn parallel_merge_capacity_uses_input_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut input_files = Vec::new();
+        for i in 0..8 {
+            let path = dir.path().join(format!("ind{i}.fq"));
+            let file = std::fs::File::create(&path).unwrap();
+            file.set_len(256 * 1_024).unwrap();
+            input_files.push(crate::io::seq_reader::InputFile {
+                path,
+                individual_name: format!("ind{i}"),
+            });
+        }
+
+        assert_eq!(estimate_parallel_merge_capacity(&input_files), 16_384);
     }
 }
