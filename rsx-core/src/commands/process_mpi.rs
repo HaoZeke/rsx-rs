@@ -15,7 +15,7 @@ use mpi::traits::*;
 use crate::commands::process::ProcessParams;
 
 #[cfg(feature = "mpi")]
-use crate::io::seq_reader::{count_sequences, get_input_files};
+use crate::io::seq_reader::{count_sequences, get_input_files, PackedDnaKey};
 #[cfg(feature = "mpi")]
 use std::io::Write;
 
@@ -97,7 +97,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
     };
 
     #[cfg(not(feature = "parallel"))]
-    let local_results: Vec<(String, ahash::AHashMap<Vec<u8>, u16>)> = my_files
+    let local_results: Vec<(String, ahash::AHashMap<PackedDnaKey, u16>)> = my_files
         .iter()
         .filter_map(|f| match count_sequences(&f.path) {
             Ok(counts) => Some((f.individual_name.clone(), counts)),
@@ -109,7 +109,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
         .collect();
 
     // Merge local results into a local global map
-    let mut local_global: ahash::AHashMap<Vec<u8>, Vec<(String, u16)>> = ahash::AHashMap::new();
+    let mut local_global: ahash::AHashMap<PackedDnaKey, Vec<(String, u16)>> = ahash::AHashMap::new();
     for (name, counts) in &local_results {
         for (seq, &count) in counts {
             local_global
@@ -223,11 +223,12 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[cfg(feature = "mpi")]
-fn serialize_counts(counts: &ahash::AHashMap<Vec<u8>, Vec<(String, u16)>>) -> Vec<u8> {
+fn serialize_counts(counts: &ahash::AHashMap<PackedDnaKey, Vec<(String, u16)>>) -> Vec<u8> {
     let mut buf = Vec::new();
     for (seq, entries) in counts {
-        buf.extend_from_slice(&(seq.len() as u32).to_le_bytes());
-        buf.extend_from_slice(seq);
+        let seq_bytes: Vec<u8> = seq.as_slice().to_vec();  // wire format stays bytes
+        buf.extend_from_slice(&(seq_bytes.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&seq_bytes);
         buf.extend_from_slice(&(entries.len() as u32).to_le_bytes());
         for (name, count) in entries {
             buf.extend_from_slice(&(name.len() as u32).to_le_bytes());

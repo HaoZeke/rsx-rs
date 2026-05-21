@@ -7,7 +7,7 @@
 //! DashMap during file processing. No sequential merge bottleneck.
 //! Sequences stored as 2-bit packed DNA (4x memory reduction).
 
-use crate::io::seq_reader::{count_sequences, get_input_files, unpack_2bit};
+use crate::io::seq_reader::{count_sequences, get_input_files, unpack_2bit, PackedDnaKey};
 use std::io::Write;
 use std::path::Path;
 
@@ -77,7 +77,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             // Size the shared table from observed input bytes so small panels stay light
             // while large RAD panels start near a useful capacity.
             let initial_capacity = estimate_parallel_merge_capacity(&input_files);
-            let dm: DashMap<Vec<u8>, Vec<u16>, ahash::RandomState> =
+            let dm: DashMap<PackedDnaKey, Vec<u16>, ahash::RandomState> =
                 DashMap::with_capacity_and_hasher(initial_capacity, ahash::RandomState::new());
 
             input_files
@@ -110,7 +110,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect();
 
-            let mut global: ahash::AHashMap<Vec<u8>, Vec<u16>> = ahash::AHashMap::new();
+            let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
             for (name, counts) in per_file {
                 let idx = individual_indices[&name];
                 for (packed_seq, count) in counts {
@@ -126,7 +126,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(not(feature = "parallel"))]
     let mut global = {
-        let mut global: ahash::AHashMap<Vec<u8>, Vec<u16>> = ahash::AHashMap::new();
+        let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
         for f in &input_files {
             match count_sequences(&f.path) {
                 Ok(counts) => {
@@ -154,9 +154,10 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             k,
             global.len()
         );
-        let sequences: Vec<Vec<u8>> = global
-            .keys()
-            .map(|packed| crate::io::seq_reader::unpack_2bit(packed))
+        let keys: Vec<PackedDnaKey> = global.keys().cloned().collect();
+        let sequences: Vec<Vec<u8>> = keys
+            .iter()
+            .map(|k| crate::io::seq_reader::unpack_2bit(k.as_slice()))
             .collect();
         let groups = crate::kmer::group_by_kmer(&sequences, k);
         let n_before = global.len();
@@ -168,7 +169,6 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             (1.0 - n_groups as f64 / n_before as f64) * 100.0
         );
         // For each group, keep the representative with highest total depth
-        let keys: Vec<Vec<u8>> = global.keys().cloned().collect();
         let mut keep: ahash::AHashSet<usize> = ahash::AHashSet::new();
         for (_hash, indices) in &groups {
             let best = indices.iter().copied().max_by_key(|&i| {
@@ -181,7 +181,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                 keep.insert(b);
             }
         }
-        let kept_keys: ahash::AHashSet<Vec<u8>> = keep.iter().map(|&i| keys[i].clone()).collect();
+        let kept_keys: ahash::AHashSet<PackedDnaKey> = keep.iter().map(|&i| keys[i].clone()).collect();
         global.retain(|k, _| kept_keys.contains(k));
         log::info!("K-mer dedup: retained {} markers", global.len());
     }
@@ -203,7 +203,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         if params.min_depth > 1 && !depths.iter().any(|&d| d >= params.min_depth) {
             continue;
         }
-        let unpacked = unpack_2bit(packed_seq);
+        let unpacked = unpack_2bit(packed_seq.as_slice());
         let seq_str = std::str::from_utf8(&unpacked).unwrap_or("?");
         write!(output, "{}\t{}", id, seq_str)?;
         for &d in depths {

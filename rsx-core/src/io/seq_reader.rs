@@ -104,7 +104,10 @@ fn base_to_2bit(base: u8) -> u8 {
         b'C' | b'c' => 0b01,
         b'G' | b'g' => 0b10,
         b'T' | b't' => 0b11,
-        _ => 0b00,
+        _ => {
+            // Cold path for invalid bases (already sanitized upstream in most callers)
+            0b00
+        }
     }
 }
 
@@ -174,14 +177,14 @@ impl From<PackedDna> for Vec<u8> {
 }
 
 #[derive(Clone)]
-enum PackedDnaKey {
+pub(crate) enum PackedDnaKey {
     Inline(PackedDna),
     Heap(Vec<u8>),
 }
 
 impl PackedDnaKey {
     #[inline(always)]
-    fn as_slice(&self) -> &[u8] {
+    pub(crate) fn as_slice(&self) -> &[u8] {
         match self {
             PackedDnaKey::Inline(packed) => packed.as_slice(),
             PackedDnaKey::Heap(packed) => packed,
@@ -249,7 +252,7 @@ pub fn unpack_2bit(packed: &[u8]) -> Vec<u8> {
 /// Returns a map of packed_sequence -> count.
 pub fn count_sequences(
     path: &Path,
-) -> Result<ahash::AHashMap<Vec<u8>, u16>, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<ahash::AHashMap<PackedDnaKey, u16>, Box<dyn std::error::Error + Send + Sync>> {
     use needletail::parse_fastx_file;
 
     // Use stack-allocated keys for common read lengths and heap-backed keys for
@@ -265,9 +268,9 @@ pub fn count_sequences(
         *entry = entry.saturating_add(1);
     }
 
-    // Convert to the public Vec<u8> form only for the (much smaller) set of
-    // unique sequences that will be merged into the global table.
-    Ok(counts.into_iter().map(|(k, v)| (k.into(), v)).collect())
+    // Return the allocation-friendly PackedDnaKey form directly.
+    // Conversion to Vec<u8> (if ever needed) happens only at serialization time.
+    Ok(counts)
 }
 
 #[cfg(test)]
