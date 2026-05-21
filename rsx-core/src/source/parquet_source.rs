@@ -18,8 +18,8 @@ use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use crate::io::table_io::TableHeader;
 use crate::marker::Marker;
 
-use super::arrow_source::{ArrowMarkerSource, ArrowSourceError};
 use super::MarkerStream;
+use super::arrow_source::{ArrowMarkerSource, ArrowSourceError};
 
 /// Spilled-to-Parquet marker source. Owns the underlying temp file so it
 /// is removed automatically when the source is dropped.
@@ -37,9 +37,7 @@ impl ParquetMarkerSource {
     /// Materialise an in-memory [`ArrowMarkerSource`] as a Parquet temp
     /// file and wrap it as a `ParquetMarkerSource`. The original batches
     /// are dropped once the file is written.
-    pub fn spill_from_arrow(
-        in_mem: &ArrowMarkerSource,
-    ) -> Result<Self, ParquetSourceError> {
+    pub fn spill_from_arrow(in_mem: &ArrowMarkerSource) -> Result<Self, ParquetSourceError> {
         use parquet::arrow::ArrowWriter;
         use parquet::file::properties::WriterProperties;
 
@@ -53,8 +51,7 @@ impl ParquetMarkerSource {
             return Err(ParquetSourceError::EmptyInput);
         };
 
-        let file = File::create(&path)
-            .map_err(|e| ParquetSourceError::Write(e.to_string()))?;
+        let file = File::create(&path).map_err(|e| ParquetSourceError::Write(e.to_string()))?;
         let props = WriterProperties::builder().build();
         let mut writer = ArrowWriter::try_new(file, schema, Some(props))
             .map_err(|e| ParquetSourceError::Write(e.to_string()))?;
@@ -177,4 +174,3 @@ impl std::fmt::Display for ParquetSourceError {
 }
 
 impl std::error::Error for ParquetSourceError {}
-

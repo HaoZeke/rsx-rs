@@ -18,9 +18,9 @@ use crate::marker::Marker;
 #[cfg(feature = "arrow-input")]
 pub mod arrow_source;
 #[cfg(feature = "arrow-input")]
-pub mod parquet_source;
-#[cfg(feature = "arrow-input")]
 pub mod estimator;
+#[cfg(feature = "arrow-input")]
+pub mod parquet_source;
 
 #[cfg(all(test, feature = "arrow-input"))]
 mod tests;
@@ -28,11 +28,11 @@ mod tests;
 #[cfg(feature = "arrow-input")]
 pub use arrow_source::ArrowMarkerSource;
 #[cfg(feature = "arrow-input")]
-pub use parquet_source::ParquetMarkerSource;
-#[cfg(feature = "arrow-input")]
 pub use estimator::{
-    estimate_working_set_bytes, spill_threshold_bytes, MarkerTableSource, SizeEstimate,
+    MarkerTableSource, SizeEstimate, estimate_working_set_bytes, spill_threshold_bytes,
 };
+#[cfg(feature = "arrow-input")]
+pub use parquet_source::ParquetMarkerSource;
 
 /// Stream of markers consumed by the analysis commands.
 ///

@@ -54,11 +54,7 @@ impl ArrowMarkerSource {
             return Err(ArrowSourceError::ShortSchema(schema.fields().len()));
         }
 
-        let columns: Vec<String> = schema
-            .fields()
-            .iter()
-            .map(|f| f.name().clone())
-            .collect();
+        let columns: Vec<String> = schema.fields().iter().map(|f| f.name().clone()).collect();
         let n_individuals = (columns.len() - 2) as u16;
         let n_markers: u64 = batches.iter().map(|b| b.num_rows() as u64).sum();
 
@@ -125,23 +121,22 @@ impl ArrowMarkerSource {
 
     /// Materialise one `Marker` per row of the supplied batches.
     /// Shared between serial and parallel paths.
-    fn for_each_in_batches<F>(
-        batches: &[RecordBatch],
-        n_individuals: u16,
-        min_depth: u16,
-        mut f: F,
-    ) where
+    fn for_each_in_batches<F>(batches: &[RecordBatch], n_individuals: u16, min_depth: u16, mut f: F)
+    where
         F: FnMut(&Marker),
     {
         let mut marker = Marker::new(n_individuals);
         for batch in batches {
-            let cols: Vec<&dyn Array> =
-                (0..batch.num_columns()).map(|i| batch.column(i).as_ref()).collect();
+            let cols: Vec<&dyn Array> = (0..batch.num_columns())
+                .map(|i| batch.column(i).as_ref())
+                .collect();
 
             for row in 0..batch.num_rows() {
                 marker.reset(false);
                 marker.id.push_str(&array_value_as_string(cols[0], row));
-                marker.sequence.push_str(&array_value_as_string(cols[1], row));
+                marker
+                    .sequence
+                    .push_str(&array_value_as_string(cols[1], row));
 
                 for ind_idx in 0..n_individuals as usize {
                     let col = cols[ind_idx + 2];
@@ -170,11 +165,16 @@ impl MarkerStream for ArrowMarkerSource {
 
     fn count_markers(&self) -> io::Result<u64> {
         let mut n = 0u64;
-        Self::for_each_in_batches(&self.batches, self.header.n_individuals, self.min_depth, |m| {
-            if m.n_individuals > 0 {
-                n += 1;
-            }
-        });
+        Self::for_each_in_batches(
+            &self.batches,
+            self.header.n_individuals,
+            self.min_depth,
+            |m| {
+                if m.n_individuals > 0 {
+                    n += 1;
+                }
+            },
+        );
         Ok(n)
     }
 
@@ -309,7 +309,11 @@ fn array_value_as_u16(array: &dyn Array, row: usize) -> u16 {
         DataType::UInt32 => clamp_uint!(UInt32Array),
         DataType::UInt64 => clamp_uint!(UInt64Array),
         DataType::Float32 => {
-            let v = array.as_any().downcast_ref::<Float32Array>().unwrap().value(row);
+            let v = array
+                .as_any()
+                .downcast_ref::<Float32Array>()
+                .unwrap()
+                .value(row);
             if !v.is_finite() || v <= 0.0 {
                 0
             } else if v >= u16::MAX as f32 {
@@ -319,7 +323,11 @@ fn array_value_as_u16(array: &dyn Array, row: usize) -> u16 {
             }
         }
         DataType::Float64 => {
-            let v = array.as_any().downcast_ref::<Float64Array>().unwrap().value(row);
+            let v = array
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap()
+                .value(row);
             if !v.is_finite() || v <= 0.0 {
                 0
             } else if v >= u16::MAX as f64 {
@@ -328,9 +336,13 @@ fn array_value_as_u16(array: &dyn Array, row: usize) -> u16 {
                 v.round() as u16
             }
         }
-        DataType::Utf8 => {
-            array.as_any().downcast_ref::<StringArray>().unwrap().value(row).parse().unwrap_or(0)
-        }
+        DataType::Utf8 => array
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap()
+            .value(row)
+            .parse()
+            .unwrap_or(0),
         DataType::LargeUtf8 => array
             .as_any()
             .downcast_ref::<LargeStringArray>()
@@ -363,21 +375,77 @@ fn array_value_as_string(array: &dyn Array, row: usize) -> String {
             .unwrap()
             .value(row)
             .to_string(),
-        DataType::Int8 => array.as_any().downcast_ref::<Int8Array>().unwrap().value(row).to_string(),
-        DataType::Int16 => array.as_any().downcast_ref::<Int16Array>().unwrap().value(row).to_string(),
-        DataType::Int32 => array.as_any().downcast_ref::<Int32Array>().unwrap().value(row).to_string(),
-        DataType::Int64 => array.as_any().downcast_ref::<Int64Array>().unwrap().value(row).to_string(),
-        DataType::UInt8 => array.as_any().downcast_ref::<UInt8Array>().unwrap().value(row).to_string(),
-        DataType::UInt16 => array.as_any().downcast_ref::<UInt16Array>().unwrap().value(row).to_string(),
-        DataType::UInt32 => array.as_any().downcast_ref::<UInt32Array>().unwrap().value(row).to_string(),
-        DataType::UInt64 => array.as_any().downcast_ref::<UInt64Array>().unwrap().value(row).to_string(),
+        DataType::Int8 => array
+            .as_any()
+            .downcast_ref::<Int8Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::Int16 => array
+            .as_any()
+            .downcast_ref::<Int16Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::Int32 => array
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::Int64 => array
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::UInt8 => array
+            .as_any()
+            .downcast_ref::<UInt8Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::UInt16 => array
+            .as_any()
+            .downcast_ref::<UInt16Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::UInt32 => array
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::UInt64 => array
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
         DataType::Float32 => {
-            let v = array.as_any().downcast_ref::<Float32Array>().unwrap().value(row);
-            if v.is_finite() { (v.round() as i64).to_string() } else { String::new() }
+            let v = array
+                .as_any()
+                .downcast_ref::<Float32Array>()
+                .unwrap()
+                .value(row);
+            if v.is_finite() {
+                (v.round() as i64).to_string()
+            } else {
+                String::new()
+            }
         }
         DataType::Float64 => {
-            let v = array.as_any().downcast_ref::<Float64Array>().unwrap().value(row);
-            if v.is_finite() { (v.round() as i64).to_string() } else { String::new() }
+            let v = array
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap()
+                .value(row);
+            if v.is_finite() {
+                (v.round() as i64).to_string()
+            } else {
+                String::new()
+            }
         }
         _ => String::new(),
     }

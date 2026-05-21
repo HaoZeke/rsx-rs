@@ -288,10 +288,30 @@ fn scalar_to_string(array: &dyn arrow::array::Array, row: usize) -> String {
             .unwrap()
             .value(row)
             .to_string(),
-        DataType::Int32 => array.as_any().downcast_ref::<Int32Array>().unwrap().value(row).to_string(),
-        DataType::Int64 => array.as_any().downcast_ref::<Int64Array>().unwrap().value(row).to_string(),
-        DataType::UInt32 => array.as_any().downcast_ref::<UInt32Array>().unwrap().value(row).to_string(),
-        DataType::UInt64 => array.as_any().downcast_ref::<UInt64Array>().unwrap().value(row).to_string(),
+        DataType::Int32 => array
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::Int64 => array
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::UInt32 => array
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
+        DataType::UInt64 => array
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .unwrap()
+            .value(row)
+            .to_string(),
         _ => String::new(),
     }
 }
@@ -309,9 +329,10 @@ fn read_tsv_to_pyarrow_table(py: Python<'_>, path: &str) -> PyResult<PyObject> {
 
     let table_kwargs = pyo3::types::PyDict::new(py);
     table_kwargs.set_item("preserve_index", false)?;
-    let table = pyarrow
-        .getattr("Table")?
-        .call_method("from_pandas", (pdf,), Some(&table_kwargs))?;
+    let table =
+        pyarrow
+            .getattr("Table")?
+            .call_method("from_pandas", (pdf,), Some(&table_kwargs))?;
     Ok(table.into())
 }
 
@@ -320,13 +341,19 @@ fn read_tsv_to_pyarrow_table(py: Python<'_>, path: &str) -> PyResult<PyObject> {
 fn batches_to_pyarrow_table(py: Python<'_>, batches: &[RecordBatch]) -> PyResult<PyObject> {
     if batches.is_empty() {
         let pyarrow = py.import("pyarrow")?;
-        return Ok(pyarrow.getattr("Table")?.call_method0("from_batches")?.into());
+        return Ok(pyarrow
+            .getattr("Table")?
+            .call_method0("from_batches")?
+            .into());
     }
     let bytes = batches_to_ipc_bytes(&batches.iter().collect::<Vec<_>>())?;
     let mut tables = ipc_bytes_to_pyarrow_tables(py, &bytes)?;
     if tables.is_empty() {
         let pyarrow = py.import("pyarrow")?;
-        return Ok(pyarrow.getattr("Table")?.call_method0("from_batches")?.into());
+        return Ok(pyarrow
+            .getattr("Table")?
+            .call_method0("from_batches")?
+            .into());
     }
     Ok(tables.remove(0))
 }
@@ -473,9 +500,13 @@ fn triage_to_arrow_from_arrow(
     group2: &str,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
-    let source =
-        MarkerTableSource::from_arrow_ipc(markers_ipc, Some(&popmap), min_depth, cmd_overhead::TRIAGE)
-            .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    let source = MarkerTableSource::from_arrow_ipc(
+        markers_ipc,
+        Some(&popmap),
+        min_depth,
+        cmd_overhead::TRIAGE,
+    )
+    .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let params = rsx_core::commands::triage::TriageParams {
         markers_table_path: String::new(),
@@ -532,8 +563,9 @@ fn pca_to_arrow_from_arrow(
 #[pyfunction]
 #[pyo3(signature = (markers_ipc, min_depth=1))]
 fn freq_from_arrow(py: Python<'_>, markers_ipc: &[u8], min_depth: u16) -> PyResult<PyObject> {
-    let source = MarkerTableSource::from_arrow_ipc(markers_ipc, None, min_depth, cmd_overhead::FREQ)
-        .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    let source =
+        MarkerTableSource::from_arrow_ipc(markers_ipc, None, min_depth, cmd_overhead::FREQ)
+            .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let out = NamedTempFile::new()
         .map_err(|e| PyRuntimeError::new_err(format!("freq output temp: {e}")))?;
@@ -562,8 +594,9 @@ fn depth_from_arrow(
     // depth reads `individual_depths`; min_depth=1 matches the file-based
     // behaviour where the parser stores raw depths and the command does
     // its own thresholding via `min_frequency`.
-    let source = MarkerTableSource::from_arrow_ipc(markers_ipc, Some(&popmap), 1, cmd_overhead::DEPTH)
-        .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    let source =
+        MarkerTableSource::from_arrow_ipc(markers_ipc, Some(&popmap), 1, cmd_overhead::DEPTH)
+            .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let out = NamedTempFile::new()
         .map_err(|e| PyRuntimeError::new_err(format!("depth output temp: {e}")))?;
@@ -600,9 +633,13 @@ fn distrib_from_arrow(
     test: &str,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
-    let source =
-        MarkerTableSource::from_arrow_ipc(markers_ipc, Some(&popmap), min_depth, cmd_overhead::DISTRIB)
-            .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    let source = MarkerTableSource::from_arrow_ipc(
+        markers_ipc,
+        Some(&popmap),
+        min_depth,
+        cmd_overhead::DISTRIB,
+    )
+    .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let out = NamedTempFile::new()
         .map_err(|e| PyRuntimeError::new_err(format!("distrib output temp: {e}")))?;
@@ -647,9 +684,13 @@ fn signif_from_arrow(
     bayes: bool,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
-    let source =
-        MarkerTableSource::from_arrow_ipc(markers_ipc, Some(&popmap), min_depth, cmd_overhead::SIGNIF)
-            .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    let source = MarkerTableSource::from_arrow_ipc(
+        markers_ipc,
+        Some(&popmap),
+        min_depth,
+        cmd_overhead::SIGNIF,
+    )
+    .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let out = NamedTempFile::new()
         .map_err(|e| PyRuntimeError::new_err(format!("signif output temp: {e}")))?;

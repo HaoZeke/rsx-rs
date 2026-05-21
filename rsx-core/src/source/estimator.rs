@@ -18,9 +18,9 @@ use crate::io::table_io::TableHeader;
 use crate::marker::Marker;
 use crate::popmap::Popmap;
 
+use super::MarkerStream;
 use super::arrow_source::{ArrowMarkerSource, ArrowSourceError};
 use super::parquet_source::{ParquetMarkerSource, ParquetSourceError};
-use super::MarkerStream;
 
 /// Bytes per depth cell. We always store u16 in the marker buffer
 /// regardless of the inbound Arrow type, so this is a fixed 2 bytes.
@@ -135,7 +135,10 @@ impl MarkerTableSource {
         let threshold = spill_threshold_bytes();
         let force = std::env::var("RSX_FORCE_SPILL").ok();
         let force_spill = matches!(force.as_deref(), Some("1") | Some("true") | Some("yes"));
-        let force_inmem = matches!(force.as_deref(), Some("0") | Some("false") | Some("no") | Some("never"));
+        let force_inmem = matches!(
+            force.as_deref(),
+            Some("0") | Some("false") | Some("no") | Some("never")
+        );
 
         if force_inmem {
             log::debug!("MarkerTableSource: in-memory forced via RSX_FORCE_SPILL");
@@ -145,7 +148,8 @@ impl MarkerTableSource {
         if force_spill || estimate.estimated_bytes > threshold {
             log::info!(
                 "MarkerTableSource: spilling to Parquet (estimated {} bytes > threshold {})",
-                estimate.estimated_bytes, threshold
+                estimate.estimated_bytes,
+                threshold
             );
             let spilled = ParquetMarkerSource::spill_from_arrow(&in_mem)
                 .map_err(MarkerSourceError::Parquet)?;

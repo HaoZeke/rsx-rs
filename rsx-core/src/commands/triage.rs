@@ -206,9 +206,7 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
     popmap: &Popmap,
     params: &TriageParams,
 ) -> Result<Vec<RecordBatch>, Box<dyn std::error::Error>> {
-    use arrow::array::builder::{
-        BooleanBuilder, Float64Builder, StringBuilder, UInt32Builder,
-    };
+    use arrow::array::builder::{BooleanBuilder, Float64Builder, StringBuilder, UInt32Builder};
     use arrow::datatypes::{DataType, Field, Schema};
 
     let schema = Schema::new(vec![
@@ -293,8 +291,12 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
         let strict_call = p < corrected_threshold;
         let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
         let posterior = stats::posterior_sex_linked(
-            g1, g2, total_g1, total_g2,
-            params.prior_probability, params.linked_probability,
+            g1,
+            g2,
+            total_g1,
+            total_g2,
+            params.prior_probability,
+            params.linked_probability,
         );
 
         let posterior_call = posterior > params.posterior_threshold;
@@ -374,28 +376,46 @@ mod tests {
         let mut f = std::fs::File::create(&table).unwrap();
         writeln!(f, "#Number of markers : 3").unwrap();
         write!(f, "id\tsequence").unwrap();
-        for i in 1..=10 { write!(f, "\tm{i}").unwrap(); }
-        for i in 1..=10 { write!(f, "\tf{i}").unwrap(); }
+        for i in 1..=10 {
+            write!(f, "\tm{i}").unwrap();
+        }
+        for i in 1..=10 {
+            write!(f, "\tf{i}").unwrap();
+        }
         writeln!(f).unwrap();
 
         write!(f, "0\tALL").unwrap();
-        for _ in 0..20 { write!(f, "\t10").unwrap(); }
+        for _ in 0..20 {
+            write!(f, "\t10").unwrap();
+        }
         writeln!(f).unwrap();
 
         write!(f, "1\tMONLY").unwrap();
-        for _ in 0..10 { write!(f, "\t10").unwrap(); }
-        for _ in 0..10 { write!(f, "\t0").unwrap(); }
+        for _ in 0..10 {
+            write!(f, "\t10").unwrap();
+        }
+        for _ in 0..10 {
+            write!(f, "\t0").unwrap();
+        }
         writeln!(f).unwrap();
 
         write!(f, "2\tFONLY").unwrap();
-        for _ in 0..10 { write!(f, "\t0").unwrap(); }
-        for _ in 0..10 { write!(f, "\t10").unwrap(); }
+        for _ in 0..10 {
+            write!(f, "\t0").unwrap();
+        }
+        for _ in 0..10 {
+            write!(f, "\t10").unwrap();
+        }
         writeln!(f).unwrap();
 
         let pop = dir.join("popmap.tsv");
         let mut f = std::fs::File::create(&pop).unwrap();
-        for i in 1..=10 { writeln!(f, "m{i}\tM").unwrap(); }
-        for i in 1..=10 { writeln!(f, "f{i}\tF").unwrap(); }
+        for i in 1..=10 {
+            writeln!(f, "m{i}\tM").unwrap();
+        }
+        for i in 1..=10 {
+            writeln!(f, "f{i}\tF").unwrap();
+        }
 
         (table, pop)
     }
@@ -424,11 +444,17 @@ mod tests {
         run(&file_params).unwrap();
 
         let tsv = std::fs::read_to_string(&tsv_path).unwrap();
-        let tsv_lines: Vec<&str> = tsv.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
+        let tsv_lines: Vec<&str> = tsv
+            .lines()
+            .filter(|l| !l.starts_with('#') && !l.is_empty())
+            .collect();
         let n_tsv = tsv_lines.len();
 
         let batches = run_to_arrow(&params).expect("run_to_arrow must succeed");
-        assert!(!batches.is_empty(), "Arrow path produced at least one batch");
+        assert!(
+            !batches.is_empty(),
+            "Arrow path produced at least one batch"
+        );
         let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
 
         let n_data_tsv = n_tsv.saturating_sub(1);

@@ -54,7 +54,9 @@ fn compute_pca_with_source<S: MarkerStream>(
 
     log::info!(
         "PCA: streaming {} individuals, building {}x{} Gram matrix",
-        n, n, n
+        n,
+        n,
+        n
     );
 
     let mut gram = vec![0.0f64; n * n];
@@ -132,7 +134,11 @@ fn compute_pca_with_source<S: MarkerStream>(
 }
 
 pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
-    let c = compute_pca(&params.markers_table_path, params.min_depth, params.n_components)?;
+    let c = compute_pca(
+        &params.markers_table_path,
+        params.min_depth,
+        params.n_components,
+    )?;
     write_pca_outputs(&c, &params.output_dir)
 }
 
@@ -153,7 +159,11 @@ fn write_pca_outputs(c: &ComputedPca, output_dir: &str) -> Result<(), Box<dyn st
     let mut cumulative = 0.0;
     for (k, &idx) in c.sorted_indices.iter().take(c.n_components).enumerate() {
         let ev = c.eigenvalues[idx].max(0.0);
-        let frac = if c.total_variance > 0.0 { ev / c.total_variance } else { 0.0 };
+        let frac = if c.total_variance > 0.0 {
+            ev / c.total_variance
+        } else {
+            0.0
+        };
         cumulative += frac;
         writeln!(f, "PC{}\t{:.6}\t{:.6}\t{:.6}", k + 1, ev, frac, cumulative)?;
     }
@@ -184,9 +194,18 @@ fn write_pca_outputs(c: &ComputedPca, output_dir: &str) -> Result<(), Box<dyn st
     writeln!(f)?;
     writeln!(f, "Top components:")?;
     cumulative = 0.0;
-    for (k, &idx) in c.sorted_indices.iter().take(c.n_components.min(10)).enumerate() {
+    for (k, &idx) in c
+        .sorted_indices
+        .iter()
+        .take(c.n_components.min(10))
+        .enumerate()
+    {
         let ev = c.eigenvalues[idx].max(0.0);
-        let frac = if c.total_variance > 0.0 { ev / c.total_variance } else { 0.0 };
+        let frac = if c.total_variance > 0.0 {
+            ev / c.total_variance
+        } else {
+            0.0
+        };
         cumulative += frac;
         writeln!(
             f,
@@ -301,7 +320,11 @@ pub struct PcaArrowResult {
 
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
-    let c = compute_pca(&params.markers_table_path, params.min_depth, params.n_components)?;
+    let c = compute_pca(
+        &params.markers_table_path,
+        params.min_depth,
+        params.n_components,
+    )?;
     pca_to_arrow_batches(c)
 }
 
@@ -315,9 +338,7 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
 }
 
 #[cfg(feature = "arrow-output")]
-fn pca_to_arrow_batches(
-    c: ComputedPca,
-) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
+fn pca_to_arrow_batches(c: ComputedPca) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
     let eigen_schema = Schema::new(vec![
         Field::new("component", DataType::Utf8, false),
         Field::new("eigenvalue", DataType::Float64, false),
@@ -334,7 +355,11 @@ fn pca_to_arrow_batches(
     let mut cumulative = 0.0;
     for (k, &idx) in c.sorted_indices.iter().take(c.n_components).enumerate() {
         let ev = c.eigenvalues[idx].max(0.0);
-        let frac = if c.total_variance > 0.0 { ev / c.total_variance } else { 0.0 };
+        let frac = if c.total_variance > 0.0 {
+            ev / c.total_variance
+        } else {
+            0.0
+        };
         cumulative += frac;
 
         comp_b.append_value(format!("PC{}", k + 1));
@@ -362,7 +387,9 @@ fn pca_to_arrow_batches(
     let n_ind = c.n_individuals;
     let n_pc = c.n_components;
     let mut ind_b = StringBuilder::with_capacity(n_ind, n_ind * 16);
-    let mut pc_builders: Vec<Float64Builder> = (0..n_pc).map(|_| Float64Builder::with_capacity(n_ind)).collect();
+    let mut pc_builders: Vec<Float64Builder> = (0..n_pc)
+        .map(|_| Float64Builder::with_capacity(n_ind))
+        .collect();
 
     for (i, name) in c.individual_names.iter().enumerate() {
         ind_b.append_value(name);
@@ -377,10 +404,8 @@ fn pca_to_arrow_batches(
         loading_columns.push(std::sync::Arc::new(b.finish()));
     }
 
-    let loadings_batch = RecordBatch::try_new(
-        std::sync::Arc::new(loadings_schema),
-        loading_columns,
-    )?;
+    let loadings_batch =
+        RecordBatch::try_new(std::sync::Arc::new(loadings_schema), loading_columns)?;
 
     Ok(PcaArrowResult {
         eigenvalues: eigen_batch,
@@ -427,7 +452,10 @@ mod tests {
         run(&params).unwrap();
 
         let eigen_file = std::fs::read_to_string(out_dir.join("eigenvalues.tsv")).unwrap();
-        let eigen_lines: Vec<&str> = eigen_file.lines().filter(|l| !l.starts_with("component")).collect();
+        let eigen_lines: Vec<&str> = eigen_file
+            .lines()
+            .filter(|l| !l.starts_with("component"))
+            .collect();
         let n_file_rows = eigen_lines.len();
 
         let arrow = run_to_arrow(&params).expect("pca run_to_arrow must succeed");
