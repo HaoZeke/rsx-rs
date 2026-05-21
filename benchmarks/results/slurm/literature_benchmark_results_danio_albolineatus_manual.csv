@@ -1,0 +1,17 @@
+dataset,source,accession,command,min_depth,elapsed_seconds,samples,total_spots,total_bases,total_sra_bytes,markers,rows,significant_markers,output_bytes,output_path
+danio_albolineatus,RADSex paper workflow,PRJNA548074,metadata,,,58,108512609,10200185246,5018962411,,,,3657,benchmarks/literature-workdir/danio_albolineatus/samples.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,download,,943.115101,58,108512609,10200185246,5018962411,,,,6891009155,benchmarks/literature-workdir/danio_albolineatus/samples
+danio_albolineatus,RADSex paper workflow,PRJNA548074,process,1,126.486332,58,108512609,10200185246,5018962411,29357812,29357812,,6449163700,benchmarks/literature-workdir/danio_albolineatus/markers_table.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,depth,,18.522951,58,108512609,10200185246,5018962411,,58,,3416,benchmarks/literature-workdir/danio_albolineatus/depth.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,freq,1,0.997688,58,108512609,10200185246,5018962411,,58,,509,benchmarks/literature-workdir/danio_albolineatus/freq_1.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,distrib,1,1.015423,58,108512609,10200185246,5018962411,29357812,493,,17600,benchmarks/literature-workdir/danio_albolineatus/distrib_1.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,signif,1,37.221418,58,108512609,10200185246,5018962411,,0,0,0,benchmarks/literature-workdir/danio_albolineatus/signif_1.fa
+danio_albolineatus,RADSex paper workflow,PRJNA548074,freq,2,1.729200,58,108512609,10200185246,5018962411,,58,,499,benchmarks/literature-workdir/danio_albolineatus/freq_2.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,distrib,2,1.862237,58,108512609,10200185246,5018962411,9879579,493,,17608,benchmarks/literature-workdir/danio_albolineatus/distrib_2.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,signif,2,33.376825,58,108512609,10200185246,5018962411,,0,0,0,benchmarks/literature-workdir/danio_albolineatus/signif_2.fa
+danio_albolineatus,RADSex paper workflow,PRJNA548074,freq,5,1.781116,58,108512609,10200185246,5018962411,,58,,476,benchmarks/literature-workdir/danio_albolineatus/freq_5.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,distrib,5,1.486625,58,108512609,10200185246,5018962411,1135230,493,,17557,benchmarks/literature-workdir/danio_albolineatus/distrib_5.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,signif,5,35.407349,58,108512609,10200185246,5018962411,,0,0,0,benchmarks/literature-workdir/danio_albolineatus/signif_5.fa
+danio_albolineatus,RADSex paper workflow,PRJNA548074,freq,10,1.147183,58,108512609,10200185246,5018962411,,58,,455,benchmarks/literature-workdir/danio_albolineatus/freq_10.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,distrib,10,1.175139,58,108512609,10200185246,5018962411,128109,493,,17533,benchmarks/literature-workdir/danio_albolineatus/distrib_10.tsv
+danio_albolineatus,RADSex paper workflow,PRJNA548074,signif,10,34.862671,58,108512609,10200185246,5018962411,,0,0,0,benchmarks/literature-workdir/danio_albolineatus/signif_10.fa

@@ -1,0 +1,17 @@
+dataset,source,accession,command,min_depth,elapsed_seconds,samples,total_spots,total_bases,total_sra_bytes,markers,rows,significant_markers,output_bytes,output_path
+tinca_tinca,RADSex paper workflow,PRJNA548074,metadata,,,43,119758891,11257335754,5882899515,,,,2450,benchmarks/literature-workdir/tinca_tinca/samples.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,download,,949.595005,43,119758891,11257335754,5882899515,,,,7945264323,benchmarks/literature-workdir/tinca_tinca/samples
+tinca_tinca,RADSex paper workflow,PRJNA548074,process,1,45.628786,43,119758891,11257335754,5882899515,6932387,6932387,,1311009890,benchmarks/literature-workdir/tinca_tinca/markers_table.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,depth,,0.293276,43,119758891,11257335754,5882899515,,43,,2331,benchmarks/literature-workdir/tinca_tinca/depth.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,freq,1,0.201002,43,119758891,11257335754,5882899515,,43,,379,benchmarks/literature-workdir/tinca_tinca/freq_1.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,distrib,1,0.208753,43,119758891,11257335754,5882899515,6932387,463,,16413,benchmarks/literature-workdir/tinca_tinca/distrib_1.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,signif,1,6.146559,43,119758891,11257335754,5882899515,,10,5,942,benchmarks/literature-workdir/tinca_tinca/signif_1.fa
+tinca_tinca,RADSex paper workflow,PRJNA548074,freq,2,0.229210,43,119758891,11257335754,5882899515,,43,,367,benchmarks/literature-workdir/tinca_tinca/freq_2.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,distrib,2,0.220060,43,119758891,11257335754,5882899515,699088,463,,16454,benchmarks/literature-workdir/tinca_tinca/distrib_2.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,signif,2,5.851975,43,119758891,11257335754,5882899515,,14,7,1328,benchmarks/literature-workdir/tinca_tinca/signif_2.fa
+tinca_tinca,RADSex paper workflow,PRJNA548074,freq,5,0.229520,43,119758891,11257335754,5882899515,,43,,362,benchmarks/literature-workdir/tinca_tinca/freq_5.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,distrib,5,0.221525,43,119758891,11257335754,5882899515,123714,463,,16502,benchmarks/literature-workdir/tinca_tinca/distrib_5.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,signif,5,5.812050,43,119758891,11257335754,5882899515,,12,6,1143,benchmarks/literature-workdir/tinca_tinca/signif_5.fa
+tinca_tinca,RADSex paper workflow,PRJNA548074,freq,10,0.229090,43,119758891,11257335754,5882899515,,43,,361,benchmarks/literature-workdir/tinca_tinca/freq_10.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,distrib,10,0.221778,43,119758891,11257335754,5882899515,73592,463,,16518,benchmarks/literature-workdir/tinca_tinca/distrib_10.tsv
+tinca_tinca,RADSex paper workflow,PRJNA548074,signif,10,5.791807,43,119758891,11257335754,5882899515,,12,6,1155,benchmarks/literature-workdir/tinca_tinca/signif_10.fa

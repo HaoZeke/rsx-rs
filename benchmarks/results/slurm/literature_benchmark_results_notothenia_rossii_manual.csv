@@ -1,0 +1,17 @@
+dataset,source,accession,command,min_depth,elapsed_seconds,samples,total_spots,total_bases,total_sra_bytes,markers,rows,significant_markers,output_bytes,output_path
+notothenia_rossii,RADSex paper workflow,PRJNA548074,metadata,,,42,111369631,10468745314,4813418612,,,,2409,benchmarks/literature-workdir/notothenia_rossii/samples.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,download,,988.853529,42,111369631,10468745314,4813418612,,,,6815318086,benchmarks/literature-workdir/notothenia_rossii/samples
+notothenia_rossii,RADSex paper workflow,PRJNA548074,process,1,62.726750,42,111369631,10468745314,4813418612,11337736,11337736,,2123162954,benchmarks/literature-workdir/notothenia_rossii/markers_table.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,depth,,6.426570,42,111369631,10468745314,4813418612,,42,,2263,benchmarks/literature-workdir/notothenia_rossii/depth.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,freq,1,0.446388,42,111369631,10468745314,4813418612,,42,,387,benchmarks/literature-workdir/notothenia_rossii/freq_1.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,distrib,1,0.600676,42,111369631,10468745314,4813418612,11337736,467,,16531,benchmarks/literature-workdir/notothenia_rossii/distrib_1.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,signif,1,12.845080,42,111369631,10468745314,4813418612,,0,0,0,benchmarks/literature-workdir/notothenia_rossii/signif_1.fa
+notothenia_rossii,RADSex paper workflow,PRJNA548074,freq,2,0.645597,42,111369631,10468745314,4813418612,,42,,381,benchmarks/literature-workdir/notothenia_rossii/freq_2.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,distrib,2,0.751683,42,111369631,10468745314,4813418612,1171862,467,,16568,benchmarks/literature-workdir/notothenia_rossii/distrib_2.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,signif,2,10.486716,42,111369631,10468745314,4813418612,,0,0,0,benchmarks/literature-workdir/notothenia_rossii/signif_2.fa
+notothenia_rossii,RADSex paper workflow,PRJNA548074,freq,5,0.346998,42,111369631,10468745314,4813418612,,42,,379,benchmarks/literature-workdir/notothenia_rossii/freq_5.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,distrib,5,0.345465,42,111369631,10468745314,4813418612,482520,467,,16626,benchmarks/literature-workdir/notothenia_rossii/distrib_5.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,signif,5,9.468838,42,111369631,10468745314,4813418612,,0,0,0,benchmarks/literature-workdir/notothenia_rossii/signif_5.fa
+notothenia_rossii,RADSex paper workflow,PRJNA548074,freq,10,0.345386,42,111369631,10468745314,4813418612,,42,,378,benchmarks/literature-workdir/notothenia_rossii/freq_10.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,distrib,10,0.350072,42,111369631,10468745314,4813418612,385189,467,,16607,benchmarks/literature-workdir/notothenia_rossii/distrib_10.tsv
+notothenia_rossii,RADSex paper workflow,PRJNA548074,signif,10,9.407993,42,111369631,10468745314,4813418612,,0,0,0,benchmarks/literature-workdir/notothenia_rossii/signif_10.fa

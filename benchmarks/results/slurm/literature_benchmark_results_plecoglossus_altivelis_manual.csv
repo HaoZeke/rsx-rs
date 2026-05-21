@@ -1,0 +1,17 @@
+dataset,source,accession,command,min_depth,elapsed_seconds,samples,total_spots,total_bases,total_sra_bytes,markers,rows,significant_markers,output_bytes,output_path
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,metadata,,,65,105582084,9924715896,6501325446,,,,3944,benchmarks/literature-workdir/plecoglossus_altivelis/samples.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,download,,955.151394,65,105582084,9924715896,6501325446,,,,8062608245,benchmarks/literature-workdir/plecoglossus_altivelis/samples
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,process,1,51.346810,65,105582084,9924715896,6501325446,7338124,7338124,,1711291999,benchmarks/literature-workdir/plecoglossus_altivelis/markers_table.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,depth,,0.436912,65,105582084,9924715896,6501325446,,65,,3712,benchmarks/literature-workdir/plecoglossus_altivelis/depth.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,freq,1,0.296202,65,105582084,9924715896,6501325446,,65,,564,benchmarks/literature-workdir/plecoglossus_altivelis/freq_1.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,distrib,1,0.293111,65,105582084,9924715896,6501325446,7338124,1115,,41126,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_1.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,signif,1,9.212851,65,105582084,9924715896,6501325446,,32,16,3013,benchmarks/literature-workdir/plecoglossus_altivelis/signif_1.fa
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,freq,2,0.325449,65,105582084,9924715896,6501325446,,65,,531,benchmarks/literature-workdir/plecoglossus_altivelis/freq_2.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,distrib,2,0.323364,65,105582084,9924715896,6501325446,1041174,1115,,41131,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_2.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,signif,2,9.049568,65,105582084,9924715896,6501325446,,86,43,8127,benchmarks/literature-workdir/plecoglossus_altivelis/signif_2.fa
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,freq,5,0.330083,65,105582084,9924715896,6501325446,,65,,516,benchmarks/literature-workdir/plecoglossus_altivelis/freq_5.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,distrib,5,0.331737,65,105582084,9924715896,6501325446,213624,1115,,41231,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_5.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,signif,5,8.829391,65,105582084,9924715896,6501325446,,94,47,9199,benchmarks/literature-workdir/plecoglossus_altivelis/signif_5.fa
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,freq,10,0.327141,65,105582084,9924715896,6501325446,,65,,516,benchmarks/literature-workdir/plecoglossus_altivelis/freq_10.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,distrib,10,0.329870,65,105582084,9924715896,6501325446,171173,1115,,41236,benchmarks/literature-workdir/plecoglossus_altivelis/distrib_10.tsv
+plecoglossus_altivelis,RADSex paper workflow,PRJNA548074,signif,10,8.798774,65,105582084,9924715896,6501325446,,94,47,9247,benchmarks/literature-workdir/plecoglossus_altivelis/signif_10.fa

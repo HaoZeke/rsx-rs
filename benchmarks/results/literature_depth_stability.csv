@@ -1,7 +1,7 @@
 dataset,min_depth,significant_markers,posterior_gt_0_9,bayes_factor_gt_10
 danio_albolineatus,3,0,690,1316
 danio_albolineatus,5,0,143,782
-danio_albolineatus,8,0,0,0
+danio_albolineatus,8,0,45,301
 danio_albolineatus,10,0,30,174
 notothenia_rossii,3,0,2,527
 notothenia_rossii,5,0,1,486
