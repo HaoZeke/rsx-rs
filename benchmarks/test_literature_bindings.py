@@ -97,6 +97,8 @@ class LiteratureBindingsFeatureTests(unittest.TestCase):
 
         self.assertIn("ensure-python", tasks)
         self.assertIn("import pyrsx", tasks["ensure-python"]["cmd"])
+        self.assertIn("bash -lc", tasks["ensure-python"]["cmd"])
+        self.assertNotIn(">/dev/null", tasks["ensure-python"]["cmd"])
         self.assertEqual(tasks["run-literature-bindings"]["depends-on"], ["ensure-python"])
         self.assertEqual(tasks["analyze-literature-modes"]["depends-on"], ["ensure-python"])
 
