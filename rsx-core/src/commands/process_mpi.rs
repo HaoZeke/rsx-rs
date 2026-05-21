@@ -15,7 +15,7 @@ use mpi::traits::*;
 use crate::commands::process::ProcessParams;
 
 #[cfg(feature = "mpi")]
-use crate::io::seq_reader::{PackedDnaKey, count_sequences_packed, get_input_files};
+use crate::io::seq_reader::{InputFile, PackedDnaKey, count_sequences_packed, get_input_files};
 #[cfg(feature = "mpi")]
 use std::io::Write;
 
@@ -151,7 +151,7 @@ pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>>
             .collect();
 
         let mut partition =
-            mpi::datatype::Partition::new(&mut all_bytes, all_sizes.clone(), displs);
+            mpi::datatype::PartitionMut::new(&mut all_bytes, all_sizes.clone(), displs);
         world
             .process_at_rank(0)
             .gather_varcount_into_root(&local_bytes, &mut partition);
