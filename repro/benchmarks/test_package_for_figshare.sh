@@ -24,13 +24,31 @@ required_files=(
     "${PACKAGE}/benchmarks/generate_data.py"
     "${PACKAGE}/benchmarks/run_benchmarks.sh"
     "${PACKAGE}/benchmarks/plot_benchmarks.py"
+    "${PACKAGE}/benchmarks/literature_datasets.tsv"
+    "${PACKAGE}/benchmarks/run_literature_benchmarks.py"
+    "${PACKAGE}/benchmarks/plot_literature_benchmarks.py"
+    "${PACKAGE}/benchmarks/plot_prior_sensitivity_heatmap.py"
+    "${PACKAGE}/benchmarks/slurm/literature_biology_prior_sensitivity.sbatch"
+    "${PACKAGE}/benchmarks/slurm/literature_biology_low_depth.sbatch"
     "${PACKAGE}/benchmarks/results/benchmark_results.csv"
+    "${PACKAGE}/benchmarks/results/literature_benchmark_results.csv"
+    "${PACKAGE}/benchmarks/results/literature_speed_comparison.csv"
+    "${PACKAGE}/benchmarks/results/literature_binding_results.csv"
+    "${PACKAGE}/benchmarks/results/literature_depth_stability.csv"
+    "${PACKAGE}/benchmarks/results/prior_sensitivity_from_triage.csv"
+    "${PACKAGE}/benchmarks/results/slurm/literature_speed_comparison_danio_albolineatus_manual.csv"
+    "${PACKAGE}/benchmarks/results/slurm/triage_danio_albolineatus_pi0.001_psex0.8.tsv"
+    "${PACKAGE}/docs/figures/literature_radsex_speedups.svg"
+    "${PACKAGE}/docs/figures/literature_depth_stability.svg"
     "${PACKAGE}/benchmarks.org"
+    "${PACKAGE}/literature_benchmarks.org"
 )
 
 required_dirs=(
     "${PACKAGE}/benchmarks/data"
     "${PACKAGE}/benchmarks/results"
+    "${PACKAGE}/benchmarks/slurm"
+    "${PACKAGE}/docs/figures"
 )
 
 for path in "${required_files[@]}"; do
@@ -52,9 +70,17 @@ if [[ -e "${PACKAGE}/data" || -e "${PACKAGE}/benchmark_results.csv" ]]; then
     exit 1
 fi
 
+if [[ -e "${PACKAGE}/benchmarks/literature-workdir" ]]; then
+    echo "package must not include downloaded FASTQ workdir payloads" >&2
+    exit 1
+fi
+
 grep -q "pixi.toml" "${PACKAGE}/MANIFEST.txt"
 grep -q "benchmarks/data/" "${PACKAGE}/MANIFEST.txt"
 grep -q "benchmarks/results/benchmark_results.csv" "${PACKAGE}/MANIFEST.txt"
+grep -q "benchmarks/results/literature_speed_comparison.csv" "${PACKAGE}/MANIFEST.txt"
+grep -q "benchmarks/results/slurm/triage_" "${PACKAGE}/MANIFEST.txt"
+grep -q "docs/figures/literature_radsex_speedups.svg" "${PACKAGE}/MANIFEST.txt"
 
 (
     cd "${PACKAGE}"
