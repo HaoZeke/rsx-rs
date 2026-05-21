@@ -204,3 +204,22 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parallel_merge_capacity_scales_with_input_size() {
+        assert_eq!(parallel_merge_capacity_from_bytes(0), 1_024);
+        assert_eq!(parallel_merge_capacity_from_bytes(8 * 512), 1_024);
+        assert_eq!(
+            parallel_merge_capacity_from_bytes(5_000 * 128),
+            5_000
+        );
+        assert_eq!(
+            parallel_merge_capacity_from_bytes(10_000_000 * 128),
+            4_000_000
+        );
+    }
+}
