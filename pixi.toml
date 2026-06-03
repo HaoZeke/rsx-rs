@@ -120,6 +120,7 @@ test-package = { cmd = "bash repro/benchmarks/test_package_for_figshare.sh", des
 
 [environments]
 default = { features = ["dev"], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
 benchmark = { features = ["benchmark"], solve-group = "default" }
 python = { features = ["python"], solve-group = "default" }
