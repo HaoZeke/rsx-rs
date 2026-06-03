@@ -165,6 +165,44 @@ class LiteratureBenchmarkTests(unittest.TestCase):
         self.assertEqual(seen_headers, ["rsx-rs-literature-benchmarks/0.1"])
         self.assertEqual(output.getvalue(), payload)
 
+    def test_stream_url_to_handle_retries_from_member_start(self):
+        payload = b"good"
+        calls = 0
+
+        class FakeResponse:
+            def __init__(self):
+                self._stream = BytesIO(payload)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self, size):
+                return self._stream.read(size)
+
+        def fake_urlopen(request, timeout):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise ConnectionRefusedError("temporary")
+            return FakeResponse()
+
+        remote = FastqRemote(
+            "https://ftp.sra.ebi.ac.uk/example.fastq.gz",
+            len(payload),
+            md5(payload).hexdigest(),
+        )
+        output = BytesIO(b"prefix")
+        output.seek(len(b"prefix"))
+
+        with patch("benchmarks.run_literature_benchmarks.urllib.request.urlopen", fake_urlopen):
+            stream_url_to_handle(remote, output, sleep_seconds=0.0)
+
+        self.assertEqual(calls, 2)
+        self.assertEqual(output.getvalue(), b"prefix" + payload)
+
     def test_marker_count_from_table_prefers_radsex_header(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "markers.tsv"

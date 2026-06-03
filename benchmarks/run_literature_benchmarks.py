@@ -432,22 +432,44 @@ def run_command(args: list[str], log_path: Path) -> float:
     return time.perf_counter() - start
 
 
-def stream_url_to_handle(remote: FastqRemote, output) -> None:
-    digest = hashlib.md5()
-    total = 0
-    request = urllib.request.Request(remote.url, headers=HTTP_HEADERS)
-    with urllib.request.urlopen(request, timeout=1200) as response:
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
+def stream_url_to_handle(
+    remote: FastqRemote,
+    output,
+    retries: int = 5,
+    sleep_seconds: float = 10.0,
+) -> None:
+    start_pos = output.tell()
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        digest = hashlib.md5()
+        total = 0
+        output.seek(start_pos)
+        output.truncate()
+        request = urllib.request.Request(remote.url, headers=HTTP_HEADERS)
+        try:
+            with urllib.request.urlopen(request, timeout=1200) as response:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    digest.update(chunk)
+                    output.write(chunk)
+                    total += len(chunk)
+            if remote.bytes and total != remote.bytes:
+                raise RuntimeError(
+                    f"{remote.url} expected {remote.bytes} bytes but downloaded {total}"
+                )
+            if remote.md5 and digest.hexdigest() != remote.md5:
+                raise RuntimeError(f"{remote.url} failed MD5 validation")
+            return
+        except Exception as error:  # noqa: BLE001 - remote transfer failures vary
+            last_error = error
+            output.seek(start_pos)
+            output.truncate()
+            if attempt == retries:
                 break
-            digest.update(chunk)
-            output.write(chunk)
-            total += len(chunk)
-    if remote.bytes and total != remote.bytes:
-        raise RuntimeError(f"{remote.url} expected {remote.bytes} bytes but downloaded {total}")
-    if remote.md5 and digest.hexdigest() != remote.md5:
-        raise RuntimeError(f"{remote.url} failed MD5 validation")
+            time.sleep(sleep_seconds)
+    raise RuntimeError(f"failed to download {remote.url}: {last_error}") from last_error
 
 
 def download_fastq_urls(files: list[FastqRemote], output: Path) -> None:
