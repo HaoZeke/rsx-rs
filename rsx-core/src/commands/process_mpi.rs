@@ -15,7 +15,7 @@ use mpi::traits::*;
 use crate::commands::process::ProcessParams;
 
 #[cfg(feature = "mpi")]
-use crate::io::seq_reader::{count_sequences_packed, get_input_files, InputFile, PackedDnaKey};
+use crate::io::seq_reader::{InputFile, PackedDnaKey, count_sequences_packed, get_input_files};
 #[cfg(feature = "mpi")]
 use std::io::Write;
 
