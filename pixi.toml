@@ -66,8 +66,9 @@ RUSTFLAGS = ""
 PYTHONNOUSERSITE = "1"
 
 [feature.python.tasks]
-build-python = { cmd = "cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release" }
-ensure-python = { cmd = "python -c 'import pyrsx' || bash -lc 'cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release'" }
+prepare-python-build = { cmd = "python -c 'from pathlib import Path; import time; stamp=str(time.time_ns()); paths=[Path(\"target/maturin/libpyrsx.so\"), Path(\"target/release/libpyrsx.so\"), Path(\"target/release/deps/libpyrsx.so\")]; [p.rename(p.with_name(p.name + \".stale-\" + stamp)) for p in paths if p.exists() and p.stat().st_size == 0]'" }
+build-python = { cmd = "cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release", depends-on = ["prepare-python-build"] }
+ensure-python = { cmd = "python -c 'import pyrsx'", depends-on = ["build-python"] }
 test-python = { cmd = "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest rsx-python/tests/", depends-on = ["build-python"] }
 run-literature-bindings = { cmd = "python benchmarks/run_literature_bindings.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_binding_results.csv --dataset danio_albolineatus --dataset notothenia_rossii --dataset plecoglossus_altivelis --dataset tinca_tinca --min-depth 10", depends-on = ["ensure-python"] }
 analyze-literature-modes = { cmd = "python benchmarks/analyze_literature_modes.py --workdir benchmarks/literature-workdir --results benchmarks/results/literature_mode_effects.csv --dataset danio_albolineatus --dataset notothenia_rossii --dataset plecoglossus_altivelis --dataset tinca_tinca --min-depth 10", depends-on = ["ensure-python"] }
