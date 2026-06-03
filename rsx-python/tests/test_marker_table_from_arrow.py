@@ -1,11 +1,8 @@
 """Parity tests for the from-Arrow path of the high-level MarkerTable API.
 
-These exercise the in-memory entry points that the previous refactor wired
-up but never actually ran: every *_from_arrow shim used to pipe binary
-Arrow IPC bytes into pandas.read_csv. The fix lands a real Arrow-IPC ->
-markers TSV bridge in the Rust binding, so each method here must produce
-the same result whether driven from a DataFrame (Arrow path) or from a
-file path (CLI path).
+These exercise the in-memory entry points for every *_from_arrow shim. Each
+method must produce the same result whether driven from a DataFrame (Arrow
+path) or from a file path (CLI path).
 """
 
 from __future__ import annotations

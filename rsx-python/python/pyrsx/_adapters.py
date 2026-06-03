@@ -5,6 +5,20 @@ way to accept and return pandas, polars, pyarrow, and any other
 narwhals-compatible DataFrame without forcing a hard dependency on any
 particular library.
 
+This is central to the "backend agnostic" design of pyrsx:
+
+- Internal I/O and Rust ↔ Python data exchange prefers pyarrow (efficient
+  interchange format, already a dependency for the Arrow paths).
+- All DataFrames exposed to users (MarkerTable data, command results, etc.)
+  are immediately wrapped via `to_narwhals(...)`.
+- The returned narwhals objects are fully backend-agnostic. Concrete
+  backends only appear when the user explicitly requests them
+  (`.to_pandas()`, `to_dataframe(backend=...)`, etc.) or when using
+  `from_dataframe` input.
+
+See also `_read_core_tsv` (for reading rsx core TSV outputs without
+any pandas fallback) and the top-level docs in `src/lib.rs`.
+
 This follows modern Python scientific ecosystem best practices for
 "write once, run anywhere" DataFrame code.
 """

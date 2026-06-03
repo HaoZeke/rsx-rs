@@ -27,5 +27,3 @@ class TriageParams:
     output_fasta: bool = False
     group1: str = "M"
     group2: str = "F"
-
-    # Future: validation, __post_init__ checks, etc.

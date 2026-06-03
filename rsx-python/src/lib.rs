@@ -19,10 +19,32 @@
 //!      analysis commands then run against the source through the
 //!      generic [`rsx_core::source::MarkerStream`] trait, so no markers
 //!      TSV is ever materialised on the Python side.
+//!
+//! ## Output handling and backend agnosticism
+//!
+//! When the high-level API (or direct `*_from_arrow` helpers) need to
+//! materialize results from commands that currently write TSV outputs
+//! (e.g. `freq`, `depth`, `distrib`, `signif`), the Rust side uses pure
+//! `pyarrow.csv` (with `skip_rows=1` to skip the leading "#Number of markers"
+//! comment) to produce a native `pyarrow.Table`. The Python layer then
+//! immediately wraps it via `to_narwhals(table)` (see `_adapters.py` and
+//! `_read_core_tsv` in `api/markers.py`).
+//!
+//! The exposed object is always a **narwhals DataFrame** — fully backend
+//! agnostic. The concrete implementation is pyarrow by default (lightweight,
+//! no forced pandas/polars dependency for internal I/O), but users can
+//! convert on demand with `.to_pandas()`, `.to_polars()`, `to_dataframe(backend=...)`,
+//! or by passing the result to any narwhals-compatible library (siuba,
+//! plotnine, etc.). There is no "pandas fallback" as an implementation detail;
+//! pandas is only ever a user-requested output backend.
 
 use arrow::record_batch::RecordBatch;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+
+// Custom exception for better error handling from Python side.
+// Registered in the module below so Python users see pyrsx.PyrsxError.
+pyo3::create_exception!(pyrsx, PyrsxError, PyRuntimeError);
 use rsx_core::popmap::Popmap;
 use rsx_core::source::MarkerTableSource;
 use tempfile::NamedTempFile;
@@ -41,14 +63,18 @@ fn process(
     min_depth: u16,
     kmer_dedup: Option<usize>,
 ) -> PyResult<()> {
-    rsx_core::commands::process::run(&rsx_core::commands::process::ProcessParams {
-        input_dir_path: input_dir.to_string(),
-        output_file_path: output_file.to_string(),
-        n_threads: threads,
-        min_depth,
-        kmer_dedup,
+    Python::with_gil(|py| {
+        py.allow_threads(|| {
+            rsx_core::commands::process::run(&rsx_core::commands::process::ProcessParams {
+                input_dir_path: input_dir.to_string(),
+                output_file_path: output_file.to_string(),
+                n_threads: threads,
+                min_depth,
+                kmer_dedup,
+            })
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+        })
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -66,8 +92,8 @@ fn distrib(
     test: &str,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
-        .map_err(PyRuntimeError::new_err)?;
-    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyRuntimeError::new_err)?;
+        .map_err(PyrsxError::new_err)?;
+    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyrsxError::new_err)?;
 
     rsx_core::commands::distrib::run(&rsx_core::commands::distrib::DistribParams {
         markers_table_path: table_path.to_string(),
@@ -81,7 +107,7 @@ fn distrib(
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    .map_err(|e| PyrsxError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -101,23 +127,27 @@ fn signif(
     bayes: bool,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
-        .map_err(PyRuntimeError::new_err)?;
-    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyRuntimeError::new_err)?;
+        .map_err(PyrsxError::new_err)?;
+    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyrsxError::new_err)?;
 
-    rsx_core::commands::signif::run(&rsx_core::commands::signif::SignifParams {
-        markers_table_path: table_path.to_string(),
-        popmap_file_path: popmap_path.to_string(),
-        output_file_path: output_file.to_string(),
-        min_depth,
-        signif_threshold,
-        correction: corr,
-        test_method: tm,
-        output_fasta,
-        output_bayes: bayes,
-        group1: group1.to_string(),
-        group2: group2.to_string(),
+    Python::with_gil(|py| {
+        py.allow_threads(|| {
+            rsx_core::commands::signif::run(&rsx_core::commands::signif::SignifParams {
+                markers_table_path: table_path.to_string(),
+                popmap_file_path: popmap_path.to_string(),
+                output_file_path: output_file.to_string(),
+                min_depth,
+                signif_threshold,
+                correction: corr,
+                test_method: tm,
+                output_fasta,
+                output_bayes: bayes,
+                group1: group1.to_string(),
+                group2: group2.to_string(),
+            })
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+        })
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -149,7 +179,7 @@ fn triage(
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    .map_err(|e| PyrsxError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -160,7 +190,7 @@ fn freq(table_path: &str, output_file: &str, min_depth: u16) -> PyResult<()> {
         output_file_path: output_file.to_string(),
         min_depth,
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    .map_err(|e| PyrsxError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -179,7 +209,7 @@ fn depth(
         min_frequency,
         streaming: file_size > 2_000_000_000,
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    .map_err(|e| PyrsxError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -190,13 +220,17 @@ fn merge(
     buffer_size: usize,
     output_parquet: bool,
 ) -> PyResult<()> {
-    rsx_core::commands::merge::run(&rsx_core::commands::merge::MergeParams {
-        input_files,
-        output_file_path: output_file.to_string(),
-        buffer_size: Some(buffer_size),
-        output_parquet,
+    Python::with_gil(|py| {
+        py.allow_threads(|| {
+            rsx_core::commands::merge::run(&rsx_core::commands::merge::MergeParams {
+                input_files,
+                output_file_path: output_file.to_string(),
+                buffer_size: Some(buffer_size),
+                output_parquet,
+            })
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+        })
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -207,13 +241,17 @@ fn pca(
     min_depth: u16,
     n_components: Option<usize>,
 ) -> PyResult<()> {
-    rsx_core::commands::pca::run(&rsx_core::commands::pca::PcaParams {
-        markers_table_path: table_path.to_string(),
-        output_dir: output_dir.to_string(),
-        min_depth,
-        n_components,
+    Python::with_gil(|py| {
+        py.allow_threads(|| {
+            rsx_core::commands::pca::run(&rsx_core::commands::pca::PcaParams {
+                markers_table_path: table_path.to_string(),
+                output_dir: output_dir.to_string(),
+                min_depth,
+                n_components,
+            })
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+        })
     })
-    .map_err(|e| PyRuntimeError::new_err(e.to_string()))
 }
 
 // --------------------------------------------------------------------------- //
@@ -227,45 +265,45 @@ fn popmap_from_ipc(ipc_bytes: &[u8]) -> PyResult<(Popmap, NamedTempFile)> {
     use std::io::Write;
 
     if ipc_bytes.is_empty() {
-        return Err(PyRuntimeError::new_err(
+        return Err(PyrsxError::new_err(
             "popmap Arrow payload is empty — pass a non-empty popmap DataFrame",
         ));
     }
 
     let cursor = std::io::Cursor::new(ipc_bytes);
     let reader = arrow::ipc::reader::StreamReader::try_new(cursor, None)
-        .map_err(|e| PyRuntimeError::new_err(format!("popmap IPC reader: {e}")))?;
+        .map_err(|e| PyrsxError::new_err(format!("popmap IPC reader: {e}")))?;
     let schema = reader.schema();
     if schema.fields().len() < 2 {
-        return Err(PyRuntimeError::new_err(format!(
+        return Err(PyrsxError::new_err(format!(
             "popmap Arrow table needs at least 2 columns (individual, group); got {}",
             schema.fields().len()
         )));
     }
 
-    let tmp = NamedTempFile::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("popmap tempfile: {e}")))?;
+    let tmp =
+        NamedTempFile::new().map_err(|e| PyrsxError::new_err(format!("popmap tempfile: {e}")))?;
     let file = std::fs::File::create(tmp.path())
-        .map_err(|e| PyRuntimeError::new_err(format!("create popmap tsv: {e}")))?;
+        .map_err(|e| PyrsxError::new_err(format!("create popmap tsv: {e}")))?;
     let mut w = std::io::BufWriter::new(file);
 
     for batch in reader {
-        let batch = batch.map_err(|e| PyRuntimeError::new_err(format!("popmap batch: {e}")))?;
+        let batch = batch.map_err(|e| PyrsxError::new_err(format!("popmap batch: {e}")))?;
         let ind = batch.column(0);
         let grp = batch.column(1);
         for row in 0..batch.num_rows() {
             let i = scalar_to_string(ind.as_ref(), row);
             let g = scalar_to_string(grp.as_ref(), row);
             writeln!(w, "{i}\t{g}")
-                .map_err(|e| PyRuntimeError::new_err(format!("write popmap row: {e}")))?;
+                .map_err(|e| PyrsxError::new_err(format!("write popmap row: {e}")))?;
         }
     }
     w.flush()
-        .map_err(|e| PyRuntimeError::new_err(format!("flush popmap tsv: {e}")))?;
+        .map_err(|e| PyrsxError::new_err(format!("flush popmap tsv: {e}")))?;
     drop(w);
 
     let popmap = Popmap::from_file(tmp.path())
-        .map_err(|e| PyRuntimeError::new_err(format!("read popmap: {e}")))?;
+        .map_err(|e| PyrsxError::new_err(format!("read popmap: {e}")))?;
     Ok((popmap, tmp))
 }
 
@@ -316,23 +354,50 @@ fn scalar_to_string(array: &dyn arrow::array::Array, row: usize) -> String {
     }
 }
 
-/// Read an output TSV produced by a low-level command and hand it back to
-/// Python as a `pyarrow.Table` via pandas (which knows about `#`-comments).
+/// Read an output TSV produced by a low-level rsx command and return it
+/// to Python as a native `pyarrow.Table`.
+///
+/// Core command outputs (freq, depth, distrib, signif, etc.) always begin
+/// with a single "#Number of markers : N" metadata comment line followed by
+/// the real TSV header. We use `pyarrow.csv.ReadOptions(skip_rows=1)` for a
+/// clean parse without any pandas dependency inside the extension.
+///
+/// This is deliberately kept as a pure pyarrow Table (the Arrow interchange
+/// format between Rust and Python). The *caller* (in the high-level Python
+/// API) is expected to wrap it with `to_narwhals(table)`. The resulting
+/// narwhals DataFrame is fully **backend agnostic** — its concrete backend
+/// is pyarrow by default, but users can request pandas/polars/etc. on demand
+/// via the normal narwhals conversion paths (`.to_pandas()`, `to_dataframe(backend=...)`,
+/// etc.). This ensures there is never a "pandas fallback" or hard-coded
+/// backend as an implementation detail when materializing command outputs.
+///
+/// See `_read_core_tsv` in `python/pyrsx/api/markers.py` for the matching
+/// pure-Python helper used by the path-backed high-level `MarkerTable`
+/// methods, and `_adapters.py` for the to/from narwhals conversions.
 fn read_tsv_to_pyarrow_table(py: Python<'_>, path: &str) -> PyResult<PyObject> {
-    let pandas = py.import("pandas")?;
-    let pyarrow = py.import("pyarrow")?;
+    let pa_csv = py.import("pyarrow.csv")?;
 
-    let kwargs = pyo3::types::PyDict::new(py);
-    kwargs.set_item("sep", "\t")?;
-    kwargs.set_item("comment", "#")?;
-    let pdf = pandas.call_method("read_csv", (path,), Some(&kwargs))?;
+    let read_opts_dict = pyo3::types::PyDict::new(py);
+    read_opts_dict.set_item("skip_rows", 1)?;
+    read_opts_dict.set_item("use_threads", true)?;
+    let read_opts = pa_csv
+        .getattr("ReadOptions")?
+        .call((), Some(&read_opts_dict))?;
 
-    let table_kwargs = pyo3::types::PyDict::new(py);
-    table_kwargs.set_item("preserve_index", false)?;
-    let table =
-        pyarrow
-            .getattr("Table")?
-            .call_method("from_pandas", (pdf,), Some(&table_kwargs))?;
+    let parse_opts_dict = pyo3::types::PyDict::new(py);
+    parse_opts_dict.set_item("delimiter", "\t")?;
+    let parse_opts = pa_csv
+        .getattr("ParseOptions")?
+        .call((), Some(&parse_opts_dict))?;
+
+    let read_dict = pyo3::types::PyDict::new(py);
+    read_dict.set_item("read_options", read_opts)?;
+    read_dict.set_item("parse_options", parse_opts)?;
+
+    let table = pa_csv
+        .getattr("read_csv")?
+        .call((path,), Some(&read_dict))?;
+
     Ok(table.into())
 }
 
@@ -365,15 +430,15 @@ fn batches_to_ipc_bytes(batches: &[&RecordBatch]) -> PyResult<Vec<u8>> {
     let mut buf = Vec::new();
     {
         let mut writer = arrow::ipc::writer::StreamWriter::try_new(&mut buf, &batches[0].schema())
-            .map_err(|e| PyRuntimeError::new_err(format!("IPC writer: {e}")))?;
+            .map_err(|e| PyrsxError::new_err(format!("IPC writer: {e}")))?;
         for b in batches {
             writer
                 .write(b)
-                .map_err(|e| PyRuntimeError::new_err(format!("IPC write: {e}")))?;
+                .map_err(|e| PyrsxError::new_err(format!("IPC write: {e}")))?;
         }
         writer
             .finish()
-            .map_err(|e| PyRuntimeError::new_err(format!("IPC finish: {e}")))?;
+            .map_err(|e| PyrsxError::new_err(format!("IPC finish: {e}")))?;
     }
     Ok(buf)
 }
@@ -428,7 +493,7 @@ fn triage_to_arrow(
         group2: group2.to_string(),
     };
     let batches = rsx_core::commands::triage::run_to_arrow(&params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| PyrsxError::new_err(e.to_string()))?;
     batches_to_pyarrow_table(py, &batches)
 }
 
@@ -447,7 +512,7 @@ fn pca_to_arrow(
         n_components,
     };
     let res = rsx_core::commands::pca::run_to_arrow(&params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| PyrsxError::new_err(e.to_string()))?;
 
     let eigenvalues = batches_to_pyarrow_table(py, &[res.eigenvalues])?;
     let loadings = batches_to_pyarrow_table(py, &[res.loadings])?;
@@ -506,7 +571,7 @@ fn triage_to_arrow_from_arrow(
         min_depth,
         cmd_overhead::TRIAGE,
     )
-    .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    .map_err(|e| PyrsxError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let params = rsx_core::commands::triage::TriageParams {
         markers_table_path: String::new(),
@@ -523,7 +588,7 @@ fn triage_to_arrow_from_arrow(
     };
 
     let batches = rsx_core::commands::triage::run_to_arrow_with_source(&source, &popmap, &params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| PyrsxError::new_err(e.to_string()))?;
     batches_to_pyarrow_table(py, &batches)
 }
 
@@ -536,7 +601,7 @@ fn pca_to_arrow_from_arrow(
     n_components: Option<usize>,
 ) -> PyResult<PyObject> {
     let source = MarkerTableSource::from_arrow_ipc(markers_ipc, None, min_depth, cmd_overhead::PCA)
-        .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+        .map_err(|e| PyrsxError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let params = rsx_core::commands::pca::PcaParams {
         markers_table_path: String::new(),
@@ -545,7 +610,7 @@ fn pca_to_arrow_from_arrow(
         n_components,
     };
     let res = rsx_core::commands::pca::run_to_arrow_with_source(&source, &params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        .map_err(|e| PyrsxError::new_err(e.to_string()))?;
 
     let eigenvalues = batches_to_pyarrow_table(py, &[res.eigenvalues])?;
     let loadings = batches_to_pyarrow_table(py, &[res.loadings])?;
@@ -560,15 +625,25 @@ fn pca_to_arrow_from_arrow(
     Ok(dict.into())
 }
 
+/// Low-level: run freq on an Arrow IPC markers payload and return a
+/// pyarrow.Table.
+///
+/// The table is produced by writing a temp TSV from the core (via
+/// run_with_source) and reading it back with the pure-pyarrow
+/// `read_tsv_to_pyarrow_table`. The high-level API (and direct callers)
+/// are expected to immediately do `to_narwhals(...)` on the result so the
+/// user sees a backend-agnostic narwhals DataFrame (see Python-side
+/// `_read_core_tsv` and adapters for the symmetric path used by
+/// path-backed `MarkerTable`).
 #[pyfunction]
 #[pyo3(signature = (markers_ipc, min_depth=1))]
 fn freq_from_arrow(py: Python<'_>, markers_ipc: &[u8], min_depth: u16) -> PyResult<PyObject> {
     let source =
         MarkerTableSource::from_arrow_ipc(markers_ipc, None, min_depth, cmd_overhead::FREQ)
-            .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+            .map_err(|e| PyrsxError::new_err(format!("MarkerTableSource: {e}")))?;
 
-    let out = NamedTempFile::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("freq output temp: {e}")))?;
+    let out =
+        NamedTempFile::new().map_err(|e| PyrsxError::new_err(format!("freq output temp: {e}")))?;
     let out_path = out.path().to_string_lossy().to_string();
 
     let params = rsx_core::commands::freq::FreqParams {
@@ -576,12 +651,20 @@ fn freq_from_arrow(py: Python<'_>, markers_ipc: &[u8], min_depth: u16) -> PyResu
         output_file_path: out_path.clone(),
         min_depth,
     };
-    rsx_core::commands::freq::run_with_source(&source, &params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+    py.allow_threads(|| {
+        rsx_core::commands::freq::run_with_source(&source, &params)
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+    })?;
 
     read_tsv_to_pyarrow_table(py, &out_path)
 }
 
+/// Low-level: run depth on Arrow IPC payloads (markers + popmap) and
+/// return a pyarrow.Table.
+///
+/// See `freq_from_arrow` for the general pattern and narwhals
+/// backend-agnostic consumption story.
 #[pyfunction]
 #[pyo3(signature = (markers_ipc, popmap_ipc, min_frequency=0.75))]
 fn depth_from_arrow(
@@ -596,10 +679,10 @@ fn depth_from_arrow(
     // its own thresholding via `min_frequency`.
     let source =
         MarkerTableSource::from_arrow_ipc(markers_ipc, Some(&popmap), 1, cmd_overhead::DEPTH)
-            .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+            .map_err(|e| PyrsxError::new_err(format!("MarkerTableSource: {e}")))?;
 
-    let out = NamedTempFile::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("depth output temp: {e}")))?;
+    let out =
+        NamedTempFile::new().map_err(|e| PyrsxError::new_err(format!("depth output temp: {e}")))?;
     let out_path = out.path().to_string_lossy().to_string();
 
     let params = rsx_core::commands::depth::DepthParams {
@@ -612,8 +695,10 @@ fn depth_from_arrow(
         // RAM (or is paged via Parquet, which is roughly the same cost).
         streaming: false,
     };
-    rsx_core::commands::depth::run_with_source(&source, &popmap, &params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    py.allow_threads(|| {
+        rsx_core::commands::depth::run_with_source(&source, &popmap, &params)
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+    })?;
 
     read_tsv_to_pyarrow_table(py, &out_path)
 }
@@ -639,15 +724,15 @@ fn distrib_from_arrow(
         min_depth,
         cmd_overhead::DISTRIB,
     )
-    .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    .map_err(|e| PyrsxError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let out = NamedTempFile::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("distrib output temp: {e}")))?;
+        .map_err(|e| PyrsxError::new_err(format!("distrib output temp: {e}")))?;
     let out_path = out.path().to_string_lossy().to_string();
 
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
-        .map_err(PyRuntimeError::new_err)?;
-    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyRuntimeError::new_err)?;
+        .map_err(PyrsxError::new_err)?;
+    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyrsxError::new_err)?;
 
     let params = rsx_core::commands::distrib::DistribParams {
         markers_table_path: String::new(),
@@ -661,8 +746,10 @@ fn distrib_from_arrow(
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
-    rsx_core::commands::distrib::run_with_source(&source, &popmap, &params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    py.allow_threads(|| {
+        rsx_core::commands::distrib::run_with_source(&source, &popmap, &params)
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+    })?;
 
     read_tsv_to_pyarrow_table(py, &out_path)
 }
@@ -690,15 +777,15 @@ fn signif_from_arrow(
         min_depth,
         cmd_overhead::SIGNIF,
     )
-    .map_err(|e| PyRuntimeError::new_err(format!("MarkerTableSource: {e}")))?;
+    .map_err(|e| PyrsxError::new_err(format!("MarkerTableSource: {e}")))?;
 
     let out = NamedTempFile::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("signif output temp: {e}")))?;
+        .map_err(|e| PyrsxError::new_err(format!("signif output temp: {e}")))?;
     let out_path = out.path().to_string_lossy().to_string();
 
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
-        .map_err(PyRuntimeError::new_err)?;
-    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyRuntimeError::new_err)?;
+        .map_err(PyrsxError::new_err)?;
+    let tm = rsx_core::test_method::TestMethod::parse_str(test).map_err(PyrsxError::new_err)?;
 
     let params = rsx_core::commands::signif::SignifParams {
         markers_table_path: String::new(),
@@ -713,8 +800,10 @@ fn signif_from_arrow(
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
-    rsx_core::commands::signif::run_with_source(&source, &popmap, &params)
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    py.allow_threads(|| {
+        rsx_core::commands::signif::run_with_source(&source, &popmap, &params)
+            .map_err(|e| PyrsxError::new_err(e.to_string()))
+    })?;
 
     read_tsv_to_pyarrow_table(py, &out_path)
 }
@@ -742,6 +831,9 @@ fn pyrsx(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(depth_from_arrow, m)?)?;
     m.add_function(wrap_pyfunction!(distrib_from_arrow, m)?)?;
     m.add_function(wrap_pyfunction!(signif_from_arrow, m)?)?;
+
+    // Custom exception for idiomatic error handling in Python
+    m.add("PyrsxError", m.py().get_type::<PyrsxError>())?;
 
     Ok(())
 }

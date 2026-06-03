@@ -4,6 +4,18 @@ This package exposes both the low-level (fast, thin) Rust bindings and a
 higher-level, idiomatic Python API designed for notebooks, workflows,
 and data analysis (the recommended interface for most users).
 
+High-level API & backend agnosticism
+------------------------------------
+The high-level `MarkerTable` / `*Result` objects are built on narwhals.
+All DataFrame-shaped data (inputs and command outputs) is presented as
+narwhals objects. Internal reading of rsx core TSV outputs uses pyarrow
++ `to_narwhals(...)` (see `_read_core_tsv` and the Rust `read_tsv_to...`
+helpers). The result is always a backend-agnostic narwhals DataFrame;
+pandas/polars/etc. are only user-requested conversions.
+
+See the detailed docs in `api/markers.py`, `api/results.py`, `_adapters.py`,
+and the Rust extension module docstring.
+
 Example
 -------
 >>> import pyrsx as rsx
@@ -30,6 +42,7 @@ from .pyrsx import (  # noqa: F401
     triage,
     triage_to_arrow,
     triage_to_arrow_from_arrow,
+    PyrsxError,
 )
 
 # High-level idiomatic API (recommended)
@@ -51,6 +64,7 @@ __all__ = [
     "depth_from_arrow",
     "distrib_from_arrow",
     "signif_from_arrow",
+    "PyrsxError",
     "freq",
     "depth",
     "merge",

@@ -331,3 +331,125 @@ def test_pca_to_arrow_lowlevel(test_data):
     assert loadings.num_rows == 5
     assert "PC1" in loadings.column_names
     assert "individual" in loadings.column_names
+
+
+# ------------------------------------------------------------------
+# Additional high-level tests exercising path-backed _read_core_tsv path
+# (verifies backend-agnostic narwhals results for commands that use
+# the core TSV read helper instead of pure Arrow output).
+# ------------------------------------------------------------------
+
+def test_highlevel_freq_via_marker_table_path():
+    """Path-backed MarkerTable.freq must return TableResult with narwhals df,
+    exercising the _read_core_tsv path (no pandas required for the read).
+    """
+    import tempfile
+    from pathlib import Path
+    import narwhals as nw
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        table = tmp / "markers.tsv"
+        table.write_text(
+            "#Number of markers : 3\n"
+            "id\tsequence\tm1\tm2\tm3\n"
+            "0\tALL\t10\t10\t10\n"
+            "1\tMONLY\t10\t10\t10\n"
+            "2\tFONLY\t0\t0\t0\n"
+        )
+
+        from pyrsx.api.markers import MarkerTable
+
+        mt = MarkerTable.from_path(str(table))
+        assert len(mt) == 3
+        assert mt.n_individuals == 3
+        result = mt.freq(min_depth=1)
+
+        assert hasattr(result, "df")
+        assert result.df is not None
+        assert isinstance(result.df, nw.DataFrame)
+        assert result.command == "freq"
+        # Should work without pandas being the internal reader
+        # (narwhals pyarrow-backed by default here)
+        assert len(result.df) > 0
+
+
+def test_marker_table_path_introspection_without_metadata():
+    """Path-backed MarkerTable also handles plain TSV marker tables."""
+    from pathlib import Path
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        table = Path(tmp) / "markers.tsv"
+        table.write_text(
+            "id\tsequence\tind1\tind2\n"
+            "0\tALL\t10\t10\n"
+            "1\tMONLY\t10\t0\n"
+        )
+
+        from pyrsx.api.markers import MarkerTable
+
+        mt = MarkerTable.from_path(str(table))
+        assert len(mt) == 2
+        assert mt.n_individuals == 2
+
+
+def test_highlevel_depth_via_marker_table_path():
+    """Path-backed depth using popmap exercises _read_core_tsv."""
+    import tempfile
+    from pathlib import Path
+    import narwhals as nw
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        table = tmp / "markers.tsv"
+        table.write_text(
+            "#Number of markers : 2\n"
+            "id\tsequence\tind1\tind2\n"
+            "0\tALL\t10\t5\n"
+            "1\tLOW\t1\t2\n"
+        )
+        pop = tmp / "popmap.tsv"
+        pop.write_text("ind1\tM\nind2\tF\n")
+
+        from pyrsx.api.markers import MarkerTable
+
+        mt = MarkerTable.from_path(str(table))
+        result = mt.depth(popmap=str(pop), min_frequency=0.0)
+
+        assert hasattr(result, "df")
+        assert isinstance(result.df, nw.DataFrame)
+        assert result.command == "depth"
+
+
+def test_highlevel_results_are_backend_agnostic():
+    """Results from path-backed should be convertible via narwhals without
+    the internal read having pulled pandas.
+    """
+    import tempfile
+    from pathlib import Path
+    import narwhals as nw
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        table = tmp / "markers.tsv"
+        table.write_text(
+            "#Number of markers : 2\n"
+            "id\tsequence\tm1\tf1\n"
+            "0\tALL\t10\t10\n"
+            "1\tM\t10\t0\n"
+        )
+        pop = tmp / "popmap.tsv"
+        pop.write_text("m1\tM\nf1\tF\n")
+
+        from pyrsx.api.markers import MarkerTable
+
+        mt = MarkerTable.from_path(str(table))
+        res = mt.distrib(popmap=str(pop))
+
+        assert isinstance(res.df, nw.DataFrame)
+        # Explicit conversions should succeed (may pull pandas/polars if installed)
+        p = res.to_pandas()
+        assert p is not None
+        pl = res.to_polars()
+        assert pl is not None

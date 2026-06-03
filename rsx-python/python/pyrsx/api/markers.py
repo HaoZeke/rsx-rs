@@ -32,6 +32,65 @@ def _table_to_ipc_bytes(table: Any) -> bytes:
     return buf.getvalue()
 
 
+def _read_core_tsv(path: str | Path) -> "nw.DataFrame":
+    """Read a TSV produced by rsx core (leading "#Number of markers : N" comment)
+    into a **narwhals DataFrame**.
+
+    Implementation:
+    - Uses `pyarrow.csv` with `ReadOptions(skip_rows=1)` to cleanly skip the
+      leading metadata comment line (the next line becomes the header).
+    - This is a lightweight parse that does **not** require pandas or polars
+      just for internal I/O of command outputs.
+
+    The pyarrow Table is immediately passed to `to_narwhals(...)`. The returned
+    object **is backend agnostic** — it is a narwhals DataFrame whose concrete
+    backend is pyarrow by default. Callers (and end users) can convert on
+    demand:
+
+        result.to_pandas()
+        result.to_polars()
+        result.to_dataframe(backend="polars")
+        # or pass the .df to siuba, plotnine, polars, etc.
+
+    This is the **standard narwhals approach** used everywhere in the high-level
+    API (see `_adapters.py`, `from_dataframe`, Arrow paths, and Result objects).
+
+    Why this matters:
+    - No "pandas fallback" (or any other backend) is ever an internal
+      implementation detail for reading rsx artifacts.
+    - Users stay in their preferred DataFrame library without the bindings
+      pulling in extra deps.
+    - Matches the design of the Arrow-based in-memory paths (Rust produces
+      pyarrow Tables or batches → Python does `to_narwhals(...)`).
+
+    See also:
+    - The matching Rust helper `read_tsv_to_pyarrow_table` (in src/lib.rs)
+      used by the `*_from_arrow` low-level functions.
+    - `MarkerTable` path-backed methods and the various `TableResult` /
+      `*Result` classes, which all end up with narwhals-backed data.
+    """
+    import pyarrow.csv as pa_csv
+
+    read_options = pa_csv.ReadOptions(skip_rows=1, use_threads=True)
+    parse_options = pa_csv.ParseOptions(delimiter="\t")
+    table = pa_csv.read_csv(
+        str(path),
+        read_options=read_options,
+        parse_options=parse_options,
+    )
+    return to_narwhals(table)
+
+
+def _parse_marker_count(line: str) -> int | None:
+    """Parse rsx marker-count metadata from a leading comment line."""
+    if not line.startswith("#Number of markers"):
+        return None
+    try:
+        return int(line.split(":", 1)[1].strip())
+    except (IndexError, ValueError):
+        return None
+
+
 def _arrow_bytes_from(obj: Any) -> bytes:
     """Coerce a DataFrame-like or file path into Arrow IPC bytes.
 
@@ -66,14 +125,34 @@ class MarkerTable:
     High-level representation of a RAD-seq marker depth table.
 
     This is the central object in the pyrsx high-level API. It can be
-    constructed from files or any narwhals-compatible DataFrame and
-    provides a fluent, Pythonic interface to the rsx analysis commands.
+    constructed from files (path-backed, for very large data) or any
+    narwhals-compatible DataFrame (in-memory) and provides a fluent,
+    Pythonic interface to the rsx analysis commands.
+
+    Backend agnosticism (via narwhals):
+    - When working with DataFrames (in-memory or results), everything goes
+      through narwhals. The concrete backend (pandas / polars / pyarrow / ...)
+      is chosen by the user or inferred ("auto").
+    - Internal reading of rsx core TSV outputs (for path-backed results or
+      the `*_from_arrow` helpers) is done with pyarrow + `to_narwhals(...)`.
+      The exposed objects are always narwhals DataFrames — **backend
+      agnostic**. See `_read_core_tsv` and the module-level docs in the
+      Rust bindings for details. Pandas (or any other backend) is only a
+      user-requested output conversion, never forced internally.
+
+    All result objects (`TriageResult`, `TableResult`, etc.) delegate to
+    their underlying narwhals DataFrame, so you get a great experience with
+    siuba, plotnine, Polars expressions, etc.
 
     Examples
     --------
     >>> table = MarkerTable.from_path("markers.tsv")
     >>> triage = table.triage(popmap="popmap.tsv", min_depth=10)
-    >>> df = triage.to_pandas()
+    >>> df = triage.to_pandas()          # explicit backend
+    >>> pl_df = triage.to_polars()
+    >>> # or stay backend-agnostic
+    >>> nw_df = triage.df
+    >>> # works with plotnine / siuba on whatever the user has
     """
 
     def __init__(
@@ -89,6 +168,7 @@ class MarkerTable:
         self._path: Path | None = Path(path) if path is not None else None
         self._df: nw.DataFrame | None = None
         self._backend: Literal[...] = backend
+        self._path_header: tuple[int, list[str]] | None = None
 
         if data is not None:
             if not is_dataframe_like(data):
@@ -123,20 +203,44 @@ class MarkerTable:
     # Properties & introspection
     # ------------------------------------------------------------------ #
 
+    def _read_path_header(self) -> tuple[int, list[str]]:
+        if self._path_header is not None:
+            return self._path_header
+        if self._path is None:
+            raise RuntimeError("MarkerTable has no path-backed source.")
+
+        with open(self._path, encoding="utf-8") as f:
+            first = f.readline()
+            if not first:
+                self._path_header = (0, [])
+                return self._path_header
+
+            marker_count = _parse_marker_count(first)
+            if first.startswith("#"):
+                header_line = f.readline()
+            else:
+                header_line = first
+
+            columns = header_line.rstrip("\r\n").split("\t") if header_line else []
+            if marker_count is None:
+                marker_count = sum(1 for _ in f)
+
+        self._path_header = (marker_count, columns)
+        return self._path_header
+
     @property
     def n_markers(self) -> int:
         if self._df is not None:
             return len(self._df)
-        with open(self._path) as f:  # type: ignore[arg-type]
-            return sum(1 for _ in f) - 1
+        count, _columns = self._read_path_header()
+        return count
 
     @property
     def n_individuals(self) -> int:
         if self._df is not None:
             return len(self._df.columns) - 2
-        with open(self._path) as f:  # type: ignore[arg-type]
-            header = next(f).strip().split("\t")
-            return len(header) - 2
+        _count, columns = self._read_path_header()
+        return max(0, len(columns) - 2)
 
     @property
     def data(self) -> nw.DataFrame | None:
@@ -163,6 +267,27 @@ class MarkerTable:
 
     def __repr__(self) -> str:
         return f"MarkerTable(n_markers={self.n_markers}, n_individuals={self.n_individuals})"
+
+    def __arrow_c_stream__(self, requested_schema=None):
+        """Arrow C stream protocol for direct zero-copy consumption of the marker table.
+
+        If the table is in-memory (narwhals-backed), this can be very efficient.
+        For path-backed, it will materialize via the best available backend.
+        """
+        try:
+            import pyarrow as pa
+            if self._df is not None:
+                table = from_narwhals(self._df, backend="pyarrow")
+                if hasattr(table, "__arrow_c_stream__"):
+                    return table.__arrow_c_stream__(requested_schema)
+                return pa.table(table).__arrow_c_stream__(requested_schema)
+            # Path-backed tables require explicit materialization before Arrow export.
+            raise NotImplementedError(
+                "Arrow stream for path-backed MarkerTable requires loading first "
+                "(use MarkerTable.from_dataframe after loading, or use low-level Arrow functions)"
+            )
+        except Exception as e:
+            raise NotImplementedError(f"Arrow C stream unavailable: {e}") from e
 
     def summary(self) -> str:
         return f"MarkerTable with {self.n_markers} markers across {self.n_individuals} individuals"
@@ -230,12 +355,10 @@ class MarkerTable:
                 group1=p.group1,
                 group2=p.group2,
             )
-            import pandas as pd
-
-            res_df = pd.read_csv(out.name, sep="\t", comment="#")
+            res_df = _read_core_tsv(out.name)
         finally:
             Path(out.name).unlink(missing_ok=True)
-        return TriageResult(_df=to_narwhals(res_df), params=p)
+        return TriageResult(_df=res_df, params=p)
 
     def pca(self, *, k: int = 2, min_depth: int = 1, **kwargs: Any) -> PcaResult:
         """Compute streaming sample PCA (O(n_individuals²) memory)."""
@@ -268,12 +391,10 @@ class MarkerTable:
                 min_depth=min_depth,
                 n_components=k,
             )
-            import pandas as pd
-
             loadings_path = Path(outdir) / "loadings.tsv"
-            res_df = pd.read_csv(loadings_path, sep="\t", comment="#")
+            res_df = _read_core_tsv(loadings_path)
         return PcaResult(
-            _df=to_narwhals(res_df),
+            _df=res_df,
             params={"k": k, "min_depth": min_depth, **kwargs},
             _input_backend=self._backend,
         )
@@ -300,9 +421,7 @@ class MarkerTable:
             out.close()
             try:
                 _pyrsx.freq(str(self._path), out.name, min_depth=min_depth)
-                import pandas as pd
-
-                res_df = to_narwhals(pd.read_csv(out.name, sep="\t", comment="#"))
+                res_df = _read_core_tsv(out.name)
             finally:
                 Path(out.name).unlink(missing_ok=True)
 
@@ -343,9 +462,7 @@ class MarkerTable:
                     out.name,
                     min_frequency=min_frequency,
                 )
-                import pandas as pd
-
-                res_df = to_narwhals(pd.read_csv(out.name, sep="\t", comment="#"))
+                res_df = _read_core_tsv(out.name)
             finally:
                 Path(out.name).unlink(missing_ok=True)
 
@@ -403,9 +520,7 @@ class MarkerTable:
                     correction=correction,
                     test=test,
                 )
-                import pandas as pd
-
-                res_df = to_narwhals(pd.read_csv(out.name, sep="\t", comment="#"))
+                res_df = _read_core_tsv(out.name)
             finally:
                 Path(out.name).unlink(missing_ok=True)
 
@@ -477,9 +592,7 @@ class MarkerTable:
                     output_fasta=output_fasta,
                     bayes=bayes,
                 )
-                import pandas as pd
-
-                res_df = to_narwhals(pd.read_csv(out.name, sep="\t", comment="#"))
+                res_df = _read_core_tsv(out.name)
             finally:
                 Path(out.name).unlink(missing_ok=True)
 
@@ -515,3 +628,11 @@ class MarkerTable:
             "MarkerTable was constructed from a path and has no in-memory "
             "DataFrame. Use `.to_path()` or load it with `from_dataframe`."
         )
+
+    def to_pandas(self) -> Any:
+        """Return the in-memory table as a pandas DataFrame."""
+        return self.to_dataframe(backend="pandas")
+
+    def to_polars(self) -> Any:
+        """Return the in-memory table as a Polars DataFrame."""
+        return self.to_dataframe(backend="polars")
