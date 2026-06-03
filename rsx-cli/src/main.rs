@@ -599,6 +599,9 @@ mod tests {
     fn malformed_groups_are_rejected() {
         let groups = Some(vec!["male".to_string()]);
         let err = extract_groups(&groups).expect_err("single group must fail");
-        assert!(err.to_string().contains("exactly two non-empty group names"));
+        assert!(
+            err.to_string()
+                .contains("exactly two non-empty group names")
+        );
     }
 }
