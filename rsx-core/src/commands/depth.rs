@@ -138,8 +138,8 @@ fn run_exact_source<S: MarkerStream>(
         let group = popmap.get_group(individual_name).unwrap_or("");
         depths[i].sort_unstable();
         let size = depths[i].len() as u64;
-        let min_d = depths[i][0];
-        let max_d = *depths[i].last().unwrap();
+        let min_d = depths[i].first().copied().unwrap_or(0);
+        let max_d = depths[i].last().copied().unwrap_or(0);
         let total: u64 = depths[i].iter().map(|&d| d as u64).sum();
         let median_d = stats::find_median(&mut depths[i]);
         let avg_d = total / size;

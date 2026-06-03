@@ -95,8 +95,14 @@ impl Popmap {
 
         if n_groups == 2 && (config.group1.is_empty() || config.group2.is_empty()) {
             let mut iter = self.group_counts.keys();
-            config.group1 = iter.next().unwrap().clone();
-            config.group2 = iter.next().unwrap().clone();
+            config.group1 = iter
+                .next()
+                .expect("n_groups==2 guarantees two keys")
+                .clone();
+            config.group2 = iter
+                .next()
+                .expect("n_groups==2 guarantees two keys")
+                .clone();
         }
 
         Ok(())

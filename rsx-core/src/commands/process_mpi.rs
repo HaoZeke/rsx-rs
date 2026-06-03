@@ -15,7 +15,7 @@ use mpi::traits::*;
 use crate::commands::process::ProcessParams;
 
 #[cfg(feature = "mpi")]
-use crate::io::seq_reader::{InputFile, PackedDnaKey, count_sequences_packed, get_input_files};
+use crate::io::seq_reader::{count_sequences_packed, get_input_files, InputFile, PackedDnaKey};
 #[cfg(feature = "mpi")]
 use std::io::Write;
 
@@ -23,7 +23,7 @@ use std::io::Write;
 /// Falls back to single-node rayon if MPI is not initialized or size=1.
 #[cfg(feature = "mpi")]
 pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
-    let universe = mpi::initialize().unwrap();
+    let universe = mpi::initialize().expect("MPI initialize failed; check mpiexec / launcher and that only one MPI init happens per process");
     let world = universe.world();
     let rank = world.rank() as usize;
     let size = world.size() as usize;
@@ -245,7 +245,11 @@ fn deserialize_counts(data: &[u8]) -> Vec<(Vec<u8>, Vec<(String, u16)>)> {
     let mut result = Vec::new();
     let mut pos = 0;
     while pos + 4 <= data.len() {
-        let seq_len = u32::from_le_bytes(data[pos..pos + 4].try_into().unwrap()) as usize;
+        let seq_len = u32::from_le_bytes(
+            data[pos..pos + 4]
+                .try_into()
+                .expect("wire format: seq_len u32"),
+        ) as usize;
         pos += 4;
         if pos + seq_len > data.len() {
             break;
@@ -256,7 +260,11 @@ fn deserialize_counts(data: &[u8]) -> Vec<(Vec<u8>, Vec<(String, u16)>)> {
         if pos + 4 > data.len() {
             break;
         }
-        let n_entries = u32::from_le_bytes(data[pos..pos + 4].try_into().unwrap()) as usize;
+        let n_entries = u32::from_le_bytes(
+            data[pos..pos + 4]
+                .try_into()
+                .expect("wire format: n_entries u32"),
+        ) as usize;
         pos += 4;
 
         let mut entries = Vec::with_capacity(n_entries);
@@ -264,7 +272,11 @@ fn deserialize_counts(data: &[u8]) -> Vec<(Vec<u8>, Vec<(String, u16)>)> {
             if pos + 4 > data.len() {
                 break;
             }
-            let name_len = u32::from_le_bytes(data[pos..pos + 4].try_into().unwrap()) as usize;
+            let name_len = u32::from_le_bytes(
+                data[pos..pos + 4]
+                    .try_into()
+                    .expect("wire format: name_len u32"),
+            ) as usize;
             pos += 4;
             if pos + name_len > data.len() {
                 break;
@@ -274,7 +286,11 @@ fn deserialize_counts(data: &[u8]) -> Vec<(Vec<u8>, Vec<(String, u16)>)> {
             if pos + 2 > data.len() {
                 break;
             }
-            let count = u16::from_le_bytes(data[pos..pos + 2].try_into().unwrap());
+            let count = u16::from_le_bytes(
+                data[pos..pos + 2]
+                    .try_into()
+                    .expect("wire format: count u16"),
+            );
             pos += 2;
             entries.push((name, count));
         }

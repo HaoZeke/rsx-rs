@@ -350,7 +350,7 @@ pub fn benjamini_hochberg(p_values: &[f64]) -> Vec<f64> {
 
     // Sort indices by p-value
     let mut indices: Vec<usize> = (0..m).collect();
-    indices.sort_by(|&a, &b| p_values[a].partial_cmp(&p_values[b]).unwrap());
+    indices.sort_by(|&a, &b| p_values[a].total_cmp(&p_values[b]));
 
     let mut q_values = vec![0.0f64; m];
     let mut cummin = f64::INFINITY;
@@ -747,7 +747,7 @@ mod tests {
         let q = benjamini_hochberg(&pvals);
         // Sorted q-values should be non-decreasing
         let mut sorted_q = q.clone();
-        sorted_q.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_q.sort_by(|a, b| a.total_cmp(b));
         // The adjusted values for sorted p-values should be non-decreasing
     }
 

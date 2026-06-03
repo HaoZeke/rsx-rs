@@ -347,13 +347,16 @@ impl Iterator for KWayMergeIter {
                         None => true,
                     };
 
-                    let emit = if is_new && self.current_seq.is_some() {
-                        let seq = self.current_seq.take().unwrap();
-                        let depths = self.current_depths.clone();
-                        let id = self.n_emitted;
-                        self.n_emitted += 1;
-                        self.current_depths.fill(0);
-                        Some((id, seq, depths))
+                    let emit = if is_new {
+                        if let Some(seq) = self.current_seq.take() {
+                            let depths = self.current_depths.clone();
+                            let id = self.n_emitted;
+                            self.n_emitted += 1;
+                            self.current_depths.fill(0);
+                            Some((id, seq, depths))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     };

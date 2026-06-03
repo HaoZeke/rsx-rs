@@ -105,7 +105,7 @@ fn compute_pca_with_source<S: MarkerStream>(
     let (eigenvalues, eigenvectors) = jacobi_eigen(&mut gram, n);
 
     let mut indices: Vec<usize> = (0..n).collect();
-    indices.sort_by(|&a, &b| eigenvalues[b].partial_cmp(&eigenvalues[a]).unwrap());
+    indices.sort_by(|&a, &b| eigenvalues[b].total_cmp(&eigenvalues[a]));
 
     let r = n_components.unwrap_or(n).min(n);
     let total_var: f64 = eigenvalues.iter().filter(|&&v| v > 0.0).sum();
