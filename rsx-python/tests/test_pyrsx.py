@@ -420,6 +420,7 @@ def test_highlevel_depth_via_marker_table_path():
         assert hasattr(result, "df")
         assert isinstance(result.df, nw.DataFrame)
         assert result.command == "depth"
+        assert "Sample" in result.df.columns
 
 
 def test_highlevel_results_are_backend_agnostic():

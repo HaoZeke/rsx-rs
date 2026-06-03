@@ -58,6 +58,7 @@ pandas = ">=2.2,<3"
 maturin = ">=1.0, <2"
 pytest = ">=8"
 narwhals = ">=1.0"
+polars = ">=1.0"
 
 [feature.python.activation.env]
 # Same mold / linker hygiene for any cargo-invoking python build steps (maturin).

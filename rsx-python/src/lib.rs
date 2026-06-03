@@ -25,8 +25,8 @@
 //! When the high-level API (or direct `*_from_arrow` helpers) need to
 //! materialize results from commands that currently write TSV outputs
 //! (e.g. `freq`, `depth`, `distrib`, `signif`), the Rust side uses pure
-//! `pyarrow.csv` (with `skip_rows=1` to skip the leading "#Number of markers"
-//! comment) to produce a native `pyarrow.Table`. The Python layer then
+//! `pyarrow.csv` to skip an optional leading "#Number of markers" comment and
+//! produce a native `pyarrow.Table`. The Python layer then
 //! immediately wraps it via `to_narwhals(table)` (see `_adapters.py` and
 //! `_read_core_tsv` in `api/markers.py`).
 //!
@@ -357,10 +357,10 @@ fn scalar_to_string(array: &dyn arrow::array::Array, row: usize) -> String {
 /// Read an output TSV produced by a low-level rsx command and return it
 /// to Python as a native `pyarrow.Table`.
 ///
-/// Core command outputs (freq, depth, distrib, signif, etc.) always begin
-/// with a single "#Number of markers : N" metadata comment line followed by
-/// the real TSV header. We use `pyarrow.csv.ReadOptions(skip_rows=1)` for a
-/// clean parse without any pandas dependency inside the extension.
+/// Core command outputs may begin with a single "#Number of markers : N"
+/// metadata comment line followed by the real TSV header. We skip that
+/// comment when it is present for a clean parse without any pandas dependency
+/// inside the extension.
 ///
 /// This is deliberately kept as a pure pyarrow Table (the Arrow interchange
 /// format between Rust and Python). The *caller* (in the high-level Python
@@ -375,10 +375,21 @@ fn scalar_to_string(array: &dyn arrow::array::Array, row: usize) -> String {
 /// pure-Python helper used by the path-backed high-level `MarkerTable`
 /// methods, and `_adapters.py` for the to/from narwhals conversions.
 fn read_tsv_to_pyarrow_table(py: Python<'_>, path: &str) -> PyResult<PyObject> {
+    use std::io::BufRead;
+
+    let file = std::fs::File::open(path)
+        .map_err(|e| PyrsxError::new_err(format!("read TSV header: {e}")))?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut first_line = String::new();
+    reader
+        .read_line(&mut first_line)
+        .map_err(|e| PyrsxError::new_err(format!("read TSV header: {e}")))?;
+    let skip_rows = if first_line.starts_with('#') { 1 } else { 0 };
+
     let pa_csv = py.import("pyarrow.csv")?;
 
     let read_opts_dict = pyo3::types::PyDict::new(py);
-    read_opts_dict.set_item("skip_rows", 1)?;
+    read_opts_dict.set_item("skip_rows", skip_rows)?;
     read_opts_dict.set_item("use_threads", true)?;
     let read_opts = pa_csv
         .getattr("ReadOptions")?

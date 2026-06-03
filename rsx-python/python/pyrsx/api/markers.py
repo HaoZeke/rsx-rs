@@ -32,13 +32,18 @@ def _table_to_ipc_bytes(table: Any) -> bytes:
     return buf.getvalue()
 
 
+def _core_tsv_skip_rows(path: str | Path) -> int:
+    with open(path, encoding="utf-8") as f:
+        first = f.readline()
+    return 1 if first.startswith("#") else 0
+
+
 def _read_core_tsv(path: str | Path) -> "nw.DataFrame":
-    """Read a TSV produced by rsx core (leading "#Number of markers : N" comment)
-    into a **narwhals DataFrame**.
+    """Read a TSV produced by rsx core into a **narwhals DataFrame**.
 
     Implementation:
-    - Uses `pyarrow.csv` with `ReadOptions(skip_rows=1)` to cleanly skip the
-      leading metadata comment line (the next line becomes the header).
+    - Uses `pyarrow.csv` and skips the optional leading metadata comment line
+      when it is present, leaving the real TSV header for pyarrow.
     - This is a lightweight parse that does **not** require pandas or polars
       just for internal I/O of command outputs.
 
@@ -71,7 +76,10 @@ def _read_core_tsv(path: str | Path) -> "nw.DataFrame":
     """
     import pyarrow.csv as pa_csv
 
-    read_options = pa_csv.ReadOptions(skip_rows=1, use_threads=True)
+    read_options = pa_csv.ReadOptions(
+        skip_rows=_core_tsv_skip_rows(path),
+        use_threads=True,
+    )
     parse_options = pa_csv.ParseOptions(delimiter="\t")
     table = pa_csv.read_csv(
         str(path),

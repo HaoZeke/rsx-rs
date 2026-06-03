@@ -182,6 +182,7 @@ def test_pca_arrow_matches_path(fixture_frames):
     arrow_df = _to_pandas(arrow_res)
     file_df = _to_pandas(file_res)
     # Loadings table: same individuals and same column count
+    assert "individual" in file_df.columns
     assert len(arrow_df) == len(file_df)
     assert list(arrow_df.columns) == list(file_df.columns)
 
