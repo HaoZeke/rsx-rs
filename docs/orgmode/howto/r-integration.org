@@ -38,7 +38,7 @@ system2("rsx", c(
 ))
 #+end_src
 
-** Future: direct R FFI
+** Direct R FFI
 
 The C API (=librsx_core.so=) will enable direct =.Call()= from R,
 eliminating intermediate file I/O. See the

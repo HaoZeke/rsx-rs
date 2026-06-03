@@ -1,6 +1,6 @@
 [package]
 name = "pyrsx"
-version = "0.2.0"
+version.workspace = true
 edition = "2024"
 rust-version = "1.85"
 license = "GPL-3.0-or-later"
@@ -14,13 +14,6 @@ crate-type = ["cdylib"]
 [dependencies]
 rsx-core = { path = "../rsx-core", features = ["parallel", "arrow-output", "arrow-input"] }
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
-
-# DLPack (via the user's dlpk crate) for direct, zero-copy tensor/array production
-# to Python (numpy.from_dlpack, torch.from_dlpack, jax, etc.).
-# Temporarily commented while hardening the Arrow-based triage path and
-# adding Rust differential tests (dlpk brings pyo3 0.26 and conflicts with
-# the stable 0.23 pyo3 used by the extension module).
-# dlpk = { path = "../<path>", features = ["pyo3", "ndarray"] }
 
 # Parquet writer so we can take the real in-memory RecordBatches from
 # run_to_arrow and hand them to Python as a pyarrow.Table with a hidden

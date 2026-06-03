@@ -41,6 +41,11 @@ cp target/release/rsx ~/.local/bin/
 # Or via pixi
 pixi run build
 
+# Python bindings (high-level API for notebooks/workflows)
+pip install pyrsx
+# or pixi run -e python build-python
+
+
 # Run the pipeline
 rsx process -i reads/ -o markers.tsv -T 8
 rsx distrib -t markers.tsv -p popmap.tsv -o distrib.tsv -G M,F

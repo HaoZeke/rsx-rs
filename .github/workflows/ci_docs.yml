@@ -47,5 +47,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy docs/build --project-name=pyrsx --branch=main
-          # Site available at rsx.rgoswami.me (primary) and pyrsx.pages.dev
+          command: pages deploy docs/build --project-name=rsx --branch=main
+          # Site available at rsx.rgoswami.me (primary); pyrsx alias is secondary for bindings docs.

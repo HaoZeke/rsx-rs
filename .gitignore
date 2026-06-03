@@ -40,9 +40,7 @@ benchmarks/data-regenerated/
 benchmarks/literature-workdir/
 repro/benchmarks/figshare_package/
 
-# Claude/AI config
-.claude/
-CLAUDE.md
+# Local project context
 .project-ctx.toml
 *.so
 *.dylib

@@ -7,7 +7,11 @@ use clap::{Parser, Subcommand};
 use rsx_core::commands;
 
 #[derive(Parser)]
-#[command(name = "rsx", about = "rsx: sex-determination from RAD-seq data")]
+#[command(
+    name = "rsx",
+    about = "rsx: sex-determination from RAD-seq data",
+    version
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -279,6 +283,18 @@ fn extract_groups(groups: &Option<Vec<String>>) -> (String, String) {
 
 fn main() {
     env_logger::init();
+
+    // Handle --version / -V early so it works even with required subcommands
+    // (the derive version attr adds the flag; we short-circuit here for robustness).
+    let args: Vec<String> = std::env::args().collect();
+    if args
+        .iter()
+        .any(|a| a == "--version" || a == "-V" || a == "-v")
+    {
+        println!("rsx {}", env!("CARGO_PKG_VERSION"));
+        std::process::exit(0);
+    }
+
     let cli = Cli::parse();
 
     let result: Result<(), Box<dyn std::error::Error>> = match cli.command {

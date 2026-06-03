@@ -27,7 +27,11 @@ fn should_use_parallel(len: usize) -> bool {
     len > 4 * 1024 * 1024
 }
 
-/// Configuration for the markers table parser.
+/// Configuration for the markers table parser (controls what is materialized
+/// from the on-disk / Arrow source during streaming).
+///
+/// Used by all commands to trade off speed vs. functionality (e.g. fasta output
+/// or per-marker sequences for mapping requires storing the sequence).
 pub struct ParserConfig {
     pub store_sequence: bool,
     pub store_depths: bool,
@@ -46,7 +50,11 @@ impl Default for ParserConfig {
     }
 }
 
-/// Markers table backed by mmap.
+/// Streaming / bounded-memory view over a marker depth table (mmap or Arrow).
+///
+/// This is the central abstraction: commands consume rows without ever
+/// materializing the full n_markers × n_ind matrix in RAM. See the paper and
+/// `docs/orgmode/reference/architecture.org` for the design.
 pub struct MarkersTableStream {
     pub header: crate::io::table_io::TableHeader,
     pub groups: Vec<String>,

@@ -647,9 +647,9 @@ thread processes markers from the queue with busy-wait polling
 
 rsx-rs originally copied this pattern using crossbeam channels, but
 profiling showed ~50% of CPU time was spent on channel overhead and marker
-cloning. The fix: inline =for_each= callback that reuses a single =Marker=
-struct with zero allocation per marker. The marker is passed by reference to
-the callback, reset in-place between iterations.
+cloning. rsx-rs uses an inline =for_each= callback that reuses a single
+=Marker= struct with zero allocation per marker. The marker is passed by
+reference to the callback, reset in-place between iterations.
 
 *** Bitset popcount for group counts (eliminated HashMap entirely)
 

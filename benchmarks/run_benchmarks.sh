@@ -4,23 +4,34 @@ set -euo pipefail
 # Benchmark harness: compare C++ radsex vs Rust rsx-rs
 # Runs each command 3 times, reports median wall-clock time
 
-CPP_BIN="${CPP_RADSEX:-../<path>"
-RUST_BIN="${RUST_RADSEX:-./target/release/rsx}"
+CPP_BIN="${CPP_RADSEX:-radsex}"
+RUST_BIN="${RSX_BIN:-${RUST_RADSEX:-./target/release/rsx}}"
 DATA_DIR="${BENCH_DATA:-./benchmarks/data}"
 RESULTS_DIR="${BENCH_RESULTS:-./benchmarks/results}"
 REPS=3
 
 mkdir -p "$RESULTS_DIR"
 
-# Check binaries exist
-if [[ ! -x "$CPP_BIN" ]]; then
-    echo "ERROR: C++ radsex not found at $CPP_BIN"
-    exit 1
-fi
-if [[ ! -x "$RUST_BIN" ]]; then
-    echo "ERROR: Rust radsex not found at $RUST_BIN"
-    exit 1
-fi
+resolve_bin() {
+    local label="$1"
+    local bin="$2"
+    if [[ "$bin" == */* ]]; then
+        if [[ ! -x "$bin" ]]; then
+            echo "ERROR: $label not found at $bin"
+            exit 1
+        fi
+        printf '%s\n' "$bin"
+        return
+    fi
+    if ! command -v "$bin" >/dev/null 2>&1; then
+        echo "ERROR: $label not found on PATH; set CPP_RADSEX or RSX_BIN"
+        exit 1
+    fi
+    command -v "$bin"
+}
+
+CPP_BIN="$(resolve_bin "C++ radsex" "$CPP_BIN")"
+RUST_BIN="$(resolve_bin "Rust rsx" "$RUST_BIN")"
 
 echo "C++ binary: $CPP_BIN"
 echo "Rust binary: $RUST_BIN"

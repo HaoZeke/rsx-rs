@@ -108,3 +108,31 @@ All commands operate in bounded memory regardless of input size:
 
 For 200 individuals and 75M markers, typical peak memory is < 500MB
 (except map which loads the minimap2 genome index).
+
+** Python bindings (high-level API)
+
+Install with =pip install pyrsx= (or =pixi run -e python build-python= from source).
+
+#+begin_src python
+import pyrsx
+
+# Process reads → marker depth table (Arrow-backed under the hood)
+pyrsx.process("reads/", "markers.tsv", threads=8, min_depth=5)
+
+# Distribution + significance with Bayesian evidence
+pyrsx.distrib("markers.tsv", "popmap.tsv", "distrib.tsv", groups=["M", "F"])
+pyrsx.signif("markers.tsv", "popmap.tsv", "signif.tsv",
+             groups=["M", "F"], test="fisher", correction="fdr", bayes=True)
+
+# High-level ergonomic objects + narwhals / plotting
+tbl = pyrsx.MarkerTable.from_path("markers.tsv")
+print("n_markers:", len(tbl))
+
+# Streaming PCA (Tucker mode-2) for sex signal QC
+pyrsx.pca("markers.tsv", "pca_out/", n_components=5)
+
+# Merge multiple tables (bounded memory)
+pyrsx.merge(["run1.tsv", "run2.tsv"], "merged.tsv")
+#+end_src
+
+See the Python README and the =python-api-design= reference for the full surface (including =from_dataframe=, =to_arrow=, custom triage, etc.).

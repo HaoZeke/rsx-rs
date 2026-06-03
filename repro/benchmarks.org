@@ -18,7 +18,11 @@ To use:
 2. The package preserves the `benchmarks/data/` and `benchmarks/results/` paths expected by the scripts.
 3. Set `BENCH_DATA` or `BENCH_RESULTS` only when using alternate data or result locations.
 
-See the sections below for regenerating or re-running.
+The primary archive for the paper (snakemake-orchestrated, builder profile, MCA/Zenodo shape matching the rest of the reproducibility collection) is the sibling =rsx_bmc_repro= under the reproducibility collection tree (or its published clone + DOI). It contains the results, figures, and scripts used for all numbers in the manuscript, plus a full =workflow/Snakefile= for re-execution.
+
+See =rsx_bmc_repro/README.org= there for the builder quickstart and archive instructions.
+
+The instructions below (and the figshare packager) are retained for convenience inside the rsx-rs tree.
 
 * Setup
 

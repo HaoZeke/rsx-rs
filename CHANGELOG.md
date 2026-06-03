@@ -4,6 +4,8 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-03
+
 ### Added
 - **`rsx pca` command**: streaming PCA/Tucker mode-2 decomposition of the
   depth matrix. Computes Gram matrix X^T X streaming (O(n_ind^2) memory),
@@ -31,6 +33,8 @@ All notable changes to rsx-rs are documented here.
 - Optional MPI support for `process` command (`--features mpi`).
 - Feature-gated minimap2: `map` feature (default on) allows Windows builds
   without minimap2 for all other commands.
+- Workspace package version inheritance in root Cargo.toml for consistent
+  versioning across crates.
 
 ### Changed
 - Merge command input files are now positional arguments (glob-friendly):
@@ -38,6 +42,8 @@ All notable changes to rsx-rs are documented here.
 - Merge stores depths as `u16` instead of `String` (memory reduction).
 - signif/subset are ~30% slower on large data due to two-pass overhead,
   but use O(n_individuals) memory instead of O(n_markers).
+- Python package version aligned to 0.2.0 (was 0.1.0); Sphinx release and
+  all Cargo crates now consistently 0.2.0 via workspace.package.
 
 ## [0.1.0] - 2026-04-06
 

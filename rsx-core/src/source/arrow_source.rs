@@ -113,8 +113,7 @@ impl ArrowMarkerSource {
         &self.batches
     }
 
-    /// Minimum depth threshold this source was built with (used to filter
-    /// presence bits during iteration).
+    /// Minimum depth threshold for filtering presence bits during iteration.
     pub fn min_depth(&self) -> u16 {
         self.min_depth
     }

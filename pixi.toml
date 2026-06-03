@@ -21,6 +21,12 @@ compilers = ">=1.8"
 pkg-config = "*"
 zlib = "*"
 
+[feature.dev.activation.env]
+# Avoid mold linker injected by some conda-forge compiler activation inside pixi dev env
+# (causes "ld: cannot find -fuse-ld=mold" or similar when cargo invokes the conda cc).
+# Use default system linker for cargo steps; native cpu opt is in the task commands.
+RUSTFLAGS = ""
+
 [feature.docs.dependencies]
 python = ">=3.11"
 pip = "*"
@@ -52,6 +58,10 @@ pandas = ">=2.2,<3"
 maturin = ">=1.0, <2"
 pytest = ">=8"
 narwhals = ">=1.0"
+
+[feature.python.activation.env]
+# Same mold / linker hygiene for any cargo-invoking python build steps (maturin).
+RUSTFLAGS = ""
 
 [feature.python.tasks]
 build-python = { cmd = "cd rsx-python && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release" }

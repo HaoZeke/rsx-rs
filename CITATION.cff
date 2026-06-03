@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+title: "rsx: a high-performance streaming toolkit for RAD-seq sex determination"
+message: "If you use this software, please cite the BMC Bioinformatics paper (or preprint) and the RADSex reference it extends."
+type: software
+authors:
+  - family-names: "Goswami"
+    given-names: "Rohit"
+    orcid: "https://orcid.org/0000-0002-5478-0679"
+  - family-names: "Goswami"
+    given-names: "Ruhila"
+repository-code: "https://github.com/HaoZeke/rsx-rs"
+url: "https://rsx.rgoswami.me"
+license: GPL-3.0-or-later
+version: "0.2.0"
+date-released: 2026-06-03
+references:
+  - type: article
+    title: "rsx: a high-performance streaming toolkit for RAD-seq sex determination"
+    authors:
+      - family-names: "Goswami"
+        given-names: "Rohit"
+      - family-names: "Goswami"
+        given-names: "Ruhila"
+    year: 2026
+    journal: "BMC Bioinformatics"
+    # doi: forthcoming
+  - type: article
+    title: "RAD sequencing reveals sex determination systems in the genus RADSex"
+    authors:
+      - family-names: "Feron"
+        given-names: "Romain"
+    year: 2021
+    journal: "Molecular Ecology Resources"
+    doi: "10.1111/1755-0998.13360"
