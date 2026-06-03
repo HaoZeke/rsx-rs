@@ -28,6 +28,7 @@ required_files=(
     "${PACKAGE}/benchmarks/run_literature_benchmarks.py"
     "${PACKAGE}/benchmarks/plot_literature_benchmarks.py"
     "${PACKAGE}/benchmarks/plot_prior_sensitivity_heatmap.py"
+    "${PACKAGE}/scripts/prepare_python_build.py"
     "${PACKAGE}/benchmarks/slurm/literature_biology_prior_sensitivity.sbatch"
     "${PACKAGE}/benchmarks/slurm/literature_biology_low_depth.sbatch"
     "${PACKAGE}/benchmarks/results/benchmark_results.csv"
@@ -81,6 +82,7 @@ grep -q "benchmarks/results/benchmark_results.csv" "${PACKAGE}/MANIFEST.txt"
 grep -q "benchmarks/results/literature_speed_comparison.csv" "${PACKAGE}/MANIFEST.txt"
 grep -q "benchmarks/results/slurm/triage_" "${PACKAGE}/MANIFEST.txt"
 grep -q "docs/figures/literature_radsex_speedups.svg" "${PACKAGE}/MANIFEST.txt"
+grep -q "scripts/prepare_python_build.py" "${PACKAGE}/MANIFEST.txt"
 
 (
     cd "${PACKAGE}"

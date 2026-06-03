@@ -20,6 +20,7 @@ required_paths=(
     "${ROOT}/benchmarks/generate_data.py"
     "${ROOT}/benchmarks/run_benchmarks.sh"
     "${ROOT}/benchmarks/plot_benchmarks.py"
+    "${ROOT}/scripts/prepare_python_build.py"
     "${ROOT}/repro/benchmarks.org"
     "${ROOT}/repro/literature_benchmarks.org"
 )
@@ -63,6 +64,7 @@ copy_tracked_tree() {
 copy_tracked_file "pixi.toml" "${PACKAGE}/pixi.toml"
 copy_tracked_tree "benchmarks"
 copy_tracked_tree "docs/figures"
+copy_tracked_file "scripts/prepare_python_build.py" "${PACKAGE}/scripts/prepare_python_build.py"
 copy_tracked_file "repro/benchmarks.org" "${PACKAGE}/benchmarks.org"
 copy_tracked_file "repro/literature_benchmarks.org" "${PACKAGE}/literature_benchmarks.org"
 
@@ -87,6 +89,7 @@ Contents:
 - docs/figures/literature_*.svg|pdf : Paper figures regenerated from the tracked result CSV/TSV files
 - docs/figures/literature_radsex_speedups.svg : Same-input C++ RADSex vs rsx-rs speedup figure
 - docs/figures/literature_depth_stability.svg : Low-depth strict/posterior/Bayes-factor stability figure
+- scripts/prepare_python_build.py : Python extension build artifact preflight used by Pixi tasks
 - benchmarks/*.py, benchmarks/*.sh, benchmarks/slurm/*.sbatch : Scripts to regenerate equivalent data
 - benchmarks.org, literature_benchmarks.org : Full reproduction instructions
 
