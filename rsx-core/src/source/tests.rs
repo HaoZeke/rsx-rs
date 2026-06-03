@@ -14,9 +14,7 @@ use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::Popmap;
 use crate::source::{ArrowMarkerSource, MarkerStream, ParquetMarkerSource};
 
-fn fixture_tsv() -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join("rsx_source_parity");
-    std::fs::create_dir_all(&dir).unwrap();
+fn fixture_tsv(dir: &std::path::Path) -> std::path::PathBuf {
     let table = dir.join("markers.tsv");
     let mut f = std::fs::File::create(&table).unwrap();
     writeln!(f, "#Number of markers : 5").unwrap();
@@ -29,9 +27,7 @@ fn fixture_tsv() -> std::path::PathBuf {
     table
 }
 
-fn fixture_popmap() -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join("rsx_source_parity");
-    std::fs::create_dir_all(&dir).unwrap();
+fn fixture_popmap(dir: &std::path::Path) -> std::path::PathBuf {
     let pop = dir.join("popmap.tsv");
     let mut f = std::fs::File::create(&pop).unwrap();
     for ind in ["m1", "m2", "m3"] {
@@ -85,8 +81,9 @@ fn count_qualifying<S: MarkerStream>(source: &S) -> u64 {
 
 #[test]
 fn file_arrow_parquet_marker_counts_agree() {
-    let table = fixture_tsv();
-    let popmap_path = fixture_popmap();
+    let dir = tempfile::tempdir().unwrap();
+    let table = fixture_tsv(dir.path());
+    let popmap_path = fixture_popmap(dir.path());
     let popmap = Popmap::from_file(&popmap_path).unwrap();
 
     let config = ParserConfig {
@@ -109,8 +106,9 @@ fn file_arrow_parquet_marker_counts_agree() {
 
 #[test]
 fn freq_outputs_match_across_sources() {
-    let table = fixture_tsv();
-    let popmap_path = fixture_popmap();
+    let dir = tempfile::tempdir().unwrap();
+    let table = fixture_tsv(dir.path());
+    let popmap_path = fixture_popmap(dir.path());
     let popmap = Popmap::from_file(&popmap_path).unwrap();
 
     let arrow = ArrowMarkerSource::from_batches(vec![fixture_batch()], Some(&popmap), 1).unwrap();
