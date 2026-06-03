@@ -37,20 +37,34 @@ if [[ -e "${PACKAGE}" ]]; then
 fi
 
 mkdir -p "${PACKAGE}"
-mkdir -p "${PACKAGE}/benchmarks"
-mkdir -p "${PACKAGE}/docs"
 
 echo "Copying benchmark inputs and results used in the manuscript..."
-cp "${ROOT}/pixi.toml" "${PACKAGE}/"
-cp -R "${ROOT}/benchmarks/data" "${PACKAGE}/benchmarks/"
-cp -R "${ROOT}/benchmarks/results" "${PACKAGE}/benchmarks/"
-cp -R "${ROOT}/benchmarks/slurm" "${PACKAGE}/benchmarks/"
-cp -R "${ROOT}/docs/figures" "${PACKAGE}/docs/"
-cp "${ROOT}/benchmarks/"*.py "${PACKAGE}/benchmarks/"
-cp "${ROOT}/benchmarks/"*.sh "${PACKAGE}/benchmarks/"
-cp "${ROOT}/benchmarks/literature_datasets.tsv" "${PACKAGE}/benchmarks/"
-cp "${ROOT}/repro/benchmarks.org" "${PACKAGE}/"
-cp "${ROOT}/repro/literature_benchmarks.org" "${PACKAGE}/"
+
+copy_tracked_file() {
+    local relpath="$1"
+    local dest="$2"
+    mkdir -p "$(dirname "${dest}")"
+    cp "${ROOT}/${relpath}" "${dest}"
+}
+
+copy_tracked_tree() {
+    local relpath="$1"
+    local copied=0
+    while IFS= read -r -d '' tracked_file; do
+        copy_tracked_file "${tracked_file}" "${PACKAGE}/${tracked_file}"
+        copied=1
+    done < <(git -C "${ROOT}" ls-files -z -- "${relpath}")
+    if [[ "${copied}" -eq 0 ]]; then
+        echo "no tracked files under required path: ${relpath}" >&2
+        exit 1
+    fi
+}
+
+copy_tracked_file "pixi.toml" "${PACKAGE}/pixi.toml"
+copy_tracked_tree "benchmarks"
+copy_tracked_tree "docs/figures"
+copy_tracked_file "repro/benchmarks.org" "${PACKAGE}/benchmarks.org"
+copy_tracked_file "repro/literature_benchmarks.org" "${PACKAGE}/literature_benchmarks.org"
 
 # Create a manifest
 cat > "${PACKAGE}/MANIFEST.txt" << EOF
