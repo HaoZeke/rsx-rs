@@ -274,10 +274,22 @@ enum Commands {
     },
 }
 
-fn extract_groups(groups: &Option<Vec<String>>) -> (String, String) {
+fn extract_groups(
+    groups: &Option<Vec<String>>,
+) -> Result<(String, String), Box<dyn std::error::Error>> {
     match groups {
-        Some(g) if g.len() == 2 => (g[0].clone(), g[1].clone()),
-        _ => (String::new(), String::new()),
+        None => Ok((String::new(), String::new())),
+        Some(g) if g.len() == 2 && !g[0].is_empty() && !g[1].is_empty() => {
+            Ok((g[0].clone(), g[1].clone()))
+        }
+        Some(g) => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "--groups requires exactly two non-empty group names separated by a comma; got {}",
+                g.len()
+            ),
+        )
+        .into()),
     }
 }
 
@@ -332,7 +344,7 @@ fn main() {
             signif_threshold,
             disable_correction,
         } => {
-            let (g1, g2) = extract_groups(groups);
+            let (g1, g2) = extract_groups(groups)?;
             commands::distrib::run(&commands::distrib::DistribParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
@@ -363,7 +375,7 @@ fn main() {
             output_fasta,
             output_bayes,
         } => {
-            let (g1, g2) = extract_groups(groups);
+            let (g1, g2) = extract_groups(groups)?;
             let corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
                 .unwrap_or_else(|e| {
                     log::error!("{e}");
@@ -401,7 +413,7 @@ fn main() {
             prior_probability,
             linked_probability,
         } => {
-            let (g1, g2) = extract_groups(groups);
+            let (g1, g2) = extract_groups(groups)?;
             commands::triage::run(&commands::triage::TriageParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
@@ -466,7 +478,7 @@ fn main() {
             signif_threshold,
             disable_correction,
         } => {
-            let (g1, g2) = extract_groups(groups);
+            let (g1, g2) = extract_groups(groups)?;
             commands::map::run(&commands::map::MapParams {
                 markers_table_path: markers_file,
                 popmap_file_path: popmap,
@@ -504,7 +516,7 @@ fn main() {
             min_individuals,
             max_individuals,
         } => {
-            let (g1, g2) = extract_groups(groups);
+            let (g1, g2) = extract_groups(groups)?;
             commands::subset::run(&commands::subset::SubsetParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
@@ -558,5 +570,31 @@ fn main() {
     if let Err(e) = result {
         log::error!("{e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_groups;
+
+    #[test]
+    fn missing_groups_uses_popmap_resolution() {
+        let groups = None;
+        let resolved = extract_groups(&groups).expect("missing groups are valid");
+        assert_eq!(resolved, (String::new(), String::new()));
+    }
+
+    #[test]
+    fn pair_groups_are_accepted() {
+        let groups = Some(vec!["male".to_string(), "female".to_string()]);
+        let resolved = extract_groups(&groups).expect("two groups are valid");
+        assert_eq!(resolved, ("male".to_string(), "female".to_string()));
+    }
+
+    #[test]
+    fn malformed_groups_are_rejected() {
+        let groups = Some(vec!["male".to_string()]);
+        let err = extract_groups(&groups).expect_err("single group must fail");
+        assert!(err.to_string().contains("exactly two non-empty group names"));
     }
 }
