@@ -46,7 +46,13 @@ def load_rows(path: Path) -> list[dict[str, str]]:
         missing = REQUIRED_COLUMNS.difference(reader.fieldnames or [])
         if missing:
             raise ValueError(f"{path} is missing columns: {', '.join(sorted(missing))}")
-        return list(reader)
+        rows: list[dict[str, str]] = []
+        for row in reader:
+            dataset = (row.get("dataset") or "").strip()
+            if not dataset or dataset.startswith("#"):
+                continue
+            rows.append({key: (value or "").strip() for key, value in row.items()})
+        return rows
 
 
 def validate(path: Path) -> list[str]:
