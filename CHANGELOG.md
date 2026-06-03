@@ -11,6 +11,9 @@ All notable changes to rsx-rs are documented here.
   and load core TSV outputs through Arrow-compatible readers.
 - Guarded Python extension rebuilds against stale artifacts when switching Pixi
   environments.
+- Aligned the Python package metadata with the `0.2.1` release version.
+- Rejected malformed `--groups` CLI values instead of silently falling back to
+  popmap group auto-detection.
 - Made benchmark manifests tolerant of comments and added ENA FASTQ retry logic
   for literature benchmark downloads.
 
