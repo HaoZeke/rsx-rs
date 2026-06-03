@@ -293,7 +293,7 @@ fn extract_groups(
     }
 }
 
-fn main() {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     // Handle --version / -V early so it works even with required subcommands
@@ -567,7 +567,11 @@ fn main() {
         }),
     };
 
-    if let Err(e) = result {
+    result
+}
+
+fn main() {
+    if let Err(e) = run() {
         log::error!("{e}");
         std::process::exit(1);
     }
