@@ -21,6 +21,7 @@ from typing import Iterable
 
 
 NCBI_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+HTTP_HEADERS = {"User-Agent": "rsx-rs-literature-benchmarks/0.1"}
 RESULT_COLUMNS = [
     "dataset",
     "source",
@@ -88,8 +89,7 @@ def ncbi_url(endpoint: str, params: dict[str, str]) -> str:
 
 
 def fetch_text(url: str, retries: int = 5, sleep_seconds: float = 2.0) -> str:
-    headers = {"User-Agent": "rsx-rs-literature-benchmarks/0.1"}
-    request = urllib.request.Request(url, headers=headers)
+    request = urllib.request.Request(url, headers=HTTP_HEADERS)
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
@@ -435,7 +435,8 @@ def run_command(args: list[str], log_path: Path) -> float:
 def stream_url_to_handle(remote: FastqRemote, output) -> None:
     digest = hashlib.md5()
     total = 0
-    with urllib.request.urlopen(remote.url, timeout=1200) as response:
+    request = urllib.request.Request(remote.url, headers=HTTP_HEADERS)
+    with urllib.request.urlopen(request, timeout=1200) as response:
         while True:
             chunk = response.read(1024 * 1024)
             if not chunk:

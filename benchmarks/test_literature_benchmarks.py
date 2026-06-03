@@ -1,9 +1,12 @@
 import tempfile
 import unittest
+from io import BytesIO
 from hashlib import md5
 from pathlib import Path
+from unittest.mock import patch
 
 from benchmarks.run_literature_benchmarks import (
+    FastqRemote,
     Sample,
     count_data_rows,
     download_fastq_urls,
@@ -14,6 +17,7 @@ from benchmarks.run_literature_benchmarks import (
     parse_sra_experiment_xml,
     prune_dataset_results,
     summarize_output,
+    stream_url_to_handle,
     write_dataset_metadata,
 )
 
@@ -125,6 +129,41 @@ class LiteratureBenchmarkTests(unittest.TestCase):
             download_fastq_urls(files, output)
 
             self.assertEqual(output.read_bytes(), b"testdata")
+
+    def test_stream_url_to_handle_sets_user_agent(self):
+        payload = b"test"
+        seen_headers = []
+
+        class FakeResponse:
+            def __init__(self):
+                self._stream = BytesIO(payload)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self, size):
+                return self._stream.read(size)
+
+        def fake_urlopen(request, timeout):
+            seen_headers.append(request.get_header("User-agent"))
+            self.assertEqual(timeout, 1200)
+            return FakeResponse()
+
+        remote = FastqRemote(
+            "https://ftp.sra.ebi.ac.uk/example.fastq.gz",
+            len(payload),
+            md5(payload).hexdigest(),
+        )
+        output = BytesIO()
+
+        with patch("benchmarks.run_literature_benchmarks.urllib.request.urlopen", fake_urlopen):
+            stream_url_to_handle(remote, output)
+
+        self.assertEqual(seen_headers, ["rsx-rs-literature-benchmarks/0.1"])
+        self.assertEqual(output.getvalue(), payload)
 
     def test_marker_count_from_table_prefers_radsex_header(self):
         with tempfile.TemporaryDirectory() as tmp:
