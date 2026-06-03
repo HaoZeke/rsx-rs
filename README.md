@@ -16,7 +16,7 @@ Pre-built binaries for Linux (x86_64/aarch64), macOS (x86_64/arm64), Windows (wi
 
 ```bash
 # See https://github.com/HaoZeke/rsx-rs/releases for the latest
-curl -sSfL https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.0/rsx-installer.sh | sh
+curl -sSfL https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.1/rsx-installer.sh | sh
 ```
 
 ### From source

@@ -4,6 +4,22 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-03
+
+### Fixed
+- Hardened TSV result handling so Python bindings preserve core command headers
+  and load core TSV outputs through Arrow-compatible readers.
+- Guarded Python extension rebuilds against stale artifacts when switching Pixi
+  environments.
+- Made benchmark manifests tolerant of comments and added ENA FASTQ retry logic
+  for literature benchmark downloads.
+
+### Added
+- Reproducibility package validation for the tracked benchmark payloads,
+  including the Python build helper needed by archive users.
+- Focused regression coverage for source parity fixtures and Python benchmark
+  package layout.
+
 ## [0.2.0] - 2026-06-03
 
 ### Added
