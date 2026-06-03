@@ -398,6 +398,7 @@ def plot_speed_comparison(path: Path, output_dir: Path, colors: dict[str, str]) 
     comparison = pd.read_csv(path)
     if comparison.empty:
         return
+    comparison["min_depth"] = comparison["min_depth"].fillna("")
     pivot = comparison.pivot_table(
         index=["dataset", "command", "min_depth"],
         columns="impl",
