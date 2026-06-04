@@ -17,9 +17,63 @@ Writes:
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 from pathlib import Path
 
 import pandas as pd
+
+
+FALLBACK_RUHI_COLORS = {
+    "coral": "#FF655D",
+    "sunshine": "#F1DB4B",
+    "teal": "#004D40",
+    "sky": "#1E88E5",
+    "magenta": "#D81B60",
+}
+
+
+def load_ruhi_colors() -> dict[str, str]:
+    """Match plot_literature_benchmarks.py: prefer the shared chemparseplot
+    palette, fall back to the inline RUHI colours otherwise."""
+    try:
+        from chemparseplot.plot.theme import RUHI_COLORS
+
+        return dict(RUHI_COLORS)
+    except ImportError:
+        root = os.environ.get("CHEMPARSEPLOT_ROOT")
+        if root:
+            sys.path.insert(0, root)
+            try:
+                from chemparseplot.plot.theme import RUHI_COLORS
+
+                return dict(RUHI_COLORS)
+            except ImportError:
+                pass
+    return dict(FALLBACK_RUHI_COLORS)
+
+
+def base_theme():
+    """Shared paper theme, identical to base_theme() in
+    plot_literature_benchmarks.py."""
+    from plotnine import element_blank, element_line, element_rect, element_text, theme, theme_bw
+
+    return theme_bw(base_size=10) + theme(
+        figure_size=(7.2, 4.6),
+        panel_grid_major=element_line(color="#E6E6E6", size=0.35),
+        panel_grid_minor=element_blank(),
+        legend_title=element_text(size=9),
+        legend_text=element_text(size=8),
+        axis_text_x=element_text(rotation=0),
+        axis_text_y=element_text(size=8),
+        strip_background=element_rect(fill="#F7F7F7", colour="#CCCCCC"),
+    )
+
+
+def dataset_label(key: str) -> str:
+    """Format dataset keys exactly as the sibling plots do, e.g.
+    danio_albolineatus -> "Danio Albolineatus"."""
+    return key.replace("_", " ").title()
 
 
 def main() -> int:
@@ -84,21 +138,19 @@ def main() -> int:
     try:
         from plotnine import (
             aes,
-            element_blank,
-            element_rect,
-            element_text,
             facet_wrap,
             geom_line,
             geom_point,
             ggplot,
             labs,
+            scale_color_manual,
             scale_y_log10,
-            theme,
-            theme_minimal,
         )
     except ImportError:
         print("plotnine not available; skipping figure")
         return 0
+
+    colors = load_ruhi_colors()
 
     long = summary.melt(
         id_vars=["dataset", "min_depth"],
@@ -107,49 +159,55 @@ def main() -> int:
         value_name="count",
     )
     long["count_plot"] = long["count"].clip(lower=0.5)
+    long["dataset_label"] = long["dataset"].map(dataset_label)
 
-    palette = {
-        "significant_markers": "#004D40",
-        "posterior_gt_0_9": "#FF655D",
-        "bayes_factor_gt_10": "#F1DB4B",
-    }
     label_map = {
-        "significant_markers": "Strict (chisq/Bonferroni)",
+        "significant_markers": "Strict (chi-square / Bonferroni)",
         "posterior_gt_0_9": "Posterior > 0.9",
         "bayes_factor_gt_10": "Bayes factor > 10",
     }
-    long["call_label"] = long["call"].map(label_map)
+    call_order = ["Strict (chi-square / Bonferroni)", "Posterior > 0.9", "Bayes factor > 10"]
+    long["call_label"] = pd.Categorical(
+        long["call"].map(label_map), categories=call_order, ordered=True
+    )
+    palette = {
+        "Strict (chi-square / Bonferroni)": colors["teal"],
+        "Posterior > 0.9": colors["magenta"],
+        "Bayes factor > 10": colors["sky"],
+    }
 
     p = (
         ggplot(long, aes(x="min_depth", y="count_plot", color="call_label", group="call_label"))
-        + geom_line(size=1.0)
-        + geom_point(size=2.0)
-        + facet_wrap("~dataset", scales="free_y", ncol=2)
+        + geom_line(size=0.7)
+        + geom_point(size=1.9)
+        + facet_wrap("~ dataset_label", scales="free_y", ncol=2)
+        + scale_color_manual(values=palette)
         + scale_y_log10()
         + labs(
-            x="min_depth",
-            y="marker count (log scale, zero shown as 0.5)",
-            color="call",
+            x="Minimum read depth",
+            y="Markers (log10, zero shown as 0.5)",
+            color="",
             title="Depth stability of the call layers",
-            subtitle="Per-dataset marker counts across min_depth in {3, 5, 8, 10}",
+            subtitle="Per-dataset marker counts across minimum read depth in {3, 5, 8, 10}",
         )
-        + theme_minimal()
-        + theme(
-            figure_size=(8.4, 6.0),
-            panel_grid_minor=element_blank(),
-            panel_background=element_rect(fill="white"),
-            strip_text=element_text(face="bold"),
-        )
+        + base_theme()
     )
 
     args.figure_dir.mkdir(parents=True, exist_ok=True)
+    width, height = 7.2, 5.2
     svg = args.figure_dir / "literature_depth_stability.svg"
     pdf = args.figure_dir / "literature_depth_stability.pdf"
-    p.save(str(svg), verbose=False)
-    p.save(str(pdf), verbose=False)
+    p.save(str(svg), width=width, height=height, units="in", dpi=300, verbose=False)
+    _strip_trailing_whitespace(svg)
+    p.save(str(pdf), width=width, height=height, units="in", dpi=300, verbose=False)
     print(f"Wrote {svg}")
     print(f"Wrote {pdf}")
     return 0
+
+
+def _strip_trailing_whitespace(path: Path) -> None:
+    lines = path.read_text().splitlines()
+    path.write_text("\n".join(line.rstrip() for line in lines) + "\n")
 
 
 if __name__ == "__main__":
