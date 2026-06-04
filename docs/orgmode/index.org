@@ -76,7 +76,12 @@ rsx map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -G M,F
    reference/commands
    reference/benchmarks
    reference/hpc-design
+   reference/glossary
    howto/r-integration
+   howto/faq
+   howto/troubleshooting
    explanation/citation
+   changelog
+   code_of_conduct
    used_by
 #+end_export

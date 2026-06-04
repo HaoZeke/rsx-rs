@@ -1,0 +1,27 @@
+#+TITLE: Changelog
+#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]]
+#+EMAIL: rgoswami@ieee.org
+#+OPTIONS: toc:nil num:nil
+
+* Changelog
+
+The authoritative, per-release changelog is
+[[https://github.com/HaoZeke/rsx-rs/blob/main/CHANGELOG.md][CHANGELOG.md]] (Keep
+a Changelog format). Tagged releases with prebuilt Linux and macOS binaries are
+on the [[https://github.com/HaoZeke/rsx-rs/releases][GitHub releases page]], and
+the library and CLI are versioned on
+[[https://crates.io/crates/rsx-cli][crates.io]] (=radsex-core=, =rsx-cli=) and
+[[https://pypi.org/project/pyrsx/][PyPI]] (=pyrsx=).
+
+** Recent releases
+
+- *0.2.3* -- Legible prior-sensitivity heatmap annotations (value-based
+  contrast); documentation, packaging, and crates.io/PyPI publishing.
+- *0.2.2* -- Retain the =depth= rows in the literature speedup tables so the
+  reproducibility workflow regenerates all 56 paired timings.
+- *0.2.1* -- Validation and reproducibility fixes.
+- *0.2.0* -- Bayesian marker-evidence layer, Python/C bindings, bounded-memory
+  streaming across the command set.
+
+See [[https://github.com/HaoZeke/rsx-rs/blob/main/CHANGELOG.md][CHANGELOG.md]]
+for the complete history.

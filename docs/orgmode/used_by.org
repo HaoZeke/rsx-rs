@@ -18,9 +18,14 @@ Publications, theses, and reproducibility packages that use ~rsx~.
 .. admonition:: M.Sc. Thesis
    :class: tip
 
-   Ruhila Goswami, M.Sc. thesis, Faculty of Life and Environmental Sciences,
-   University of Iceland. Uses ``rsx`` for RAD-seq sex-determination analysis of
-   the studied fish panels.
+   Ruhila Goswami, *Evolutionary Divergence in Dental Variation and Sex
+   Chromosome Architecture in Icelandic Brown Trout and Arctic Charr*, M.Sc.
+   thesis, Faculty of Life and Environmental Sciences, University of Iceland,
+   2026 (advisors: Arnar Pálsson and Guðbjörg Ósk Jónsdóttir). The
+   sex-chromosome chapter maps the male sex-determining gene *sdY* across
+   *Salmo trutta* (Brown trout) and *Salvelinus alpinus* (Arctic charr)
+   populations and sympatric morphs, using ``rsx`` for the RAD-seq
+   sex-determination analysis.
    `hdl.handle.net/1946/53180 <https://hdl.handle.net/1946/53180>`_
 #+end_export
 

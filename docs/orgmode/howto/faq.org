@@ -1,0 +1,83 @@
+#+TITLE: Frequently Asked Questions
+#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]]
+#+EMAIL: rgoswami@ieee.org
+#+OPTIONS: toc:t num:nil
+
+* Frequently Asked Questions
+
+** General
+
+*** Is rsx a drop-in replacement for RADSex?
+
+For the marker-table workflow, yes. ~rsx~ implements the same command set
+(=process=, =distrib=, =signif=, =depth=, =freq=, =map=, =subset=, =merge=) and
+preserves the tab-separated output format, so existing R and Python scripts keep
+working. It adds a Bayesian evidence layer, bindings, and bounded-memory
+execution on top.
+
+*** Will my numbers match the original C++ RADSex?
+
+When groups are specified explicitly, the frequentist calls match RADSex
+v1.2.0. ~rsx~ does not change the statistical test, the null distribution, or
+the reported p-value threshold; the Bayesian outputs are additional, not a
+replacement.
+
+*** Why is the binary called =rsx= but the crate =radsex-core=?
+
+The command-line tool is =rsx= (crate =rsx-cli=); the library crate is
+=radsex-core= on crates.io. The Python package is =pyrsx= on PyPI. The
+repository is =rsx-rs=.
+
+** Installation
+
+*** How do I install the CLI?
+
+#+begin_src bash
+cargo install rsx-cli      # installs the `rsx` binary
+#+end_src
+
+Or grab a prebuilt binary from the
+[[https://github.com/HaoZeke/rsx-rs/releases][releases page]] (Linux and macOS),
+or build from source with =cargo build --release=.
+
+*** How do I install the Python bindings?
+
+#+begin_src bash
+pip install pyrsx
+#+end_src
+
+*** Why no Windows binary?
+
+The default =map= feature links minimap2, which does not build on MSVC. The
+other commands build on Windows from source with =--no-default-features=; only
+=map= is unavailable there.
+
+** Usage
+
+*** How much memory does rsx need?
+
+It is bounded. =distrib=, =freq=, =signif=, and =subset= scale with the number
+of individuals; =depth=, =merge=, and large inputs use a fixed buffer with
+external sort; =pca= scales with the square of the number of individuals.
+Typical peak is under 500 MB even for tens of millions of markers.
+
+*** How do I get sex-linked marker probabilities, not just calls?
+
+Run =signif= with the Bayesian layer enabled (=--bayes= on the CLI,
+=bayes=True= in =pyrsx.signif=). Each marker then carries a Bayes factor and a
+posterior P(sex-linked) alongside the strict call.
+
+*** Which alignment backend does map use?
+
+minimap2, via the Rust =minimap2= crate, replacing BWA-MEM. Provide the
+reference with =-g/--genome=.
+
+** Reproducibility
+
+*** How do I reproduce the paper's benchmarks?
+
+Use the deposited archive at
+[[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]: a
+pinned pixi + Snakemake workflow that builds ~rsx~ and the C++ RADSex reference
+and regenerates every figure and number. See the [[file:../used_by.org][Used By]]
+page and the [[file:../reference/benchmarks.org][benchmarks reference]].

@@ -1,0 +1,20 @@
+#+TITLE: Code of Conduct
+#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]]
+#+EMAIL: rgoswami@ieee.org
+#+OPTIONS: toc:nil num:nil
+
+* Code of Conduct
+
+The ~rsx~ project adopts the
+[[https://www.contributor-covenant.org/version/2/1/code_of_conduct/][Contributor
+Covenant]] (v2.1). All participants in the project's spaces -- issues, pull
+requests, and discussions -- are expected to uphold it.
+
+In short: be respectful and constructive, assume good faith, and keep the
+project a welcoming place for contributors of every background. Harassment and
+exclusionary behaviour are not tolerated.
+
+The full text and the contact for reporting concerns are in
+[[https://github.com/HaoZeke/rsx-rs/blob/main/CODE_OF_CONDUCT.md][CODE_OF_CONDUCT.md]].
+Contribution guidelines are in
+[[https://github.com/HaoZeke/rsx-rs/blob/main/CONTRIBUTING.md][CONTRIBUTING.md]].
