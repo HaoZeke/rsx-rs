@@ -5,9 +5,10 @@ type: software
 authors:
   - family-names: "Goswami"
     given-names: "Rohit"
-    orcid: "https://orcid.org/0000-0002-5478-0679"
+    orcid: "https://orcid.org/0000-0002-2393-8056"
   - family-names: "Goswami"
     given-names: "Ruhila"
+    orcid: "https://orcid.org/0000-0002-5443-9356"
 repository-code: "https://github.com/HaoZeke/rsx-rs"
 url: "https://rsx.rgoswami.me"
 license: GPL-3.0-or-later
