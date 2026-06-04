@@ -1,7 +1,7 @@
 project = "rsx-rs"
 copyright = "2024--present, rsx-rs developers"
 author = "Rohit Goswami"
-release = "0.2.1"
+release = "0.2.3"
 
 extensions = [
     "sphinx.ext.autodoc",
