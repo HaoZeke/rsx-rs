@@ -4,6 +4,14 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-06-04
+
+### Fixed
+- Retained the `depth` command rows in the literature speedup summary and pairs
+  tables, so the reproducibility workflow regenerates all 56 paired command/
+  dataset/depth timings reported in the paper instead of dropping the `depth`
+  rows.
+
 ## [0.2.1] - 2026-06-03
 
 ### Fixed

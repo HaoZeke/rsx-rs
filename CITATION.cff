@@ -11,8 +11,8 @@ authors:
 repository-code: "https://github.com/HaoZeke/rsx-rs"
 url: "https://rsx.rgoswami.me"
 license: GPL-3.0-or-later
-version: "0.2.0"
-date-released: 2026-06-03
+version: "0.2.2"
+date-released: 2026-06-04
 references:
   - type: article
     title: "rsx: a high-performance streaming toolkit for RAD-seq sex determination"
