@@ -18,7 +18,7 @@ mpi = ["rsx-core/mpi"]
 parquet-io = ["rsx-core/parquet-io"]
 
 [dependencies]
-rsx-core = { path = "../rsx-core", features = ["parallel"] }
+rsx-core = { path = "../rsx-core", version = "0.2.3", features = ["parallel"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 env_logger = "0.11"
 log = "0.4"
