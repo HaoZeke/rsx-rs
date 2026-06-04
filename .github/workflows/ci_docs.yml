@@ -41,6 +41,14 @@ jobs:
           name: documentation
           path: docs/build
 
+      - name: Check links (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: "--config lychee.toml --no-progress 'docs/build/**/*.html' README.md"
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Ensure Cloudflare Pages project exists
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:

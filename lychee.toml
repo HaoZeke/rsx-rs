@@ -1,0 +1,21 @@
+# Link-checker configuration for lychee.
+# Runs in CI over the built docs HTML and the README to catch broken links
+# (internal, like a mis-pathed _static asset, and external 404s) before they ship.
+
+# Resilience: retry transient failures and don't fail on rate-limiting or
+# bot-blocking from registries/CDNs (those links are valid, just hostile to HEAD).
+max_retries = 3
+retry_wait_time = 2
+timeout = 20
+accept = ["200..=206", "403", "429"]
+
+# Pretend to be a browser; some hosts reject the default agent.
+user_agent = "Mozilla/5.0 (compatible; lychee; +https://github.com/lycheeverse/lychee)"
+
+exclude = [
+  "^mailto:",
+  "^https?://localhost",
+  "^https?://127\\.0\\.0\\.1",
+  # Anti-bot / unstable for automated HEAD; the links themselves are correct.
+  "^https://doi\\.org/",
+]
