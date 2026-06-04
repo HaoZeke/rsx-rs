@@ -79,5 +79,9 @@ reference with =-g/--genome=.
 Use the deposited archive at
 [[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]: a
 pinned pixi + Snakemake workflow that builds ~rsx~ and the C++ RADSex reference
-and regenerates every figure and number. See the [[file:../used_by.org][Used By]]
-page and the [[file:../reference/benchmarks.org][benchmarks reference]].
+and regenerates every figure and number.
+
+#+begin_export rst
+See the :doc:`Used By </used_by>` page and the
+:doc:`benchmarks reference </reference/benchmarks>`.
+#+end_export
