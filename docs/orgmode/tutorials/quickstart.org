@@ -16,9 +16,10 @@ cargo build --release
 
 *** From GitHub releases
 
-Pre-built binaries are available for Linux (x86_64, aarch64), macOS
-(x86_64, arm64), and Windows from the
-[[https://github.com/HaoZeke/rsx-rs/releases][Releases page]].
+Pre-built binaries are available for Linux (x86_64, aarch64) and macOS
+(x86_64, arm64) from the
+[[https://github.com/HaoZeke/rsx-rs/releases][Releases page]]. On Windows,
+build from source without the =map= feature (minimap2 is not available there).
 
 *** Via pixi
 
