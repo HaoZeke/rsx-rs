@@ -1,0 +1,37 @@
+#+TITLE: Used By
+#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]]
+#+EMAIL: rgoswami@ieee.org
+#+OPTIONS: toc:nil todo:nil num:nil author:t title:t ^:nil
+
+Publications, theses, and reproducibility packages that use ~rsx~.
+
+* Publications
+
+- *rsx: a high-performance streaming toolkit for RAD-seq sex determination*
+  (BMC Bioinformatics). The reference publication: it introduces ~rsx~,
+  benchmarks it against C++ RADSex v1.2.0 on four literature RAD-seq panels
+  (41.9 billion bases), and reports the Bayesian marker-evidence layer.
+
+* Academic Work
+
+#+begin_export rst
+.. admonition:: M.Sc. Thesis
+   :class: tip
+
+   Ruhila Goswami, M.Sc. thesis, Faculty of Life and Environmental Sciences,
+   University of Iceland. Uses ``rsx`` for RAD-seq sex-determination analysis of
+   the studied fish panels.
+   `hdl.handle.net/1946/53180 <https://hdl.handle.net/1946/53180>`_
+#+end_export
+
+* Reproducibility Packages
+
+- [[https://doi.org/10.5281/zenodo.20531539][rsx BMC reproducibility archive (Zenodo)]] :: A pinned pixi + Snakemake
+  workflow that regenerates every figure and reported number in the paper. It
+  clones ~rsx~ at the tagged release, builds it alongside the C++ RADSex
+  v1.2.0 reference, and replays the full literature benchmark matrix.
+
+* Add your work
+
+Using ~rsx~ in a paper, thesis, or pipeline? Open a pull request adding it
+here, or file an issue on [[https://github.com/HaoZeke/rsx-rs][GitHub]].

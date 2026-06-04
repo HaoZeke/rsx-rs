@@ -13,9 +13,10 @@ accept = ["200..=206", "403", "429"]
 user_agent = "Mozilla/5.0 (compatible; lychee; +https://github.com/lycheeverse/lychee)"
 
 exclude = [
-  "^mailto:",
-  "^https?://localhost",
-  "^https?://127\\.0\\.0\\.1",
+  '^mailto:',
+  '^https?://localhost',
+  '^https?://127\.0\.0\.1',
   # Anti-bot / unstable for automated HEAD; the links themselves are correct.
-  "^https://doi\\.org/",
+  '^https://doi\.org/',
+  '^https://hdl\.handle\.net/',
 ]

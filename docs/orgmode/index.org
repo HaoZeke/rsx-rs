@@ -4,6 +4,20 @@
 
 * rsx-rs
 
+#+begin_export rst
+.. image:: /_static/logo-light.svg
+   :class: light-only
+   :width: 460
+   :align: center
+   :alt: rsx
+
+.. image:: /_static/logo-dark.svg
+   :class: dark-only
+   :width: 460
+   :align: center
+   :alt: rsx
+#+end_export
+
 Rust rewrite of [[https://github.com/RomainFeron/RADSex][RADSex]], a
 computational pipeline for analyzing sex-determination using RAD-Sequencing
 data. Drop-in CLI replacement with Python bindings and C FFI for downstream
@@ -63,4 +77,6 @@ rsx map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -G M,F
    reference/benchmarks
    reference/hpc-design
    howto/r-integration
+   explanation/citation
+   used_by
 #+end_export

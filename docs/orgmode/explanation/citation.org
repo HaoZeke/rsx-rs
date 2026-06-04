@@ -1,0 +1,35 @@
+#+TITLE: How to Cite rsx
+#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]]
+#+EMAIL: rgoswami@ieee.org
+#+OPTIONS: toc:nil num:nil
+
+* How to Cite rsx
+
+If you use ~rsx~ in your research, please cite the paper and the software.
+
+** Paper
+
+Goswami R, Goswami R. /rsx: a high-performance streaming toolkit for RAD-seq
+sex determination./ BMC Bioinformatics (forthcoming).
+
+It extends the original RADSex workflow, which should also be cited when
+relevant:
+
+Feron R, et al. /RADSex: a computational workflow to study sex determination
+using restriction site-associated DNA sequencing data./ Molecular Ecology
+Resources, 2021. doi:10.1111/1755-0998.13360
+
+** Software
+
+The repository ships a =CITATION.cff=, so GitHub renders a "Cite this
+repository" button with formatted BibTeX and APA. The published artifacts are:
+
+- =radsex-core= and =rsx-cli= (the =rsx= binary) on [[https://crates.io/crates/rsx-cli][crates.io]]
+- =pyrsx= (Python bindings) on [[https://pypi.org/project/pyrsx/][PyPI]]
+
+** Reproducibility archive
+
+The deposited workflow that regenerates the paper's figures and numbers:
+
+Goswami R, Goswami R. /Reproducibility archive for rsx./ Zenodo.
+[[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]
