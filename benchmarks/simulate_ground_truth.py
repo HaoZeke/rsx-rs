@@ -5,8 +5,6 @@ Ground-truth simulator for rsx biological validation.
 Generates controlled RAD-seq-like marker tables with known sex-linked tags
 injected at precise frequencies/penetrances. Used to measure precision,
 recall, calibration, and power of the strict vs posterior triage rules.
-
-This directly addresses the top-priority vissue internal-issue.
 """
 
 import argparse

@@ -5,8 +5,6 @@ Prior sensitivity analysis for the Bayesian triage layer.
 Sweeps π (baseline sex-linkage probability) and p_sex on the literature
 candidate tables and reports how the number of posterior > 0.9 markers
 and the final biological calls change.
-
-This addresses vissue internal-issue.
 """
 
 import argparse
