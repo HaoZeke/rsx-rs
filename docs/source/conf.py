@@ -21,7 +21,6 @@ html_theme_options = {
     "github_url": "https://github.com/HaoZeke/rsx-rs",
     "light_logo": "_static/logo-light.svg",
     "dark_logo": "_static/logo-dark.svg",
-    "logo_target": "/",
     "og_image_url": "https://rsx.rgoswami.me/_static/og-image.png",
 }
 

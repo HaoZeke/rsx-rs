@@ -19,4 +19,5 @@ exclude = [
   # Anti-bot / unstable for automated HEAD; the links themselves are correct.
   '^https://doi\.org/',
   '^https://hdl\.handle\.net/',
+  '^https://www\.gnu\.org/',
 ]
