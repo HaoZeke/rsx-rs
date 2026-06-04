@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" fill="none" aria-labelledby="rsx-logo-title" role="img">
+  <title id="rsx-logo-title">rsx — high-performance RAD-seq toolkit (dark)</title>
+  <desc>Dark mode / light-on-dark logo variant for rsx.</desc>
+
+  <g id="rsx-mark">
+    <!-- Left cluster -->
+    <rect x="18" y="28" width="42" height="9" rx="2" fill="#14B8A6"/>
+    <rect x="26" y="42" width="58" height="9" rx="2" fill="#14B8A6"/>
+    <rect x="14" y="56" width="36" height="9" rx="2" fill="#F97316"/>
+    <rect x="22" y="70" width="50" height="9" rx="2" fill="#14B8A6"/>
+    <rect x="30" y="84" width="32" height="9" rx="2" fill="#14B8A6"/>
+
+    <!-- Cut -->
+    <line x1="92" y1="22" x2="92" y2="98" stroke="#F1F5F9" stroke-width="5" stroke-linecap="round"/>
+    <path d="M88 42 L96 42" stroke="#F1F5F9" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M88 78 L96 78" stroke="#F1F5F9" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Right cluster -->
+    <rect x="106" y="36" width="38" height="9" rx="2" fill="#14B8A6"/>
+    <rect x="100" y="50" width="28" height="9" rx="2" fill="#14B8A6"/>
+    <rect x="112" y="64" width="46" height="9" rx="2" fill="#F97316"/>
+    <rect x="104" y="78" width="22" height="9" rx="2" fill="#14B8A6"/>
+  </g>
+
+  <text x="168" y="78" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="62" font-weight="800" letter-spacing="-2.5" fill="#F8FAFC">rsx</text>
+</svg>

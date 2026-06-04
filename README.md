@@ -1,11 +1,17 @@
-# rsx
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/rsx-logo-dark.svg">
+    <img src="assets/branding/rsx-logo.svg" alt="rsx" width="460">
+  </picture>
+</p>
 
 **High-performance streaming toolkit for RAD-seq sex determination.**
 
 Rust rewrite of [RADSex](https://github.com/RomainFeron/RADSex), drop-in CLI replacement with Python bindings and C FFI.
 
 [![CI](https://github.com/HaoZeke/rsx-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/HaoZeke/rsx-rs/actions/workflows/ci.yml)
-[![Documentation](https://img.shields.io/badge/docs-rs x.rgoswami.me-blue)](https://rsx.rgoswami.me)
+[![Documentation](https://img.shields.io/badge/docs-rsx.rgoswami.me-blue)](https://rsx.rgoswami.me)
+[![Crates.io](https://img.shields.io/crates/v/rsx-cli?label=crates.io)](https://crates.io/crates/rsx-cli)
 [![PyPI](https://img.shields.io/pypi/v/pyrsx)](https://pypi.org/project/pyrsx/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 

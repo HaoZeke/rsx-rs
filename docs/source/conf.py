@@ -15,11 +15,17 @@ templates_path = ["_templates"]
 exclude_patterns = []
 
 html_theme = "shibuya"
-html_static_path = []
+html_static_path = ["_static"]
 
 html_theme_options = {
     "github_url": "https://github.com/HaoZeke/rsx-rs",
+    "light_logo": "logo-light.svg",
+    "dark_logo": "logo-dark.svg",
+    "logo_target": "/",
+    "og_image_url": "https://rsx.rgoswami.me/_static/og-image.png",
 }
+
+html_favicon = "_static/favicon.png"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
