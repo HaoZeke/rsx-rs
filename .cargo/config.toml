@@ -1,0 +1,11 @@
+# pyrsx is a pyo3 `extension-module` cdylib: it intentionally does not link
+# libpython, leaving the Python symbols to be resolved by the host interpreter
+# at load time. On Linux the linker tolerates these undefined symbols in a
+# cdylib, but the macOS linker rejects them, so a plain `cargo build` of the
+# workspace fails to link pyrsx. Allow dynamic (runtime) symbol lookup on macOS,
+# which is the standard pyo3 extension-module pattern.
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
