@@ -33,7 +33,7 @@ recovered via =erfc = g(x) * exp(-x/2) / sqrt(pi*x/2)=.
 
 * Integration
 
-Once coefficients are generated, they go into =rsx-core/src/stats.rs= as
+Once coefficients are generated, they go into =radsex-core/src/stats.rs= as
 a =fast_chi2_p()= function using Horner evaluation. This replaces
 =libm::erfc= for both CPU (avoiding function call overhead) and GPU
 (where libm is unavailable).

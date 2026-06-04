@@ -11,7 +11,7 @@
 pixi.lock
 
 # Build artifacts
-/rsx-core/include/rsx.h
+/radsex-core/include/rsx.h
 
 # Generated documentation
 /docs/build/

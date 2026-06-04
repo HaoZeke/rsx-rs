@@ -1660,7 +1660,7 @@ dependencies = [
  "arrow",
  "parquet",
  "pyo3",
- "rsx-core",
+ "radsex-core",
  "tempfile",
 ]
 
@@ -1750,11 +1750,11 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "rsx-core",
+ "radsex-core",
 ]
 
 [[package]]
-name = "rsx-core"
+name = "radsex-core"
 version = "0.2.3"
 dependencies = [
  "ahash",

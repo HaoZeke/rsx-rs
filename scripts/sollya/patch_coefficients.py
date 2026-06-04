@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Parse Sollya erfc_coefficients.txt and patch rsx-core/src/stats.rs
+Parse Sollya erfc_coefficients.txt and patch radsex-core/src/stats.rs
 with the exact f64 bit patterns.
 
 Usage: python patch_coefficients.py [--sollya-output FILE] [--rust-source FILE]
@@ -80,7 +80,7 @@ def main():
     )
     parser.add_argument(
         "--rust-source",
-        default="../rsx-core/src/stats.rs",
+        default="../radsex-core/src/stats.rs",
         help="Rust source file to patch",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print but don't write")

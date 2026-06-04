@@ -25,13 +25,13 @@ See `pixi.toml` for all environments and tasks.
 
 - `cargo fmt --check`
 - `cargo clippy -- -D warnings`
-- All tests must pass (`cargo test -p rsx-core`)
-- New commands or public API surface need docs + a test (unit or integration in `rsx-core/tests/`).
+- All tests must pass (`cargo test -p radsex-core`)
+- New commands or public API surface need docs + a test (unit or integration in `radsex-core/tests/`).
 - CLI changes should update the org docs under `docs/orgmode/` (they are the source of truth; Sphinx + rustdocgen export).
 
 ## Adding / modifying a command
 
-1. Implement in `rsx-core/src/commands/`.
+1. Implement in `radsex-core/src/commands/`.
 2. Wire in `rsx-cli/src/main.rs` (clap) and the Python FFI if applicable.
 3. Add a golden or precision test.
 4. Document the flags + semantics in `docs/orgmode/reference/commands.org`.

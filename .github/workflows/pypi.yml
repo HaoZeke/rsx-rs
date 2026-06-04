@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - 'rsx-python/**'
-      - 'rsx-core/**'
+      - 'radsex-core/**'
   workflow_dispatch:
 
 concurrency:

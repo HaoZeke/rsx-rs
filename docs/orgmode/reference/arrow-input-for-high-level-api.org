@@ -4,7 +4,7 @@
 #+OPTIONS: toc:2 num:nil
 
 * Status
-v0.1 implementation merged.  See =rsx-core/src/source/= and the
+v0.1 implementation merged.  See =radsex-core/src/source/= and the
 =*_from_arrow= entry points in =rsx-python/src/lib.rs=.
 
 The implemented design closely follows this spec:

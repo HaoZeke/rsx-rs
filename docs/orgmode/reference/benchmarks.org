@@ -436,8 +436,8 @@ Paper-readiness validation is split by claim:
 | Claim | Validation artifact |
 |-------+---------------------|
 | Mathematical identities | =scripts/sympy/chi2_cdf_derivation.py=, =sparse_median_proof.py=, =tucker_covariance_proof.py= |
-| Numerical/statistical routines | =rsx-core/tests/test_precision.rs= and =rsx-core/src/stats.rs= unit tests |
-| Command behavior | =rsx-core/tests/test_pipeline.rs= integration tests |
+| Numerical/statistical routines | =radsex-core/tests/test_precision.rs= and =radsex-core/src/stats.rs= unit tests |
+| Command behavior | =radsex-core/tests/test_pipeline.rs= integration tests |
 | Literature speedup | =benchmarks/results/literature_speed_comparison.csv= and Slurm scripts |
 | Bayesian sex-linkage evidence | =benchmarks/results/literature_bayesian_evidence.csv= and candidate-recovery figures |
 | Prior sensitivity of the Bayesian layer | =benchmarks/results/slurm/triage_*_pi*_psex*.tsv= (96 cells), =benchmarks/results/prior_sensitivity_from_triage.csv=, =docs/figures/literature_prior_sensitivity_heatmap.svg= |
@@ -445,7 +445,7 @@ Paper-readiness validation is split by claim:
 | Depth stability of the call layers | =benchmarks/results/literature_mode_effects_sweep.csv=, =benchmarks/results/literature_depth_stability.csv=, =docs/figures/literature_depth_stability.svg= |
 | Biological unlock summary | =benchmarks/results/literature_bio_unlocks.csv=, =literature_candidate_triage.csv=, =literature_sex_system_inference.csv=, and unlock figure |
 | Python workflow surface | =benchmarks/results/literature_binding_results.csv= (4 datasets) and =rsx-python/tests/test_pyrsx.py= |
-| =MarkerTableSource= parity (file / Arrow / Parquet) | =rsx-core/src/source/tests.rs= and =rsx-python/tests/test_marker_table_from_arrow.py= (including the =RSX_FORCE_SPILL=1= toggle test) |
+| =MarkerTableSource= parity (file / Arrow / Parquet) | =radsex-core/src/source/tests.rs= and =rsx-python/tests/test_marker_table_from_arrow.py= (including the =RSX_FORCE_SPILL=1= toggle test) |
 | =MarkerTableSource= architectural cost | =benchmarks/results/marker_source_paths.csv= via =benchmarks/bench_marker_source.py= |
 
 The math scripts verify the erfc form of the one-degree chi-squared
@@ -518,7 +518,7 @@ The high-level =MarkerTable= class accepts both a file path and any
 narwhals-compatible DataFrame. The DataFrame entry points (=MarkerTable.
 from_dataframe= and the =.freq=/=.depth=/=.distrib=/=.signif=/=.triage=/
 =.pca= methods on it) route through a new =MarkerTableSource= layer in
-=rsx-core/src/source/= rather than materialising a markers TSV behind
+=radsex-core/src/source/= rather than materialising a markers TSV behind
 the user's back.
 
 A short specification record is tracked at
@@ -535,7 +535,7 @@ The three variants share the same =MarkerStream= trait, and every analysis
 command is generic over =S: MarkerStream=, so the spill choice is purely
 a memory question; the per-marker results are bytes-identical regardless
 of which variant the caller picked. The parity test in
-=rsx-core/src/source/tests.rs= asserts this for =freq= on a shared
+=radsex-core/src/source/tests.rs= asserts this for =freq= on a shared
 fixture and the Python pytest =test_marker_table_from_arrow.py= asserts
 the per-dataset results match the file path through =MarkerTable=.
 
@@ -545,7 +545,7 @@ The spill decision uses a working-set estimator drawn from the RAD-seq
 literature (Beissinger et al. 2013 on marker density and read depth for
 GBS-style genotyping, plus empirical overhead factors reported by
 TASSEL-GBS, ipyrad, and Torkamaneh et al. 2016). The prediction lives in
-=rsx-core/src/source/estimator.rs= and combines four factors:
+=radsex-core/src/source/estimator.rs= and combines four factors:
 
 #+begin_example
 estimated_bytes = n_samples

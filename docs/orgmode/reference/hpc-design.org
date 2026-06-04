@@ -179,7 +179,7 @@ On real-world RAD-seq data (5 populations, 147 individuals, 467K markers):
 ** Precision validation
 
 Formal analyses showing mathematical equivalences:
-- Mixed-precision (f32 chi-squared, f64 CDF): =rsx-core/tests/test_precision.rs=
+- Mixed-precision (f32 chi-squared, f64 CDF): =radsex-core/tests/test_precision.rs=
 - erfc identity for chi-squared CDF: =scripts/sympy/chi2_cdf_derivation.py=
 - Sparse median equivalence: =scripts/sympy/sparse_median_proof.py=
 - Streaming Gram eigendecomposition equals full-matrix sample PCA:
