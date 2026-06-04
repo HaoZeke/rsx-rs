@@ -4,6 +4,13 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-06-04
+
+### Fixed
+- Prior-sensitivity heatmap now picks the cell annotation colour by value
+  (white on the dark high-count cells, near-black on light cells) so the
+  counts stay legible across the full fill range.
+
 ## [0.2.2] - 2026-06-04
 
 ### Fixed

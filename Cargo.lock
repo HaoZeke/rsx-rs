@@ -1655,7 +1655,7 @@ dependencies = [
 
 [[package]]
 name = "pyrsx"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "arrow",
  "parquet",
@@ -1745,7 +1745,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "rsx-cli"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "clap",
  "env_logger",
@@ -1755,7 +1755,7 @@ dependencies = [
 
 [[package]]
 name = "rsx-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "ahash",
  "arrow",

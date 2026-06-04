@@ -30,6 +30,7 @@ from plotnine import (
     geom_tile,
     ggplot,
     labs,
+    scale_color_identity,
     scale_fill_gradient,
     theme,
     theme_minimal,
@@ -107,10 +108,19 @@ def plot_heatmap(summary: pd.DataFrame, output_dir: Path) -> None:
         plot_df["linked_prob"].astype(str), categories=[str(v) for v in psex_levels], ordered=True
     )
 
+    # Pick a readable annotation colour per cell: white on the dark (high-count)
+    # end of the fill ramp, near-black on the light end.
+    gmax = plot_df["n_posterior_gt_0_9"].max() or 1
+    plot_df["lbl_color"] = [
+        "white" if v > 0.55 * gmax else "#212121"
+        for v in plot_df["n_posterior_gt_0_9"]
+    ]
+
     p = (
         ggplot(plot_df, aes(x="prior", y="linked_prob", fill="n_posterior_gt_0_9"))
         + geom_tile(color="white", size=0.4)
-        + geom_text(aes(label="n_posterior_gt_0_9"), size=7, color="#212121")
+        + geom_text(aes(label="n_posterior_gt_0_9", color="lbl_color"), size=7)
+        + scale_color_identity()
         + facet_wrap("~dataset", ncol=2)
         + scale_fill_gradient(low="#FFFFFF", high="#004D40", name="markers w/ posterior > 0.9")
         + labs(
