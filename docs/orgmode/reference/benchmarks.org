@@ -159,14 +159,18 @@ v1.2.0 built in the Pixi benchmark environment. The C++ checkout requires
 the standard =<cstdint>= include fix for modern GCC, but the RADSex command
 behavior is otherwise unchanged.
 
-Across 56 paired command/dataset/depth timings on the Slurm panel, rsx-rs
-is faster in 49 pairs. The geometric-mean speedup is 6.81x when speedup is
-defined as C++ wall time divided by Rust wall time. The process-stage
-geometric-mean speedup is 2.47x across the four literature datasets.
+Across 56 paired command/dataset/depth timings, on a single AMD Ryzen
+Threadripper PRO 3955WX workstation (16 threads), rsx-rs is faster in 53
+pairs. The geometric-mean speedup is 8.38x when speedup is defined as C++
+wall time divided by Rust wall time. The process-stage geometric-mean
+speedup is 2.77x across the four literature datasets (2.44x to 2.96x).
 =depth=, =freq=, and =distrib= favor rsx-rs in every paired run, with
-geometric-mean speedups of 5.43x, 19.29x, and 21.40x, respectively.
-=signif= is mixed: rsx-rs is faster in 9 of 16 paired runs, with a 1.04x
-geometric-mean speedup.
+geometric-mean speedups of 6.91x, 22.5x, and 29.0x, respectively.
+=signif= is the exception: rsx-rs is faster in 13 of 16 paired runs, with a
+1.25x geometric-mean speedup, because both programs stream the complete
+table. These are the numbers reported in the paper; the deposited
+reproducibility archive (doi:10.5281/zenodo.20531539) regenerates every
+figure and number, and they scale with the host hardware.
 
 On Slurm clusters, submit per-dataset compute-only comparisons as an array
 job after the FASTQ files and marker tables have been prepared:

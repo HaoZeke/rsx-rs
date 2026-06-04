@@ -136,3 +136,23 @@ pyrsx.merge(["run1.tsv", "run2.tsv"], "merged.tsv")
 #+end_src
 
 See the Python README and the =python-api-design= reference for the full surface (including =from_dataframe=, =to_arrow=, custom triage, etc.).
+
+** Reproducing the paper
+
+Every benchmark, figure, and biological result reported for rsx is
+reproducible from a single deposited archive. The Zenodo deposit
+[[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]
+bundles the pinned workflow (=v0.2.3=), the downloaded literature inputs, the
+result tables, and a one-command pixi + Snakemake pipeline:
+
+#+begin_src bash
+# from the extracted reproducibility archive
+pixi install
+pixi run bench        # regenerates results/ and results/figures/
+#+end_src
+
+The archive clones rsx at the pinned tag, builds it alongside the C++ RADSex
+v1.2.0 reference, and regenerates the four-panel literature benchmark (the
+8.38x geometric-mean speedup across 56 paired timings), the Bayesian evidence
+grades, and the sex-linked marker calls. Timings scale with the host
+hardware; the biological results (marker counts and evidence grades) do not.
