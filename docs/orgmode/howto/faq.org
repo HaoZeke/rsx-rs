@@ -7,7 +7,7 @@
 
 ** General
 
-*** Is rsx a drop-in replacement for RADSex?
+*** Is rsx compatible with RADSex?
 
 For the marker-table workflow, yes. ~rsx~ implements the same command set
 (=process=, =distrib=, =signif=, =depth=, =freq=, =map=, =subset=, =merge=) and

@@ -6,7 +6,7 @@
 rsx output files (TSV) can be loaded directly by R analysis pipelines
 that consume RADSex-format data.
 
-** Drop-in replacement
+** RADSex output compatibility
 
 rsx-rs produces byte-identical output to C++ RADSex when groups are
 specified explicitly (=-G M,F=). The existing your R pipeline R functions

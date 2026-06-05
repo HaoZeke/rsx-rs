@@ -7,7 +7,7 @@
 
 **High-performance streaming toolkit for RAD-seq sex determination.**
 
-Rust rewrite of [RADSex](https://github.com/RomainFeron/RADSex), drop-in CLI replacement with Python bindings and C FFI.
+A Rust framework for RAD-seq marker analysis and sex determination: bounded-memory streaming kernels, a Bayesian marker-evidence layer, and Python and C bindings. Builds on and stays command-compatible with [RADSex](https://github.com/RomainFeron/RADSex), so prior results remain directly comparable.
 
 [![CI](https://github.com/HaoZeke/rsx-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/HaoZeke/rsx-rs/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-rsx.rgoswami.me-blue)](https://rsx.rgoswami.me)

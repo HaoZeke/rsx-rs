@@ -18,10 +18,11 @@
    :alt: rsx
 #+end_export
 
-Rust rewrite of [[https://github.com/RomainFeron/RADSex][RADSex]], a
-computational pipeline for analyzing sex-determination using RAD-Sequencing
-data. Drop-in CLI replacement with Python bindings and C FFI for downstream
-workflow integration.
+~rsx~ is a Rust framework for RAD-seq marker analysis and sex determination. It
+pairs bounded-memory streaming kernels with a Bayesian marker-evidence layer and
+Python and C bindings. It builds on and stays command-compatible with
+[[https://github.com/RomainFeron/RADSex][RADSex]], so existing analyses transfer
+unchanged and prior biological results remain directly comparable.
 
 ** Features
 

@@ -421,7 +421,7 @@ For the software paper, the novelty claim is the combination of:
 
 | Contribution | Biological/inference value |
 |--------------+----------------------------|
-| Drop-in RADSex compatibility | compare directly with prior RADSex biological results |
+| RADSex output compatibility | compare directly with prior RADSex biological results |
 | Bounded-memory full-table algorithms | avoid downsampling rare marker candidates |
 | Additional statistical modes | compare strict tests, FDR, and posterior sex-linkage calls on the same counts |
 | Formal mathematical provenance | make erfc p-values, sparse medians, and streaming PCA auditable |
