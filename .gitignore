@@ -14,12 +14,24 @@ pixi.lock
 /radsex-core/include/rsx.h
 
 # Generated documentation
+# orgmode/ (in docs/orgmode/) is the source of truth.
+# docs/export.el (run via `pixi run -e docs mkrst`) exports .org -> .rst into docs/source/.
+# Only the following under docs/source/ are hand-maintained:
+#   - conf.py
+#   - _static/
+#   - _templates/
+#
+# Everything else under docs/source/ is a build artifact and must stay out of git.
 /docs/build/
 /docs/_build/
-/docs/source/index.rst
-/docs/source/howto/
-/docs/source/reference/
-/docs/source/tutorials/
+/docs/source/**
+
+# Re-include the manual parts of docs/source/
+!/docs/source/conf.py
+!/docs/source/_static/
+!/docs/source/_static/**
+!/docs/source/_templates/
+!/docs/source/_templates/**
 
 # IDE
 .vscode/
