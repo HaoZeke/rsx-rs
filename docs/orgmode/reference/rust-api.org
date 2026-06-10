@@ -1,7 +1,5 @@
 #+TITLE: Rust API Reference
 
-* Rust API Reference
-
 The ~rsx_core~ crate (the core Rust library) provides the full public API for all
 streaming commands, marker tables, C FFI, and supporting types.
 
