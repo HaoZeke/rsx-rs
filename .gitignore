@@ -33,6 +33,12 @@ pixi.lock
 !/docs/source/_templates/
 !/docs/source/_templates/**
 
+# Generated Rust API documentation
+# Produced by sphinx-rustdocgen + sphinxcontrib_rust (see setup-rustdocgen task
+# in pixi.toml and rust_crates + rust_doc_dir in docs/source/conf.py).
+# Lives at api/rust/ (populated during `pixi run -e docs site`).
+/api/rust/
+
 # IDE
 .vscode/
 .idea/
