@@ -1,0 +1,37 @@
+code { font-family: var(--font-mono) !important }
+
+pre {
+    font-family: var(--font-mono) !important;
+    border: 1px dashed var(--sy-border) !important;
+    background-color: var(--sy-bg-code) !important;
+}
+
+pre.doxyrest-overview-code-block {
+    border: 1px solid var(--sy-border) !important;
+    background-color: var(--sy-bg-code) !important;
+}
+
+pre.doxyrest-overview-inherited-code-block {
+    border: 1px solid var(--sy-border) !important;
+    background-color: var(--sy-bg-code) !important;
+    opacity: 0.8;
+}
+
+pre.doxyrest-title-code-block {
+    font-size: 1.1em !important;
+    border: 1px solid var(--sy-border) !important;
+    background-color: var(--sy-bg-code) !important;
+}
+
+code a { color: var(--sy-color-text-link) !important }
+
+.doxyrest-target-highlight {
+    animation-name: doxyrest-target-highlight-flash;
+    animation-duration: 2s;
+}
+
+@keyframes doxyrest-target-highlight-flash {
+    0%   { box-shadow: none; }
+    25%  { box-shadow: 0 0 8px 8px var(--sy-color-text-link), 0 0 8px 8px var(--sy-color-text-link) inset; }
+    100% { box-shadow: none; }
+}
