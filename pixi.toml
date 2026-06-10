@@ -59,7 +59,7 @@ setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen --root \"$CONDA_PREF
 gen-c-header = { cmd = "cargo build --manifest-path radsex-core/Cargo.toml --features gen-header", description = "Generate cbindgen C header (radsex-core/include/rsx.h) so it is available for literalinclude in the docs" }
 gen-rust-api = { cmd = "rm -rf docs/source/crates/rsx_core || true; sphinx-rustdocgen '{\"crate_name\":\"rsx_core\",\"crate_dir\":\"radsex-core\",\"doc_dir\":\"docs/source/crates\",\"force\":true,\"strip_src\":true}'", depends-on = ["setup-rustdocgen"], description = "Generate Rust API docs into docs/source/crates/rsx_core/." }
 mkrst = { cmd = "emacs --batch --load docs/export.el", description = "Export orgmode docs to RST" }
-site = { cmd = "sphinx-build docs/source docs/_build -b html", depends-on = ["mkrst", "setup-rustdocgen", "gen-c-header", "gen-rust-api", "doxybuild"] }
+site = { cmd = "sphinx-build docs/source docs/build -b html", depends-on = ["mkrst", "setup-rustdocgen", "gen-c-header", "gen-rust-api", "doxybuild"] }
 
 [feature.python.dependencies]
 python = ">=3.11"
