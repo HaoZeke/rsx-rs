@@ -39,8 +39,11 @@ unchanged and prior biological results remain directly comparable.
 - Parallel file processing via [[https://docs.rs/rayon][rayon]]
 - minimap2 alignment (replaces BWA-MEM)
 - Optional Parquet output for merge (=--features parquet-io=)
-- Python bindings for notebook and workflow use; C API with cbindgen for
-  R/Python/C++ integration
+- Python bindings for notebook and workflow use; full Rust crate API (see
+#+begin_export rst
+:doc:`Rust API Reference </reference/rust-api>`
+#+end_export
+); C API with cbindgen for R/Python/C++ integration
 - Cross-platform: Linux, macOS (Intel + Apple Silicon), Windows (without map)
 - SymPy/Sollya mathematical proofs for all optimizations
 
@@ -70,17 +73,34 @@ rsx map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -G M,F
 
 #+begin_export rst
 .. toctree::
-   :maxdepth: 2
+   :caption: Getting started
+   :maxdepth: 1
 
    tutorials/quickstart
-   reference/architecture
+
+.. toctree::
+   :caption: Reference
+   :maxdepth: 2
+
+   reference/rust-api
+   reference/c-api
    reference/commands
-   reference/benchmarks
-   reference/hpc-design
    reference/glossary
+
+.. toctree::
+   :caption: How-to guides
+   :maxdepth: 1
+
    howto/r-integration
    howto/faq
    howto/troubleshooting
+
+.. toctree::
+   :caption: Explanations & meta
+   :maxdepth: 1
+
+   explanation/architecture
+   explanation/benchmarks
    explanation/citation
    changelog
    code_of_conduct

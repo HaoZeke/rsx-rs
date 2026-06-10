@@ -1,0 +1,22 @@
+#+TITLE: Rust API Reference
+
+* Rust API Reference
+
+The ~rsx_core~ crate (the core Rust library) provides the full public API for all
+streaming commands, marker tables, C FFI, and supporting types.
+
+The documentation below is automatically generated from the crate's source
+(rustdoc comments) and integrated into this site using ~sphinxcontrib_rust~
+and ~sphinx-rustdocgen~.
+
+(The high-level user-facing Command Reference is a separate page in this section.)
+
+
+#+begin_export rst
+See also:
+
+- The high-level ~pyrsx~ Python bindings.
+- The stable C API (including the full generated header) in
+  :doc:`C API Reference </reference/c-api>`.
+- Individual command reference in :doc:`Command Reference </reference/commands>`.
+#+end_export

@@ -83,5 +83,5 @@ and regenerates every figure and number.
 
 #+begin_export rst
 See the :doc:`Used By </used_by>` page and the
-:doc:`benchmarks reference </reference/benchmarks>`.
+:doc:`benchmarks reference </explanation/benchmarks>`.
 #+end_export

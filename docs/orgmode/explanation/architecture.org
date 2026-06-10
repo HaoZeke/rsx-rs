@@ -35,6 +35,14 @@ rsx-rs/
   rsx-cli/         Binary crate (clap subcommands)
 #+end_example
 
+#+begin_export rst
+The complete Rust API (all public items, with rustdoc comments) is available in
+the :doc:`Rust API Reference </reference/rust-api>`.
+
+For the stable C FFI surface see the dedicated :doc:`C API Reference </reference/c-api>` page,
+which includes the full generated header.
+#+end_export
+
 ** C API contract
 
 Following the metatensor pattern:

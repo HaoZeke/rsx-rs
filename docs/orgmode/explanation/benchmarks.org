@@ -521,9 +521,7 @@ from_dataframe= and the =.freq=/=.depth=/=.distrib=/=.signif=/=.triage=/
 =radsex-core/src/source/= rather than materialising a markers TSV behind
 the user's back.
 
-A short specification record is tracked at
-=docs/orgmode/reference/arrow-input-for-high-level-api.org=. The
-implementation has three variants:
+The implementation has three variants:
 
 | Variant | Where the markers live | When it is chosen |
 |---------+------------------------+-------------------|

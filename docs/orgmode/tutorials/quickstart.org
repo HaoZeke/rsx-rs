@@ -136,7 +136,7 @@ pyrsx.pca("markers.tsv", "pca_out/", n_components=5)
 pyrsx.merge(["run1.tsv", "run2.tsv"], "merged.tsv")
 #+end_src
 
-See the Python README and the =python-api-design= reference for the full surface (including =from_dataframe=, =to_arrow=, custom triage, etc.).
+See the Python README for the full surface (including =from_dataframe=, =to_arrow=, custom triage, etc.).
 
 ** Reproducing the paper
 

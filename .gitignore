@@ -34,10 +34,11 @@ pixi.lock
 !/docs/source/_templates/**
 
 # Generated Rust API documentation
-# Produced by sphinx-rustdocgen + sphinxcontrib_rust (see setup-rustdocgen task
+# Produced by sphinx-rustdocgen + sphinxcontrib_rust (see setup-rustdocgen + gen-rust-api tasks
 # in pixi.toml and rust_crates + rust_doc_dir in docs/source/conf.py).
-# Lives at api/rust/ (populated during `pixi run -e docs site`).
-/api/rust/
+# Generated to api/rust/rsx_core/ at repo root. The .. rust:crate::rsx_core directive in the
+# reference page uses this to render the API docs. Do not commit the generated tree.
+/docs/source/reference/rust-api/rsx_core/
 
 # IDE
 .vscode/
