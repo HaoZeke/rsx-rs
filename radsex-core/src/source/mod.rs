@@ -3,7 +3,7 @@
 
 //! Marker source abstraction.
 //!
-//! A `MarkerStream` is anything that can hand a stream of `Marker`s to the
+//! A `MarkerStream` is anything that can hand a stream of markers to the
 //! analysis commands, regardless of where the data physically lives (mmap'd
 //! TSV, in-memory Arrow RecordBatches, or a spilled Parquet temp file).
 //!
@@ -37,6 +37,7 @@ pub use parquet_source::ParquetMarkerSource;
 /// Stream of markers consumed by the analysis commands.
 ///
 /// Implementations must surface:
+///
 /// - `header()` and `groups()`: same shape `MarkersTableStream` already
 ///   exposes (header columns include id + sequence + per-individual names,
 ///   groups vec has two placeholder entries followed by the popmap group

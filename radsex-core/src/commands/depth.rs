@@ -4,6 +4,7 @@
 //! `depth` command: compute retained read statistics per individual.
 //!
 //! Two modes:
+//!
 //! - Default: exact median via in-memory accumulation
 //! - Streaming (--streaming): exact median via external sort of
 //!   (individual, depth) pairs. O(buffer_size) memory.

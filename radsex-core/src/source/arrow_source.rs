@@ -2,7 +2,7 @@
 // Copyright 2024--present rsx-rs developers
 
 //! `ArrowMarkerSource`: drives the analysis commands directly from
-//! in-memory Arrow `RecordBatch`es with no TSV round-trip.
+//! in-memory Arrow record batches with no TSV round-trip.
 //!
 //! Built from Arrow IPC bytes, the source synthesises the same
 //! `TableHeader` / `groups` / `Marker` shapes the path-based reader

@@ -9,7 +9,7 @@
 //! all hashing overhead in the hot path.
 
 /// A fixed-width bitset row representing one marker across N individuals.
-/// Internally stored as a `Vec<u64>` where bit `i` = individual `i` present.
+/// Internally stored as a Vec<u64> where bit `i` = individual `i` present.
 #[derive(Debug, Clone)]
 pub struct BitsetRow {
     words: Vec<u64>,

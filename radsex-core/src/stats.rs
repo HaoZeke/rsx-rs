@@ -6,7 +6,7 @@
 
 use std::fmt;
 
-/// Format a float like C++ `operator<<` default: `%g` with 6 significant digits.
+/// Format a float like C++ operator<< default: %g with 6 significant digits.
 /// This matches the C++ radsex output format exactly.
 pub struct Cg(pub f64);
 
@@ -62,10 +62,12 @@ fn safe_float_exponent(abs: f64) -> i32 {
 
 /// Chi-squared statistic with Yates continuity correction for a 2x2 table.
 ///
-/// Implements the shortcut formula:
+/// Implements the shortcut formula::
+///
 ///   chi2 = N * (|ad - bc| - N/2)^2 / (a+b)(c+d)(a+c)(b+d)
 ///
-/// where the contingency table is:
+/// where the contingency table is::
+///
 ///   |           | marker present | marker absent |
 ///   |-----------|----------------|---------------|
 ///   | group1    | n_group1       | total1 - n1   |
@@ -100,7 +102,8 @@ pub fn chi_squared_yates(
 ///   p = 1 - P(chi2) = erfc(sqrt(chi2/2))
 ///
 /// This replaces the full regularized gamma function with a single
-/// libm erfc call. Derived via SymPy:
+/// libm erfc call. Derived via SymPy::
+///
 ///   gamma(1/2, x) = sqrt(pi) * erf(sqrt(x))
 ///   Gamma(1/2) = sqrt(pi)
 ///   P(1/2, x) = erf(sqrt(x))
