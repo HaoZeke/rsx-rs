@@ -3,7 +3,6 @@
 #+EMAIL: rgoswami@ieee.org
 #+OPTIONS: toc:nil num:nil
 
-* Changelog
 
 The authoritative, per-release changelog is
 [[https://github.com/HaoZeke/rsx-rs/blob/main/CHANGELOG.md][CHANGELOG.md]] (Keep
@@ -13,7 +12,7 @@ the library and CLI are versioned on
 [[https://crates.io/crates/rsx-cli][crates.io]] (=radsex-core=, =rsx-cli=) and
 [[https://pypi.org/project/pyrsx/][PyPI]] (=pyrsx=).
 
-** Recent releases
+* Recent releases
 
 - *0.2.3* -- Legible prior-sensitivity heatmap annotations (value-based
   contrast); documentation, packaging, and crates.io/PyPI publishing.

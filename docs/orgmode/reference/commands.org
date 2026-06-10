@@ -1,11 +1,10 @@
 #+TITLE: Command Reference
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
 
-* Command Reference
 
 All commands match the original C++ RADSex CLI interface exactly.
 
-** process
+* process
 
 Build a marker depth table from demultiplexed reads.
 
@@ -28,7 +27,7 @@ Optional =-k= / =--kmer-dedup= groups markers by canonical k-mer of the
 given size before output. The representative marker from each k-mer group is
 the sequence with the highest total depth.
 
-** distrib
+* distrib
 
 Compute marker distribution between two groups.
 
@@ -46,7 +45,7 @@ rsx distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0
 | =-S= | 0.05    | Significance threshold |
 | =-C= | false   | Disable Bonferroni correction |
 
-** signif
+* signif
 
 Extract markers significantly associated with a group.
 
@@ -71,7 +70,7 @@ more memory but still bounded).
 group as the enriched sex-linked group. FASTA output with =-a= emits marker
 sequences and does not include table-only Bayesian columns.
 
-** triage
+* triage
 
 Write strict and posterior-supported sex-linked marker evidence for each
 called marker.
@@ -92,7 +91,7 @@ putative Y-linked RAD marker; a female-biased high-evidence marker is a
 putative W-linked RAD marker. Bayes-factor-only rows are not sex-linked
 marker calls unless the posterior and QC outputs also support them.
 
-** freq
+* freq
 
 Compute marker frequency distribution.
 
@@ -100,7 +99,7 @@ Compute marker frequency distribution.
 rsx freq -t <table.tsv> -o <output.tsv> [-d 5]
 #+end_src
 
-** depth
+* depth
 
 Compute retained read statistics per individual.
 
@@ -117,7 +116,7 @@ external sort for exact median. Sparse optimization: only non-zero
 depths are sorted (3.3x reduction for typical RAD-seq data). See
 =scripts/sympy/sparse_median_proof.py= for the mathematical proof.
 
-** map
+* map
 
 Align markers to a reference genome.
 
@@ -139,7 +138,7 @@ available when built with the =map= feature (default on, not on Windows).
 Note: the minimap2 genome index can be large (e.g. 21GB for salmon
 genomes). This is intrinsic to the aligner, not rsx.
 
-** subset
+* subset
 
 Extract a filtered subset of markers.
 
@@ -151,7 +150,7 @@ rsx subset -t <table.tsv> -p <popmap.tsv> -o <output.tsv> \
 
 Two-pass streaming like signif. O(n_individuals) memory.
 
-** merge
+* merge
 
 Merge multiple marker depth tables by sequence identity.
 
@@ -188,7 +187,7 @@ rsx merge -o <output.parquet> --output-parquet <table1.tsv> <table2.tsv>
 Parquet uses ZSTD compression with nullable u16 depth columns. Sparse
 zeros stored as null for efficient RLE encoding.
 
-** pca
+* pca
 
 Streaming sample PCA of the marker-depth matrix.
 

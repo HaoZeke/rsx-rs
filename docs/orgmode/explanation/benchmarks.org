@@ -2,12 +2,11 @@
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
 #+DATE: 2026-04-06
 
-* Performance Benchmarks
 
 Comparison of rsx-rs (Rust) vs the original RADSex (C++11) across three
 dataset scales. All benchmarks are median of 3 runs on the same machine.
 
-** Test environment
+* Test environment
 
 - CPU: AMD Threadripper (single-socket, benchmarks use 4 threads for =process=)
 - OS: Arch Linux 6.19.11
@@ -16,7 +15,7 @@ dataset scales. All benchmarks are median of 3 runs on the same machine.
 - C++ radsex: v1.2.0 (with =<cstdint>= fix for GCC 15)
 - Rust rsx-rs: v0.1.0
 
-** Dataset scales
+* Dataset scales
 
 | Scale  | Individuals | Markers | Reads/ind | Description            |
 |--------+-------------+---------+-----------+------------------------|
@@ -27,9 +26,9 @@ dataset scales. All benchmarks are median of 3 runs on the same machine.
 Synthetic data generated with =benchmarks/generate_data.py=: 10% male-biased
 markers, 10% female-biased, 80% common. FASTQ files gzip-compressed.
 
-** Results
+* Results
 
-*** Per-command speedup (Rust / C++)
+** Per-command speedup (Rust / C++)
 
 | Command | Small (1K) | Medium (10K) | Large (100K) | Average |
 |---------+------------+--------------+--------------+---------|
@@ -45,7 +44,7 @@ signif/subset large-scale slowdown vs previous: two-pass streaming
 reads the file twice for Bonferroni correction. The trade-off is
 bounded O(n_individuals) memory instead of O(n_markers) accumulation.
 
-*** Per-scale average speedup
+** Per-scale average speedup
 
 | Scale  | Average speedup |
 |--------+-----------------|
@@ -53,12 +52,12 @@ bounded O(n_individuals) memory instead of O(n_markers) accumulation.
 | Medium | 2.4x            |
 | Large  | 2.3x            |
 
-*** Overall
+** Overall
 
 *Rust is 2.0x faster* across all 19 benchmarks (1.558s vs 0.780s total).
 All commands operate in bounded memory (< 500MB for any input size).
 
-*** Microbenchmarks (criterion)
+** Microbenchmarks (criterion)
 
 | Operation              |   Time | Notes                           |
 |------------------------+--------+---------------------------------|
@@ -70,7 +69,7 @@ All commands operate in bounded memory (< 500MB for any input size).
 | fast_parse_u16         | 4.5 ns | Integer field parsing            |
 | Cg float format        | 193 ns | C++ %g compatible output        |
 
-** Literature-derived benchmark runs
+* Literature-derived benchmark runs
 
 The checked-in synthetic suite is small enough for repeatable repository
 verification. Paper-facing biological benchmark runs download the public
@@ -103,7 +102,7 @@ For a single public literature dataset:
 pixi run -e benchmark run-literature-medaka
 #+end_src
 
-*** Completed biological benchmark panel
+** Completed biological benchmark panel
 
 The tracked paper-facing panel contains four completed datasets
 downloaded from the RADSex literature BioProject. These are full FASTQ runs,
@@ -152,7 +151,7 @@ The generated figure and table assets are written to =docs/figures/=:
 - =literature_speedup_summary.tsv=
 - =literature_speedup_pairs.tsv=
 
-*** Literature speed comparison
+** Literature speed comparison
 
 The same downloaded FASTQ inputs were processed by rsx-rs and by C++ RADSex
 v1.2.0 built in the Pixi benchmark environment. The C++ checkout requires
@@ -185,7 +184,7 @@ pixi run -e benchmark merge-literature-slurm-results
 pixi run -e benchmark plot-literature-benchmarks
 #+end_src
 
-*** Bayesian biological evidence
+** Bayesian biological evidence
 
 Bayesian evidence is summarized from the aggregated =distrib= tables without
 materializing marker-level multi-GB =signif --bayes= outputs. The summary is
@@ -206,7 +205,7 @@ the Bayesian layer does not change the null-hypothesis test, but it exposes a
 sex-linked marker hypothesis set when all-or-nothing FASTA extraction is
 empty.
 
-*** Prior sensitivity of the Bayesian triage layer
+** Prior sensitivity of the Bayesian triage layer
 
 The hybrid triage layer carries two free parameters: the prior probability
 =pi= that any given marker is sex-linked, and =p_sex=, the expected
@@ -251,7 +250,7 @@ as supporting evidence that the calls are stable for the
 =plecoglossus_altivelis= positive control while explicitly prior-dependent
 for =danio_albolineatus=.
 
-*** Mode effects on published marker tables
+** Mode effects on published marker tables
 
 The mode-effects analysis runs additional rsx statistical and QC modes through
 the Python bindings on the four downloaded marker tables at minimum depth 10:
@@ -299,7 +298,7 @@ the retained marker tables as well: =tinca_tinca= is low-singleton at d=10
 (7.74%), whereas =notothenia_rossii= remains dominated by singleton retained
 markers (52.78%), which is a biological-QC warning for candidate follow-up.
 
-*** Depth stability of the call layers
+** Depth stability of the call layers
 
 The mode-effects panel runs at =min_depth=10= so it can be compared with the
 RADSex literature workflow directly. The depth-stability sweep extends the
@@ -358,7 +357,7 @@ The depth-stability table is what motivates citing the
 threshold while pairing the Bayesian numbers with their depth and prior
 context.
 
-*** Biological unlock summary
+** Biological unlock summary
 
 The marker-level unlock summary joins strict =signif= output with
 =signif --bayes= output from the same d=10 marker tables. It is tracked in
@@ -394,7 +393,7 @@ The generated sex-system inference artifact makes the biological call explicit:
 | =danio_albolineatus= | hypothesis | putative W-linked marker hypothesis | 30 high-posterior markers without Bonferroni reclassification; 29 are female-biased |
 | =notothenia_rossii= | negative | no sex-linked marker call | 400 Bayes-factor-only rows, 0 high-posterior rows, 52.78% singleton retained markers |
 
-*** Biological inference role of extended features
+** Biological inference role of extended features
 
 The extended rsx features map to biological interpretation tasks rather than
 standing alone as software claims:
@@ -415,7 +414,7 @@ sex-determination studies because rare candidate markers are sensitive to
 minimum-depth thresholds, sequencing-error duplication, and sample-level
 library effects.
 
-*** Novelty claim
+** Novelty claim
 
 For the software paper, the novelty claim is the combination of:
 
@@ -429,7 +428,7 @@ For the software paper, the novelty claim is the combination of:
 | DataFrame-native MarkerTableSource | run any analysis command directly on an in-memory DataFrame without exporting a markers TSV; spill to Parquet only when a Beissinger-style working-set estimate predicts the data will not fit in RAM |
 | Prior-sensitivity sweep | report Bayesian call counts across the full (pi, p_sex) grid per dataset so the prior choice becomes auditable |
 
-*** Validation layers
+** Validation layers
 
 Paper-readiness validation is split by claim:
 
@@ -468,7 +467,7 @@ Recent validation runs:
 - Remote =pixi run -e python test-python= on =elja=: 18 Python binding tests
   passed after a release extension build.
 
-*** Python binding feature evidence
+** Python binding feature evidence
 
 The =pyrsx= bindings expose the same Rust core through Python calls for
 workflow notebooks and downstream analysis code. The literature binding run
@@ -512,7 +511,7 @@ The pyrsx surface is the same Rust core; the per-dataset spread mirrors
 the marker-table sizes (about 3.0M, 0.4M, 0.2M, and 0.07M retained
 markers respectively).
 
-**** From-DataFrame Arrow path: the =MarkerTableSource= layer
+*** From-DataFrame Arrow path: the =MarkerTableSource= layer
 
 The high-level =MarkerTable= class accepts both a file path and any
 narwhals-compatible DataFrame. The DataFrame entry points (=MarkerTable.
@@ -537,7 +536,7 @@ of which variant the caller picked. The parity test in
 fixture and the Python pytest =test_marker_table_from_arrow.py= asserts
 the per-dataset results match the file path through =MarkerTable=.
 
-**** Beissinger-style spill estimator
+*** Beissinger-style spill estimator
 
 The spill decision uses a working-set estimator drawn from the RAD-seq
 literature (Beissinger et al. 2013 on marker density and read depth for
@@ -562,7 +561,7 @@ the per-command multipliers come from the rsx working-set audit reported
 in the source-module docstring; the paper claim is therefore a defensible
 heuristic backed by the cited literature rather than a magic constant.
 
-**** Architectural cost vs the legacy TSV streamer
+*** Architectural cost vs the legacy TSV streamer
 
 The MarkerTableSource benchmark times the same three commands (=freq=,
 =depth=, =triage=) over each literature dataset via three constructions:
@@ -614,7 +613,7 @@ choice is automatic but explicitly overridable via
 =RSX_FORCE_SPILL= / =RSX_SPILL_BYTES=. Heavy production analysis on the
 largest datasets is still cheapest through the path-based CLI.
 
-** Raw timing data (seconds, median of 3 runs)
+* Raw timing data (seconds, median of 3 runs)
 
 | Scale  | Command | C++ (s) | Rust (s) | Speedup |
 |--------+---------+---------+----------+---------|
@@ -638,9 +637,9 @@ largest datasets is still cheapest through the path-based CLI.
 | large  | depth   |   0.240 |    0.067 | 3.6x    |
 | large  | subset  |   0.170 |    0.118 | 1.4x    |
 
-** Why Rust is faster
+* Why Rust is faster
 
-*** Inline =for_each= parser (biggest win)
+** Inline =for_each= parser (biggest win)
 
 The C++ version uses a producer-consumer pattern: one thread parses the
 markers table into a =std::queue<Marker>= protected by a mutex, another
@@ -653,7 +652,7 @@ cloning. rsx-rs uses an inline =for_each= callback that reuses a single
 =Marker= struct with zero allocation per marker. The marker is passed by
 reference to the callback, reset in-place between iterations.
 
-*** Bitset popcount for group counts (eliminated HashMap entirely)
+** Bitset popcount for group counts (eliminated HashMap entirely)
 
 The C++ stores group counts in =std::unordered_map<string, uint>=, hashing
 group name strings for every marker field. rsx-rs replaces this with a
@@ -663,7 +662,7 @@ instruction per 64 individuals, with zero hashing.
 
 For 200 individuals: 5.0 ns per group count vs ~200 ns for a HashMap lookup.
 
-*** erfc identity for chi-squared CDF (SymPy-derived, 5.2x faster)
+** erfc identity for chi-squared CDF (SymPy-derived, 5.2x faster)
 
 The chi-squared p-value for df=1 simplifies exactly to
 =p = erfc(sqrt(chi2/2))=. This is proven via the identity
@@ -675,33 +674,33 @@ with a single =libm::erfc= call (108 ns). A Sollya-generated minimax
 polynomial (=scripts/sollya/erfc_minimax.sollya=) can further replace
 =libm::erfc= for GPU kernels.
 
-*** mmap I/O (zero-copy file access)
+** mmap I/O (zero-copy file access)
 
 The markers table is memory-mapped via =memmap2=, eliminating buffered
 read syscalls. The kernel manages page faults transparently. Combined
 with the inline =for_each= parser, this achieves near-memcpy throughput.
 
-*** Rayon for =process= command
+** Rayon for =process= command
 
 The =process= command reads all FASTQ files and counts sequences. C++ uses
 a manual thread pool with mutex-protected work-stealing. rsx-rs uses
 rayon's work-stealing thread pool with per-thread =AHashMap= accumulators,
 merged at the end. This avoids mutex contention during file processing.
 
-*** minimap2 for =map= command
+** minimap2 for =map= command
 
 rsx-rs uses minimap2 (via Rust bindings) instead of BWA-MEM. minimap2 is
 the modern successor with better index construction and alignment speed for
 short reads. The =sr= (short-read) preset matches BWA-MEM behavior.
 
-*** Zero-copy field parsing
+** Zero-copy field parsing
 
 The table parser uses =push_str= into pre-allocated strings rather than
 creating new =String= objects per field. Combined with =fast_parse_u16= for
 integer fields (matching the C++ =fast_stoi= approach), this eliminates
 allocation in the inner parsing loop.
 
-** Reproducing
+* Reproducing
 
 #+begin_src bash
 # Use the benchmark environment
@@ -732,7 +731,7 @@ By default the benchmark harness reads =benchmarks/data/= and writes
 tracked CSV and =repro/benchmarks.org= are the reference inputs for the
 manuscript numbers.
 
-** Golden file compatibility
+* Golden file compatibility
 
 Despite the performance differences, rsx-rs produces *byte-identical
 output* to C++ radsex for all downstream commands (freq, depth, distrib,

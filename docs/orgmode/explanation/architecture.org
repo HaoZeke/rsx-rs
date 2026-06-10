@@ -1,12 +1,11 @@
 #+TITLE: Architecture
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
 
-* Architecture
 
 rsx-rs follows the [[https://github.com/OmniPotentRPC/rgpot][rgpot]] pattern:
 a Rust core library with auto-generated C headers, wrapped by a thin CLI binary.
 
-** Crate structure
+* Crate structure
 
 #+begin_example
 rsx-rs/
@@ -43,7 +42,7 @@ For the stable C FFI surface see the dedicated :doc:`C API Reference </reference
 which includes the full generated header.
 #+end_export
 
-** C API contract
+* C API contract
 
 Following the metatensor pattern:
 
@@ -60,7 +59,7 @@ cargo build --manifest-path radsex-core/Cargo.toml --features gen-header
 # Produces radsex-core/include/rsx.h
 #+end_src
 
-** Data flow
+* Data flow
 
 #+begin_example
 FASTQ files --[process]--> markers.tsv --[distrib/signif/freq/depth/subset]--> analysis.tsv
@@ -70,7 +69,7 @@ FASTQ files --[process]--> markers.tsv --[distrib/signif/freq/depth/subset]--> a
 The =process= command is the only one that reads raw sequence files. All
 other commands consume the markers depth table (TSV).
 
-** Streaming parser
+* Streaming parser
 
 The markers table parser uses a producer-consumer pattern:
 
@@ -81,7 +80,7 @@ The markers table parser uses a producer-consumer pattern:
 
 This replaces the C++ =std::queue= + =std::mutex= + =sleep(10us)= pattern.
 
-** Parallelism
+* Parallelism
 
 =process= uses =rayon::par_iter()= over input files. Each file is processed
 independently (count sequences with =needletail=, accumulate in =ahash::AHashMap=).
@@ -89,7 +88,7 @@ For >= 8 individuals, a =DashMap= enables lock-free concurrent insertion
 (no sequential merge phase). Sequences are stored as 2-bit packed DNA
 (4x key compression: 100bp -> 26 bytes).
 
-** External sort-merge (merge command)
+* External sort-merge (merge command)
 
 The =merge= command handles datasets that exceed available RAM (75M+
 unique sequences across hundreds of samples). Algorithm:
@@ -103,11 +102,11 @@ unique sequences across hundreds of samples). Algorithm:
 Memory: O(buffer_size), not O(total_sequences). Default buffer: 2M
 entries (~400MB). Temp files: lz4-compressed sorted chunks on disk.
 
-** Bounded-memory streaming (all commands)
+* Bounded-memory streaming (all commands)
 
 All commands operate in bounded memory regardless of input size.
 
-*** Two-pass streaming (signif, subset, map)
+** Two-pass streaming (signif, subset, map)
 
 Commands requiring Bonferroni correction use two passes over the
 mmap'd table:
@@ -123,7 +122,7 @@ No =Vec<Marker>= accumulation.
 The =map= command builds the minimap2 index between passes (~100-300MB),
 then aligns and writes in pass 2.
 
-*** External sort for depth
+** External sort for depth
 
 The =depth= command computes exact per-individual median via external
 sort when the input exceeds 2GB:
@@ -135,13 +134,13 @@ sort when the input exceeds 2GB:
 
 Memory: O(buffer_size), default 200MB. Auto-detected by file size.
 
-*** Streaming accumulators (distrib, freq)
+** Streaming accumulators (distrib, freq)
 
 =distrib= and =freq= use fixed-size accumulators (O(n_individuals^2) and
 O(n_individuals) respectively) that do not grow with n_markers. These
 are inherently streaming.
 
-** Statistics
+* Statistics
 
 - Chi-squared with Yates continuity correction (exact port of C++ =stats.cpp=)
 - P-value via =erfc(sqrt(chi2/2))= (SymPy-derived identity, replaces gamma CDF)

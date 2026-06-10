@@ -1,11 +1,10 @@
 #+TITLE: Quick Start
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
 
-* Quick Start
 
-** Installation
+* Installation
 
-*** From source (recommended)
+** From source (recommended)
 
 #+begin_src bash
 git clone https://github.com/HaoZeke/rsx-rs.git
@@ -14,21 +13,21 @@ cargo build --release
 # Binary at target/release/rsx
 #+end_src
 
-*** From GitHub releases
+** From GitHub releases
 
 Pre-built binaries are available for Linux (x86_64, aarch64) and macOS
 (x86_64, arm64) from the
 [[https://github.com/HaoZeke/rsx-rs/releases][Releases page]]. On Windows,
 build from source without the =map= feature (minimap2 is not available there).
 
-*** Via pixi
+** Via pixi
 
 #+begin_src bash
 cd rsx-rs
 pixi run build
 #+end_src
 
-** Example workflow
+* Example workflow
 
 Given demultiplexed RAD-seq reads in =reads/= and a population map:
 
@@ -40,37 +39,37 @@ ind3    F
 ind4    F
 #+end_example
 
-*** Step 1: Build markers table
+** Step 1: Build markers table
 
 #+begin_src bash
 rsx process -i reads/ -o markers.tsv -T 4 -d 5
 #+end_src
 
-*** Step 2: Check marker frequencies
+** Step 2: Check marker frequencies
 
 #+begin_src bash
 rsx freq -t markers.tsv -o freq.tsv -d 5
 #+end_src
 
-*** Step 3: Compute sex-bias distribution
+** Step 3: Compute sex-bias distribution
 
 #+begin_src bash
 rsx distrib -t markers.tsv -p popmap.tsv -o distrib.tsv -d 5 -G M,F
 #+end_src
 
-*** Step 4: Extract significant markers
+** Step 4: Extract significant markers
 
 #+begin_src bash
 rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv -d 5 -G M,F
 #+end_src
 
-*** Step 5: Map to reference genome
+** Step 5: Map to reference genome
 
 #+begin_src bash
 rsx map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -d 5 -G M,F
 #+end_src
 
-*** Step 6: Merge multiple tables
+** Step 6: Merge multiple tables
 
 #+begin_src bash
 rsx merge -o combined.tsv pop1_markers.tsv pop2_markers.tsv pop3_markers.tsv
@@ -78,7 +77,7 @@ rsx merge -o combined.tsv pop1_markers.tsv pop2_markers.tsv pop3_markers.tsv
 
 Uses bounded-memory external sort (~500MB) for arbitrarily large datasets.
 
-*** Step 7: Streaming PCA
+** Step 7: Streaming PCA
 
 #+begin_src bash
 rsx pca -t combined.tsv -o pca_results/ -d 5 -r 10
@@ -87,13 +86,13 @@ rsx pca -t combined.tsv -o pca_results/ -d 5 -r 10
 Produces eigenvalues, loadings, and summary in the output directory.
 PC1 typically separates males and females for sex-linked markers.
 
-** Output format
+* Output format
 
 All outputs are tab-separated with an optional =#source:= comment line.
 The format is identical to the original C++ RADSex tool, so existing
 R scripts work without modification.
 
-** Memory guarantees
+* Memory guarantees
 
 All commands operate in bounded memory regardless of input size:
 
@@ -110,7 +109,7 @@ All commands operate in bounded memory regardless of input size:
 For 200 individuals and 75M markers, typical peak memory is < 500MB
 (except map which loads the minimap2 genome index).
 
-** Python bindings (high-level API)
+* Python bindings (high-level API)
 
 Install with =pip install pyrsx= (or =pixi run -e python build-python= from source).
 
@@ -138,7 +137,7 @@ pyrsx.merge(["run1.tsv", "run2.tsv"], "merged.tsv")
 
 See the Python README for the full surface (including =from_dataframe=, =to_arrow=, custom triage, etc.).
 
-** Reproducing the paper
+* Reproducing the paper
 
 Every benchmark, figure, and biological result reported for rsx is
 reproducible from a single deposited archive. The Zenodo deposit

@@ -3,102 +3,101 @@
 #+EMAIL: rgoswami@ieee.org
 #+OPTIONS: toc:t num:nil
 
-* Glossary
 
 Terms used across the ~rsx~ documentation, the command reference, and the paper.
 
-** RAD-seq and markers
+* RAD-seq and markers
 
-*** RAD-seq
+** RAD-seq
 Restriction site-associated DNA sequencing. A reduced-representation
 sequencing method that samples the genome at restriction sites, producing short
 reads (RAD tags) at consistent loci across individuals.
 
-*** RAD tag
+** RAD tag
 A short sequence anchored at a restriction site. ~rsx~ packs each tag into a
 2-bit-per-base key for compact, cache-friendly storage and hashing.
 
-*** Marker table
+** Marker table
 The marker-by-individual matrix of read depths: one row per RAD tag, one column
 per individual. The central data structure of the RADSex workflow; ~rsx~
 memory-maps it and streams over it rather than loading it whole.
 
-*** popmap
+** popmap
 A two-column tab-separated file mapping each individual to a group label (for
 example =M= and =F=). Passed with =-p/--popmap= and the group list =-G M,F=.
 
-*** Minimum depth
+** Minimum depth
 The read-depth threshold (=-d/--min-depth=) at or above which a marker is
 counted as present in an individual. Sweeping it (1, 2, 5, 10) is standard in
 the RADSex workflow.
 
-** Statistics and evidence
+* Statistics and evidence
 
-*** Sex-biased marker
+** Sex-biased marker
 A RAD tag whose presence/absence differs between the sex groups more than
 expected by chance.
 
-*** Bonferroni
+** Bonferroni
 A conservative family-wise multiple-testing correction: divide the target
 significance level by the number of tests. ~rsx~ evaluates it in bounded memory
 via a two-pass masked scan.
 
-*** Yates correction / chi-squared
+** Yates correction / chi-squared
 A continuity-corrected chi-squared test of a 2x2 presence/absence table. ~rsx~
 reduces it to a single complementary-error-function (=erfc=) evaluation for one
 degree of freedom.
 
-*** Benjamini-Hochberg (FDR)
+** Benjamini-Hochberg (FDR)
 False-discovery-rate control. Because it ranks all p-values globally, it
 materializes row data; use Bonferroni or uncorrected modes for strictly bounded
 memory.
 
-*** Bayes factor (BF)
+** Bayes factor (BF)
 The ratio of marginal likelihoods of two hypotheses. ~rsx~ uses a conjugate
 Beta-Binomial Bayes factor for sex-linkage versus a null.
 
-*** Posterior P(sex-linked)
+** Posterior P(sex-linked)
 The posterior probability that a marker is sex-linked, under explicit priors and
 a fixed heterogametic-sex prevalence, mixed symmetrically over the XY and ZW
 directions.
 
-*** Evidence grade
+** Evidence grade
 ~rsx~ reports three grades per marker: *strict* (passes the frequentist call),
 *posterior-supported* (posterior above threshold), and *Bayes-factor-only*
 (strong BF but below the posterior threshold).
 
-** Sex determination
+* Sex determination
 
-*** Heterogamety (XY / ZW)
+** Heterogamety (XY / ZW)
 The chromosomal sex-determination system. *XY* (male-heterogametic) makes
 male-biased markers candidate *Y-linked*; *ZW* (female-heterogametic) makes
 female-biased markers candidate *W-linked*.
 
-*** sdY
+** sdY
 The salmonid master male sex-determining gene. Its chromosomal location can
 translocate between species and populations; mapping it is a direct application
 of RAD-seq sex-determination analysis.
 
-** Implementation
+* Implementation
 
-*** 2-bit encoding
+** 2-bit encoding
 Storing each DNA base in two bits (A/C/G/T), shrinking marker keys and improving
 hashing and comparison throughput.
 
-*** External sort
+** External sort
 A sort that spills to disk (compressed temporary runs) and merges them, keeping
 peak memory bounded for tables larger than RAM. Used by =merge= and =depth=.
 
-*** Streaming Gram-matrix PCA
+** Streaming Gram-matrix PCA
 Principal-component analysis computed by accumulating an =n_individuals x
 n_individuals= Gram matrix in a single streaming pass, so memory scales with the
 number of individuals rather than the number of markers.
 
-*** bitset / popcount
+** bitset / popcount
 A bitset marks which individuals carry a marker; =popcount= counts the set bits.
 Group counts then reduce to bitwise-AND plus popcount, which is fast and
 constant-memory.
 
-*** cdylib / staticlib
+** cdylib / staticlib
 The C-ABI shared and static library outputs of =radsex-core=, exposed through
 cbindgen-generated headers for the C API and consumed by the Python bindings.

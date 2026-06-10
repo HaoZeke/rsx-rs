@@ -3,11 +3,10 @@
 #+EMAIL: rgoswami@ieee.org
 #+OPTIONS: toc:t num:nil
 
-* Troubleshooting
 
-** Build
+* Build
 
-*** =minimap2-sys= fails to build
+** =minimap2-sys= fails to build
 
 The =map= command links minimap2, which needs a C toolchain and does not build
 on Windows MSVC. Build the other commands without it:
@@ -16,37 +15,37 @@ on Windows MSVC. Build the other commands without it:
 cargo build --release --no-default-features
 #+end_src
 
-*** Linker error building the Python extension on macOS
+** Linker error building the Python extension on macOS
 
 The =pyrsx= extension is a pyo3 =extension-module=; a plain workspace build
 needs the dynamic-lookup linker flag. The repository ships a =.cargo/config.toml=
 that sets =-undefined dynamic_lookup= for macOS targets; build from the workspace
 root so it is picked up, or use =maturin= directly.
 
-** Running
+* Running
 
-*** Output does not match RADSex
+** Output does not match RADSex
 
 Specify the groups explicitly with =-G= (for example =-G M,F=). Without an
 explicit group order, tie-breaking and column order can differ; with it, the
 frequentist calls are identical to RADSex v1.2.0.
 
-*** A command uses more memory than expected
+** A command uses more memory than expected
 
 =signif= with FDR correction materializes per-marker rows because global ranking
 is intrinsic to the procedure. For strictly bounded memory use Bonferroni or the
 uncorrected streaming mode. =depth= on inputs above a few GB switches to external
 sort automatically; force spill testing with =RSX_FORCE_SPILL=1=.
 
-*** =map= reports no alignments
+** =map= reports no alignments
 
 Check that =-g/--genome= points to a FASTA the reference index can be built
 from, and that the marker tags are long enough to align. =map= is feature-gated;
 confirm the binary was built with the default =map= feature.
 
-** Statistics
+* Statistics
 
-*** Bayesian output is empty or all markers look "Bayes-factor-only"
+** Bayesian output is empty or all markers look "Bayes-factor-only"
 
 The posterior layer reports evidence under explicit priors and a fixed
 heterogametic-sex prevalence. If many markers are Bayes-factor-only, the data
@@ -54,13 +53,13 @@ support enrichment but not above the posterior threshold; treat those as
 hypotheses to validate by mapping, PCR, or independent genomic evidence rather
 than as calls.
 
-*** Which sex system should I assume (XY vs ZW)?
+** Which sex system should I assume (XY vs ZW)?
 
 You do not have to choose: the posterior mixes symmetrically over both
 directions. Male-biased markers surface as candidate Y-linked under XY;
 female-biased markers as candidate W-linked under ZW.
 
-** Reporting a problem
+* Reporting a problem
 
 Open an issue on [[https://github.com/HaoZeke/rsx-rs][GitHub]] with the command,
 the input shape (individuals, markers, depth), and the exact message. For

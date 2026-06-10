@@ -1,19 +1,18 @@
 #+TITLE: R Integration
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
 
-* Integrating with R analysis pipelines
 
 rsx output files (TSV) can be loaded directly by R analysis pipelines
 that consume RADSex-format data.
 
-** RADSex output compatibility
+* RADSex output compatibility
 
 rsx-rs produces byte-identical output to C++ RADSex when groups are
 specified explicitly (=-G M,F=). The existing your R pipeline R functions
 (=load_radsex_distribution=, =load_radsex_alignment=, =extract_signif_markers=)
 work without any changes.
 
-** Adding to your R pipeline pixi.toml
+* Adding to your R pipeline pixi.toml
 
 The =build-rsx= task in your R pipeline's =pixi.toml= builds rsx-rs from source:
 
@@ -24,7 +23,7 @@ build-rsx = """bash -c 'if ! command -v rsx >/dev/null 2>&1; then \
   cp target/release/rsx ~/.local/bin/rsx; fi'"""
 #+end_src
 
-** Running from your R pipeline
+* Running from your R pipeline
 
 Use =system()= or =processx::run()= to call radsex from R:
 
@@ -38,7 +37,7 @@ system2("rsx", c(
 ))
 #+end_src
 
-** Direct R FFI
+* Direct R FFI
 
 The C API (=librsx_core.so=) will enable direct =.Call()= from R,
 eliminating intermediate file I/O. See the

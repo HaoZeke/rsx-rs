@@ -3,11 +3,10 @@
 #+EMAIL: rgoswami@ieee.org
 #+OPTIONS: toc:nil num:nil
 
-* How to Cite rsx
 
 If you use ~rsx~ in your research, please cite the paper and the software.
 
-** Paper
+* Paper
 
 Goswami R, Goswami R. /rsx: A high-performance streaming toolkit for RAD-seq
 sex determination./ arXiv:2606.06434 (2026). https://arxiv.org/abs/2606.06434
@@ -20,7 +19,7 @@ Feron R, et al. /RADSex: a computational workflow to study sex determination
 using restriction site-associated DNA sequencing data./ Molecular Ecology
 Resources, 2021. doi:10.1111/1755-0998.13360
 
-** Software
+* Software
 
 The repository ships a =CITATION.cff=, so GitHub renders a "Cite this
 repository" button with formatted BibTeX and APA. The published artifacts are:
@@ -31,14 +30,14 @@ repository" button with formatted BibTeX and APA. The published artifacts are:
 Zenodo software archive for v0.2.3:
 [[https://doi.org/10.5281/zenodo.20531538][doi:10.5281/zenodo.20531538]]
 
-** Reproducibility archive
+* Reproducibility archive
 
 The deposited workflow that regenerates the paper's figures and numbers:
 
 Goswami R, Goswami R. /Reproducibility archive for rsx./ Zenodo.
 [[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]
 
-** BibTeX / BibLaTeX entries
+* BibTeX / BibLaTeX entries
 
 Copy-paste ready entries (compatible with both classic BibTeX and BibLaTeX/biber).
 The GitHub "Cite this repository" button (from =CITATION.cff=) can also emit

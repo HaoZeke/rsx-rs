@@ -1,16 +1,11 @@
 #+TITLE: C API Reference
 
-* C API Reference
 
 The C API (exposed via a ~cbindgen~-generated header) provides stable,
 binary-compatible access to the core ~rsx_core~ functionality from C, C++,
 Python (~ctypes~ / ~cffi~), R (~.Call~), and other languages.
 
-It follows a simple contract (see also the 
-#+begin_export rst
-:doc:`Architecture </explanation/architecture>`
-#+end_export
- page):
+It follows a simple contract (see also the :doc:`Architecture </explanation/architecture>` page):
 
 - All public types are ~#[repr(C)]~.
 - Functions return ~rsx_status_t~ first.
@@ -18,7 +13,7 @@ It follows a simple contract (see also the
 - Opaque handles for complex state (e.g. popmaps, marker tables in future).
 - Naming: ~rsx_~ prefix, ~SCREAMING_SNAKE_CASE~ for enums, ~_t~ suffix for structs.
 
-** Building the header
+* Building the header
 
 #+begin_src bash
 cargo build --manifest-path radsex-core/Cargo.toml --features gen-header
@@ -28,7 +23,7 @@ cargo build --manifest-path radsex-core/Cargo.toml --features gen-header
 The header is a build artifact (gitignored) and must be regenerated after
 changes to the C API surface in ~radsex-core/src/c_api/~.
 
-** API Reference
+* API Reference
 
 #+begin_export rst
 .. toctree::
@@ -38,13 +33,13 @@ changes to the C API surface in ~radsex-core/src/c_api/~.
    c-api-header
 #+end_export
 
-** Error handling
+* Error handling
 
 All fallible functions return an ~rsx_status_t~. On failure, call
 ~rsx_last_error()~ on the same thread to retrieve a human-readable message
 (the pointer is valid only until the next C API call on that thread).
 
-** Cross-language notes
+* Cross-language notes
 
 - **C/C++**: Link against the ~cdylib~ (~librsx_core.so~ / ~.dylib~ / ~.dll~) and
   include the header.
