@@ -35,6 +35,7 @@ changes to the C API surface in ~radsex-core/src/c_api/~.
    :maxdepth: 2
 
    ../api/index
+   c-api-header
 #+end_export
 
 ** Error handling

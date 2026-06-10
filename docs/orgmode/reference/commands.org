@@ -1,5 +1,5 @@
 #+TITLE: Command Reference
-#+AUTHOR: Rohit Goswami
+#+AUTHOR: Rohit Goswami, Ruhila Goswami
 
 * Command Reference
 

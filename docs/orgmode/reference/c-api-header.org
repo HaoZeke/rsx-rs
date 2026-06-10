@@ -1,0 +1,13 @@
+#+TITLE: Raw C Header
+#+AUTHOR: Rohit Goswami, Ruhila Goswami
+#+OPTIONS: toc:nil num:nil ^:nil
+
+* Raw C Header
+
+Below is the full, auto-generated C FFI header =rsx.h= produced by =cbindgen=.
+
+#+begin_export rst
+.. literalinclude:: ../../../radsex-core/include/rsx.h
+   :language: c
+   :caption: radsex-core/include/rsx.h
+#+end_export

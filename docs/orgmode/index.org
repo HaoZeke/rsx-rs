@@ -1,5 +1,5 @@
 #+TITLE: rsx-rs Documentation
-#+AUTHOR: Rohit Goswami
+#+AUTHOR: Rohit Goswami, Ruhila Goswami
 #+OPTIONS: toc:2 num:t
 
 * rsx-rs

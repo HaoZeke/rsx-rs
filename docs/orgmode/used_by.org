@@ -1,5 +1,5 @@
 #+TITLE: Used By
-#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]]
+#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]], Ruhila Goswami
 #+EMAIL: rgoswami@ieee.org
 #+OPTIONS: toc:nil todo:nil num:nil author:t title:t ^:nil
 

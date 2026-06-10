@@ -1,5 +1,5 @@
 #+TITLE: Architecture
-#+AUTHOR: Rohit Goswami
+#+AUTHOR: Rohit Goswami, Ruhila Goswami
 
 * Architecture
 

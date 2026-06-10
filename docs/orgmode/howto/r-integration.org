@@ -1,5 +1,5 @@
 #+TITLE: R Integration
-#+AUTHOR: Rohit Goswami
+#+AUTHOR: Rohit Goswami, Ruhila Goswami
 
 * Integrating with R analysis pipelines
 

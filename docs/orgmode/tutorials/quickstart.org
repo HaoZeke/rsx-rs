@@ -1,5 +1,5 @@
 #+TITLE: Quick Start
-#+AUTHOR: Rohit Goswami
+#+AUTHOR: Rohit Goswami, Ruhila Goswami
 
 * Quick Start
 

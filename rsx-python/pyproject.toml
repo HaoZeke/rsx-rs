@@ -8,7 +8,10 @@ version = "0.2.3"
 description = "Python bindings for rsx: high-performance RAD-seq sex determination toolkit"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
-authors = [{name = "Rohit Goswami", email = "rgoswami@ieee.org"}]
+authors = [
+    {name = "Rohit Goswami", email = "rgoswami@ieee.org"},
+    {name = "Ruhila Goswami", email = "ruhiresearcher209@gmail.com"}
+]
 requires-python = ">=3.9"
 dependencies = ["click>=8", "narwhals>=1.0", "pyarrow>=14"]
 classifiers = [
