@@ -9,6 +9,9 @@ extensions = [
     "sphinxcontrib_rust",
     "sphinx_rustdoc_postprocess",
     "sphinx_click",
+    "sphinx_design",
+    "sphinx_copybutton",
+    "sphinx_tabs.tabs",
 ]
 
 templates_path = ["_templates"]

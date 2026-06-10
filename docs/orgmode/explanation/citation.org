@@ -9,8 +9,9 @@ If you use ~rsx~ in your research, please cite the paper and the software.
 
 ** Paper
 
-Goswami R, Goswami R. /rsx: a high-performance streaming toolkit for RAD-seq
-sex determination./ BMC Bioinformatics (forthcoming).
+Goswami R, Goswami R. /rsx: A high-performance streaming toolkit for RAD-seq
+sex determination./ arXiv:2606.06434 (2026). https://arxiv.org/abs/2606.06434
+(submitted to BMC Bioinformatics).
 
 It extends the original RADSex workflow, which should also be cited when
 relevant:
@@ -27,9 +28,54 @@ repository" button with formatted BibTeX and APA. The published artifacts are:
 - =radsex-core= and =rsx-cli= (the =rsx= binary) on [[https://crates.io/crates/rsx-cli][crates.io]]
 - =pyrsx= (Python bindings) on [[https://pypi.org/project/pyrsx/][PyPI]]
 
+Zenodo software archive for v0.2.3:
+[[https://doi.org/10.5281/zenodo.20531538][doi:10.5281/zenodo.20531538]]
+
 ** Reproducibility archive
 
 The deposited workflow that regenerates the paper's figures and numbers:
 
 Goswami R, Goswami R. /Reproducibility archive for rsx./ Zenodo.
 [[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]
+
+** BibTeX / BibLaTeX entries
+
+Copy-paste ready entries (compatible with both classic BibTeX and BibLaTeX/biber).
+The GitHub "Cite this repository" button (from =CITATION.cff=) can also emit
+BibTeX/APA.
+
+#+begin_export rst
+.. tabs::
+
+   .. tab:: rsx preprint (arXiv)
+
+      .. code-block:: bibtex
+
+         @article{Goswami2026rsx,
+           title         = {rsx: A high-performance streaming toolkit for RAD-seq sex determination},
+           author        = {Goswami, Rohit and Goswami, Ruhila},
+           year          = {2026},
+           eprint        = {2606.06434},
+           archivePrefix = {arXiv},
+           primaryClass  = {q-bio.GN},
+           url           = {https://arxiv.org/abs/2606.06434},
+           doi           = {10.48550/arXiv.2606.06434},
+           note          = {Preprint, submitted to BMC Bioinformatics}
+         }
+
+   .. tab:: RADSex reference
+
+      .. code-block:: bibtex
+
+         @article{Feron2021radsex,
+           title   = {RAD sequencing reveals sex determination systems in the genus {RADSex}},
+           author  = {Feron, Romain and others},
+           journal = {Molecular Ecology Resources},
+           year    = {2021},
+           doi     = {10.1111/1755-0998.13360}
+         }
+#+end_export
+
+For the rsx v0.2.3 software itself, use the Zenodo page (https://doi.org/10.5281/zenodo.20531538)
+or GitHub's Cite button / =CITATION.cff= (it can generate BibTeX, APA, etc.).
+The reproducibility archive has its own Zenodo BibTeX.

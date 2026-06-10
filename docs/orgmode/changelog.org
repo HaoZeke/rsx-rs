@@ -17,6 +17,7 @@ the library and CLI are versioned on
 
 - *0.2.3* -- Legible prior-sensitivity heatmap annotations (value-based
   contrast); documentation, packaging, and crates.io/PyPI publishing.
+  Accompanying arXiv preprint: https://arxiv.org/abs/2606.06434 .
 - *0.2.2* -- Retain the =depth= rows in the literature speedup tables so the
   reproducibility workflow regenerates all 56 paired timings.
 - *0.2.1* -- Validation and reproducibility fixes.

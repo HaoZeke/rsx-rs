@@ -6,6 +6,13 @@ All notable changes to rsx-rs are documented here.
 
 ## [0.2.3] - 2026-06-04
 
+### Added
+- Accompanying preprint: Goswami R, Goswami R. rsx: A high-performance
+  streaming toolkit for RAD-seq sex determination. arXiv:2606.06434 (2026).
+  https://arxiv.org/abs/2606.06434 (submitted to BMC Bioinformatics).
+  Software Zenodo: https://doi.org/10.5281/zenodo.20531538 .
+  Reproducibility archive: https://doi.org/10.5281/zenodo.20531539 .
+
 ### Fixed
 - Prior-sensitivity heatmap now picks the cell annotation colour by value
   (white on the dark high-count cells, near-black on light cells) so the

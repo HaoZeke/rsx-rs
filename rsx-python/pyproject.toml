@@ -27,6 +27,10 @@ plot = ["plotnine>=0.12"]
 Homepage = "https://github.com/HaoZeke/rsx-rs"
 Repository = "https://github.com/HaoZeke/rsx-rs"
 Documentation = "https://rsx.rgoswami.me"
+"Bug Tracker" = "https://github.com/HaoZeke/rsx-rs/issues"
+"Paper" = "https://arxiv.org/abs/2606.06434"
+"Zenodo (software)" = "https://doi.org/10.5281/zenodo.20531538"
+"Reproducibility archive" = "https://doi.org/10.5281/zenodo.20531539"
 
 [project.scripts]
 pyrsx = "pyrsx.cli:main"

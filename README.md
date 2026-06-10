@@ -22,7 +22,7 @@ Pre-built binaries for Linux (x86_64/aarch64), macOS (x86_64/arm64), Windows (wi
 
 ```bash
 # See https://github.com/HaoZeke/rsx-rs/releases for the latest
-curl -sSfL https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.1/rsx-installer.sh | sh
+curl -sSfL https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.3/rsx-installer.sh | sh
 ```
 
 ### From source
@@ -80,18 +80,41 @@ Full pipeline, memory guarantees, and all 10 commands (including new `merge`, `p
 ## Documentation
 
 - Full site: https://rsx.rgoswami.me (tutorials, command reference, architecture, HPC design, R + Python integration).
-- Paper (BMC Bioinformatics, in submission): see the companion manuscript repository or the forthcoming published version.
+- Preprint: Goswami R, Goswami R. rsx: A high-performance streaming toolkit for RAD-seq sex determination. arXiv:2606.06434 (2026). https://arxiv.org/abs/2606.06434 (submitted to BMC Bioinformatics).
 - Reproducibility materials: the companion `rsx_bmc_repro` package (snakemake-orchestrated, MCA/Zenodo archive shape matching the rest of the collection) + the org files under `repro/` in this repo.
+- Software archive: https://doi.org/10.5281/zenodo.20531538
 
 ## Citation
 
-Please cite the software article (when published) and the RADSex reference it extends.
+Please cite the preprint (or published version when available) and the RADSex reference where relevant.
 
-See `CITATION.cff` (root) for the machine-readable entry.
+> Goswami R, Goswami R. /rsx: A high-performance streaming toolkit for RAD-seq
+> sex determination./ arXiv:2606.06434 (2026). https://arxiv.org/abs/2606.06434
 
-For the benchmark data / figures used in the paper, also cite the deposited reproducibility archive (Zenodo / Materials Cloud Archive entry, to be minted from the `rsx_bmc_repro` package after the heavy builder runs).
+See `CITATION.cff` (root) for the machine-readable entry (includes the arXiv preprint, RADSex, and Zenodo software DOI). 
+GitHub's "Cite this repository" button also generates BibTeX/APA from it.
 
 RADSex reference: Feron et al., Mol Ecol Resour 2021. https://doi.org/10.1111/1755-0998.13360
+
+For the benchmark data / figures, also cite the deposited reproducibility archive (Zenodo): https://doi.org/10.5281/zenodo.20531539 .
+
+### BibTeX / BibLaTeX
+
+```bibtex
+@article{Goswami2026rsx,
+  title         = {rsx: A high-performance streaming toolkit for RAD-seq sex determination},
+  author        = {Goswami, Rohit and Goswami, Ruhila},
+  year          = {2026},
+  eprint        = {2606.06434},
+  archivePrefix = {arXiv},
+  primaryClass  = {q-bio.GN},
+  url           = {https://arxiv.org/abs/2606.06434},
+  doi           = {10.48550/arXiv.2606.06434},
+  note          = {Preprint, submitted to BMC Bioinformatics}
+}
+```
+
+For the software itself (v0.2.3), prefer the GitHub Cite button, the `CITATION.cff`, or the Zenodo DOI entry (generated from the deposit page). The reproducibility archive has its own Zenodo-generated BibTeX.
 
 ## Contributing
 

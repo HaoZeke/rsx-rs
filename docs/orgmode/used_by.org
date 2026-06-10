@@ -7,10 +7,13 @@ Publications, theses, and reproducibility packages that use ~rsx~.
 
 * Publications
 
-- *rsx: a high-performance streaming toolkit for RAD-seq sex determination*
-  (BMC Bioinformatics). The reference publication: it introduces ~rsx~,
+- *rsx: A high-performance streaming toolkit for RAD-seq sex determination*
+  (arXiv:2606.06434, 2026; submitted to BMC Bioinformatics).
+  https://arxiv.org/abs/2606.06434
+  The reference publication: it introduces ~rsx~,
   benchmarks it against C++ RADSex v1.2.0 on four literature RAD-seq panels
   (41.9 billion bases), and reports the Bayesian marker-evidence layer.
+  Software archive: https://doi.org/10.5281/zenodo.20531538 .
 
 * Academic Work
 

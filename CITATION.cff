@@ -14,6 +14,11 @@ url: "https://rsx.rgoswami.me"
 license: GPL-3.0-or-later
 version: "0.2.3"
 date-released: 2026-06-04
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.20531538"
+    description: "Zenodo software archive for rsx v0.2.3"
+
 references:
   - type: article
     title: "rsx: a high-performance streaming toolkit for RAD-seq sex determination"
@@ -24,7 +29,9 @@ references:
         given-names: "Ruhila"
     year: 2026
     journal: "BMC Bioinformatics"
-    # doi: forthcoming
+    url: "https://arxiv.org/abs/2606.06434"
+    doi: "10.48550/arXiv.2606.06434"
+    note: "Preprint; submitted to BMC Bioinformatics"
   - type: article
     title: "RAD sequencing reveals sex determination systems in the genus RADSex"
     authors:
