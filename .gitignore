@@ -64,3 +64,6 @@ repro/benchmarks/figshare_package/
 *.so
 *.dylib
 *.pyd
+
+# Sphinx build subprojects
+/subprojects/
