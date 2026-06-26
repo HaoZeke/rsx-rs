@@ -1,0 +1,35 @@
+VENDORING = @VENDORING@
+OFFLINE_OPTION = @OFFLINE_OPTION@
+CARGO_BUILD = @CARGO_BUILD@
+
+LIBDIR = ./rust/target/release
+STATLIB = $(LIBDIR)/librsxr.a
+
+PKG_CPPFLAGS = -I.
+# rsx-core bundles Rust std; the trailing libs satisfy needletail's
+# gz/bz2/xz decompression and the usual pthread/dl/math/rt dependencies.
+PKG_LIBS = -L$(LIBDIR) -lrsxr -lpthread -ldl -lm -lrt -lz -lbz2 -llzma
+
+all: $(SHLIB) clean_intermediate
+
+$(SHLIB): $(STATLIB)
+
+$(STATLIB):
+	# Unpack the vendored crate sources for offline (CRAN) builds.
+	if [ "$(VENDORING)" = "yes" ]; then \
+	  $(TAR) --extract --xz -f ./rust/vendor.tar.xz -C ./rust && \
+	  mkdir -p ./rust/.cargo && \
+	  cp ./cargo_vendor_config.toml ./rust/.cargo/config.toml; \
+	fi
+	# CRAN policy: build with at most 2 jobs, no network, inside the package.
+	# cargo-auditable embeds the dependency SBOM when available (configure
+	# falls back to plain `cargo build`).
+	@BEFORE_CARGO_BUILD@ cd ./rust && $(CARGO_BUILD) --jobs 2 --lib --release $(OFFLINE_OPTION)
+
+clean_intermediate: $(SHLIB)
+	rm -Rf $(STATLIB) ./rust/.cargo
+
+clean:
+	rm -Rf $(SHLIB) $(OBJECTS) ./rust/.cargo ./rust/vendor ./rust/target
+
+.PHONY: all clean_intermediate clean

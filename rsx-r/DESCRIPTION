@@ -1,0 +1,32 @@
+Package: rsxr
+Title: R Bindings for the rsx RAD-seq Sex-Determination Toolkit
+Version: 0.1.0
+Authors@R: c(
+    person("Rohit", "Goswami", email = "rgoswami@ieee.org",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-2393-8056")),
+    person("Ruhila", "Goswami", role = "aut",
+           comment = c(ORCID = "0000-0002-5443-9356")))
+Description: A thin, ergonomic R interface to rsx, a high-performance
+    streaming toolkit for RAD-seq sex determination. The package binds the
+    rsx C API directly through R's native C interface (no intermediate
+    process), exposing the process, freq, distrib, signif, triage, depth,
+    merge, and pca commands, and a tibble-returning high-level 'marker_table'
+    workflow.
+License: GPL-3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+SystemRequirements: Cargo (Rust's package manager), rustc
+Imports:
+    tibble,
+    readr
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+Config/rsxr/MSRV: 1.85.0
+Biarch: TRUE
+URL: https://github.com/HaoZeke/rsx-rs, https://rsx.rgoswami.me
+BugReports: https://github.com/HaoZeke/rsx-rs/issues
