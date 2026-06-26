@@ -44,8 +44,11 @@ jobs:
         run: |
           sudo apt-get update
           # zlib/bz2/xz for rsxcore; libxml2 for igraph; checkbashisms; TeX for Rd PDF
+          # (minimal TeX lacks Rd packages → ERROR on "PDF version of manual")
           sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev libxml2-dev \
-            devscripts texlive-latex-base texlive-fonts-recommended texlive-latex-recommended
+            devscripts texlive-latex-base texlive-fonts-recommended \
+            texlive-latex-recommended texlive-latex-extra texlive-fonts-extra \
+            lmodern
 
       - uses: r-lib/actions/setup-pandoc@v2
 
