@@ -20,4 +20,9 @@ exclude = [
   '^https://doi\.org/',
   '^https://hdl\.handle\.net/',
   '^https://www\.gnu\.org/',
+  # Ecosystem cross-links to the companion R packages. These return 404 to an
+  # unauthenticated checker while the RuhiRG repositories are private; remove
+  # these excludes once they are public (required for rOpenSci/CRAN anyway).
+  '^https://github\.com/RuhiRG/ChromSex',
+  '^https://github\.com/RuhiRG/SexPCR',
 ]
