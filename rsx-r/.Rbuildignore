@@ -13,3 +13,6 @@
 ^LICENSE\.md$
 ^\.vscode$
 ^Cargo\.toml\.dev\.bak$
+^codemeta\.json$
+^_pkgdown\.yml$
+^docs$

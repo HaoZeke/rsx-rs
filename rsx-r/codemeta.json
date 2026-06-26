@@ -1,0 +1,26 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "identifier": "rsxr",
+  "name": "rsxr: R Bindings for the rsx RAD-seq Sex-Determination Toolkit",
+  "description": "A thin, ergonomic R interface to rsx, binding the rsxcore C API directly through R's native C interface (no subprocess). Exposes the process, freq, distrib, signif, triage, depth, merge, and pca commands and a tibble-returning marker_table workflow.",
+  "version": "0.1.0",
+  "codeRepository": "https://github.com/HaoZeke/rsx-rs",
+  "issueTracker": "https://github.com/HaoZeke/rsx-rs/issues",
+  "license": "https://spdx.org/licenses/GPL-3.0-or-later",
+  "programmingLanguage": [
+    {"@type": "ComputerLanguage", "name": "R", "url": "https://r-project.org"},
+    {"@type": "ComputerLanguage", "name": "Rust", "url": "https://www.rust-lang.org"},
+    {"@type": "ComputerLanguage", "name": "C"}
+  ],
+  "runtimePlatform": "R version 4.3 or later",
+  "author": [
+    {"@type": "Person", "givenName": "Rohit", "familyName": "Goswami", "email": "rgoswami@ieee.org", "@id": "https://orcid.org/0000-0002-2393-8056"},
+    {"@type": "Person", "givenName": "Ruhila", "familyName": "Goswami", "@id": "https://orcid.org/0000-0002-5443-9356"}
+  ],
+  "maintainer": [
+    {"@type": "Person", "givenName": "Rohit", "familyName": "Goswami", "email": "rgoswami@ieee.org"}
+  ],
+  "keywords": ["RAD-seq", "sex-determination", "sdY", "bioinformatics", "rust", "ffi"],
+  "developmentStatus": "https://www.repostatus.org/#wip"
+}

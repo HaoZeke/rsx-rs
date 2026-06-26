@@ -1,0 +1,25 @@
+url: https://haozeke.github.io/rsx-rs/rsxr/
+
+template:
+  bootstrap: 5
+
+reference:
+  - title: "High-level workflow"
+    contents:
+      - marker_table
+      - triage
+      - signif_markers
+      - distrib
+      - depth
+      - frequencies
+  - title: "Low-level commands"
+    contents:
+      - rsx_process
+      - rsx_freq
+      - rsx_distrib
+      - rsx_signif
+      - rsx_triage
+      - rsx_depth
+      - rsx_merge
+      - rsx_pca
+      - rsx_version
