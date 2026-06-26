@@ -77,9 +77,19 @@ Full pipeline, memory guarantees, and all 10 commands (including new `merge`, `p
 - Paper (BMC Bioinformatics, in submission): see the companion manuscript repository or the forthcoming published version.
 - Reproducibility materials: the companion `rsx_bmc_repro` package (snakemake-orchestrated, MCA/Zenodo archive shape matching the rest of the collection) + the org files under `repro/` in this repo.
 
+## Ecosystem
+
+rsx is the RAD-seq sex-marker engine of a salmonid sex-determination toolkit.
+Two R packages consume its outputs and cover the downstream analyses:
+
+- [ChromSex](https://github.com/RuhiRG/ChromSex) -- sex-balanced Hudson / Weir & Cockerham FST, sex-specific heterozygosity, and genomic content around sex loci.
+- [SexPCR](https://github.com/RuhiRG/SexPCR) -- sdY PCR primer screen and assay audit against dissection sex.
+
+The brown trout LG28 manuscript applies all three on one Icelandic dataset.
+
 ## Citation
 
-Please cite the software article (when published) and the RADSex reference it extends.
+Please cite the software article (when published).
 
 See `CITATION.cff` (root) for the machine-readable entry.
 

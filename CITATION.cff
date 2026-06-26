@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 title: "rsx: a high-performance streaming toolkit for RAD-seq sex determination"
-message: "If you use this software, please cite the BMC Bioinformatics paper (or preprint) and the RADSex reference it extends."
+message: "If you use this software, please cite the BMC Bioinformatics paper (or preprint)."
 type: software
 authors:
   - family-names: "Goswami"
@@ -26,7 +26,7 @@ references:
     journal: "BMC Bioinformatics"
     # doi: forthcoming
   - type: article
-    title: "RAD sequencing reveals sex determination systems in the genus RADSex"
+    title: "RADSex: a computational workflow to study sex determination using restriction site-associated DNA sequencing data"
     authors:
       - family-names: "Feron"
         given-names: "Romain"
