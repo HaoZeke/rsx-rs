@@ -6,10 +6,12 @@ platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks]
-document = "Rscript --no-init-file -e 'roxygen2::roxygenise()'"
-install = "R CMD INSTALL --preclean --no-multiarch ."
-check = "Rscript --no-init-file -e 'rcmdcheck::rcmdcheck(args = c(\"--no-manual\"), error_on = \"warning\")'"
-test = "Rscript --no-init-file -e 'devtools::test()'"
+# Isolated CARGO_HOME avoids host ~/.cargo/config.toml (e.g. mold + clang)
+# clashing with conda-forge's x86_64-conda-linux-gnu-cc, which rejects -fuse-ld=mold.
+document = "env CARGO_HOME=\"$PWD/.pixi/cargo-home\" Rscript --no-init-file -e 'roxygen2::roxygenise()'"
+install = "env CARGO_HOME=\"$PWD/.pixi/cargo-home\" R CMD INSTALL --preclean --no-multiarch ."
+check = "env CARGO_HOME=\"$PWD/.pixi/cargo-home\" Rscript --no-init-file -e 'rcmdcheck::rcmdcheck(args = c(\"--no-manual\"), error_on = \"warning\")'"
+test = "env CARGO_HOME=\"$PWD/.pixi/cargo-home\" Rscript --no-init-file -e 'devtools::test()'"
 vendor = "sh tools/vendor.sh"
 
 [dependencies]

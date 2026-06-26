@@ -27,7 +27,9 @@ $(STATLIB):
 	@BEFORE_CARGO_BUILD@ cd ./rust && $(CARGO_BUILD) --jobs 2 --lib --release $(OFFLINE_OPTION)
 
 clean_intermediate: $(SHLIB)
-	rm -Rf $(STATLIB) ./rust/.cargo
+	# Drop the static archive and cargo build tree so R CMD check does not
+	# scan vendored C sources under target/ (newline NOTEs, huge tarballs).
+	rm -Rf $(STATLIB) ./rust/.cargo ./rust/target
 
 clean:
 	rm -Rf $(SHLIB) $(OBJECTS) ./rust/.cargo ./rust/vendor ./rust/target

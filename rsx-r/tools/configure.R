@@ -27,6 +27,9 @@ library, so a Rust toolchain is required.
 Install Rust from <https://rustup.rs/> (or your distribution's packages)
 and ensure 'cargo' and 'rustc' are on PATH.
 
+The configure script also stages rsxcore into src/rust/rsxcore from
+RSX_CORE_DIR or the monorepo sibling ../rsxcore when that tree is absent.
+
 ---------------------------------------------------------------
 
 ")

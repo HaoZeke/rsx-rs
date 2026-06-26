@@ -1,3 +1,4 @@
 #!/bin/sh
 rm -f src/Makevars
-rm -Rf src/rust/.cargo src/rust/vendor src/rust/target src/.cargo
+# Keep staged src/rust/rsxcore (path dep for R CMD build); drop build artifacts only.
+rm -Rf src/rust/.cargo src/rust/vendor src/rust/target src/.cargo src/.cargo-home .cargo-home

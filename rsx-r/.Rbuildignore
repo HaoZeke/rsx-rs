@@ -1,8 +1,11 @@
 ^src/Makevars$
 ^src/rust/target$
+^src/rust/target/
 ^src/rust/\.cargo$
 ^src/rust/vendor$
 ^src/\.cargo$
+^src/\.cargo-home$
+^\.cargo-home$
 ^.*\.o$
 ^.*\.a$
 ^.*\.so$
@@ -10,9 +13,11 @@
 ^pixi\.lock$
 ^\.pixi$
 ^\.github$
-^LICENSE\.md$
 ^\.vscode$
 ^Cargo\.toml\.dev\.bak$
 ^codemeta\.json$
 ^_pkgdown\.yml$
 ^docs$
+^CITATION\.cff$
+^\.Rproj\.user$
+^man-roxygen$

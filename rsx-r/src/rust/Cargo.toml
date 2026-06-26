@@ -21,9 +21,8 @@ lto = false
 opt-level = 3
 
 [dependencies]
-# Dev builds use the in-repo crate (carries the C API added for these bindings).
-# The crate's library name is `rsx_core` (so Rust does `use rsx_core`), while its
-# package name and directory are `rsxcore`.
-# CRAN packaging (tools/vendor.sh) rewrites this to the published crates.io
-# version and vendors the dependency tree under ./vendor.
-rsxcore = { path = "../../../rsxcore", default-features = false, features = ["parallel"] }
+# Package-local path (src/rust/rsxcore). configure / CI stage the monorepo
+# rsxcore tree here so R CMD build's isolated temp dir still compiles. The
+# crate's library name is `rsx_core` (Rust `use rsx_core`); package dir is
+# `rsxcore`. CRAN packaging (tools/vendor.sh) can rewrite this to crates.io.
+rsxcore = { path = "rsxcore", default-features = false, features = ["parallel"] }

@@ -19,8 +19,13 @@
     {"@type": "Person", "givenName": "Ruhila", "familyName": "Goswami", "@id": "https://orcid.org/0000-0002-5443-9356"}
   ],
   "maintainer": [
-    {"@type": "Person", "givenName": "Rohit", "familyName": "Goswami", "email": "rgoswami@ieee.org"}
+    {"@type": "Person", "givenName": "Rohit", "familyName": "Goswami", "email": "rgoswami@ieee.org", "@id": "https://orcid.org/0000-0002-2393-8056"}
   ],
   "keywords": ["RAD-seq", "sex-determination", "sdY", "bioinformatics", "rust", "ffi"],
-  "developmentStatus": "https://www.repostatus.org/#wip"
+  "developmentStatus": "https://www.repostatus.org/#wip",
+  "softwareRequirements": [
+    "R (>= 4.3)",
+    "Cargo (Rust package manager)",
+    "rustc"
+  ]
 }

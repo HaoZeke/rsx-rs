@@ -18,6 +18,10 @@ if [ "$ret" -ne 0 ]; then
   exit "$ret"
 fi
 
+# Stage rsxcore (package-local path dep) and rewrite workspace inheritance.
+# Safe when already staged by CI; always ensures a standalone Cargo.toml.
+sh ./tools/stage_rsxcore.sh .
+
 # Report toolchain versions in the install log (CRAN policy).
 echo "using Rust package manager: '$(cargo --version)'"
 echo "using Rust compiler: '$(rustc --version)'"
@@ -33,7 +37,9 @@ fi
 
 # CRAN builds must be offline, vendored, and write only inside the package.
 # A developer build (DEBUG=true, or no vendored sources) uses the network and
-# the user's CARGO_HOME and the in-repo rsxcore path dependency.
+# the in-repo rsxcore path dependency. Prefer an explicit CARGO_HOME (e.g. from
+# pixi tasks) so host ~/.cargo/config.toml linker flags (mold + clang) do not
+# clash with conda-forge's C compiler; otherwise use a package-local home.
 if [ "${DEBUG}" != "true" ] && [ -f "./src/rust/vendor.tar.xz" ]; then
   BEFORE_CARGO_BUILD="${BEFORE_CARGO_BUILD}"' export CARGO_HOME="$(PWD)/.cargo" \&\&'
   VENDORING="yes"
@@ -42,7 +48,12 @@ if [ "${DEBUG}" != "true" ] && [ -f "./src/rust/vendor.tar.xz" ]; then
 else
   VENDORING="no"
   OFFLINE_OPTION=""
-  echo "no vendored sources (developer build): building online against ../rsxcore"
+  if [ -z "${CARGO_HOME:-}" ]; then
+    BEFORE_CARGO_BUILD="${BEFORE_CARGO_BUILD}"' export CARGO_HOME="$(PWD)/.cargo-home" \&\& mkdir -p "$(PWD)/.cargo-home" \&\&'
+    echo "no vendored sources (developer build): online against ../rsxcore, CARGO_HOME=src package .cargo-home"
+  else
+    echo "no vendored sources (developer build): online against ../rsxcore, CARGO_HOME=${CARGO_HOME}"
+  fi
 fi
 
 sed \

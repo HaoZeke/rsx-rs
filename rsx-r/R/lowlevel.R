@@ -143,6 +143,8 @@ rsx_pca <- function(table_path, output_dir, min_depth = 1L, n_components = 0L) {
 #'
 #' @return The rsx version string the bindings were compiled against.
 #' @export
+#' @examples
+#' rsx_version()
 rsx_version <- function() {
   .Call(C_rsx_version)
 }

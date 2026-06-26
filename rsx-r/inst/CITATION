@@ -1,0 +1,16 @@
+bibentry(
+  bibtype  = "Manual",
+  title    = "rsxr: R Bindings for the rsx RAD-seq Sex-Determination Toolkit",
+  author   = c(
+    person("Rohit", "Goswami"),
+    person("Ruhila", "Goswami")
+  ),
+  year     = "2026",
+  note     = "R package version 0.1.0",
+  url      = "https://github.com/HaoZeke/rsx-rs",
+  textVersion = paste(
+    "Goswami R, Goswami R (2026).",
+    "rsxr: R Bindings for the rsx RAD-seq Sex-Determination Toolkit.",
+    "https://github.com/HaoZeke/rsx-rs"
+  )
+)
