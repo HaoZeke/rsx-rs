@@ -68,8 +68,15 @@ jobs:
                 .Platform$pkgType, R.Version()$os, R.Version()$arch
               ))
             }
-            pak::pak("ropensci-review-tools/pkgcheck")
+            # Full dependency tree (hard + soft) — pkgcheck loads visNetwork etc. at runtime.
+            pak::pak(
+              "ropensci-review-tools/pkgcheck",
+              dependencies = TRUE
+            )
+            # Explicit soft deps that pkgcheck may loadNamespace without Suggests install.
+            pak::pak(c("visNetwork", "igraph", "goodpractice", "jsonlite", "gh", "curl"))
             stopifnot(requireNamespace("pkgcheck", quietly = TRUE))
+            stopifnot(requireNamespace("visNetwork", quietly = TRUE))
           '
 
       - name: Run pkgcheck (fail on non-clean checklist)
