@@ -30,3 +30,14 @@ triage(x, popmap, ...)
 ## Value
 
 A tibble of triaged markers.
+
+## Examples
+
+``` r
+# \donttest{
+mt <- marker_table("markers.tsv")
+#> Error: marker_table: file does not exist: markers.tsv
+triage(mt, popmap = "popmap.tsv", min_depth = 10L)
+#> Error: object 'mt' not found
+# }
+```

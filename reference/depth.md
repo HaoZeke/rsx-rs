@@ -30,3 +30,14 @@ depth(x, popmap, ...)
 ## Value
 
 A tibble of per-individual depths.
+
+## Examples
+
+``` r
+# \donttest{
+mt <- marker_table("markers.tsv")
+#> Error: marker_table: file does not exist: markers.tsv
+depth(mt, popmap = "popmap.tsv")
+#> Error: object 'mt' not found
+# }
+```

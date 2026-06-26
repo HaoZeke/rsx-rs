@@ -39,3 +39,12 @@ rsx_depth(
 ## Value
 
 The output path, invisibly.
+
+## Examples
+
+``` r
+# \donttest{
+rsx_depth("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"))
+#> Error in rsx_depth("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv")): rsx: depth failed: No such file or directory (os error 2) (status 2)
+# }
+```

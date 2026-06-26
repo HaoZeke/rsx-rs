@@ -26,3 +26,14 @@ frequencies(x, ...)
 ## Value
 
 A tibble of frequencies.
+
+## Examples
+
+``` r
+# \donttest{
+mt <- marker_table("markers.tsv")
+#> Error: marker_table: file does not exist: markers.tsv
+frequencies(mt, min_depth = 5L)
+#> Error: object 'mt' not found
+# }
+```

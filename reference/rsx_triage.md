@@ -65,3 +65,13 @@ rsx_triage(
 ## Value
 
 The output path, invisibly.
+
+## Examples
+
+``` r
+# \donttest{
+rsx_triage("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
+           min_depth = 10L)
+#> Error in rsx_triage("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),     min_depth = 10L): rsx: triage failed: No such file or directory (os error 2) (status 2)
+# }
+```

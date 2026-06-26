@@ -30,3 +30,14 @@ signif_markers(x, popmap, ...)
 ## Value
 
 A tibble of significant markers.
+
+## Examples
+
+``` r
+# \donttest{
+mt <- marker_table("markers.tsv")
+#> Error: marker_table: file does not exist: markers.tsv
+signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
+#> Error: object 'mt' not found
+# }
+```

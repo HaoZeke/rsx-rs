@@ -29,3 +29,12 @@ rsx_merge(input_files, output_file, buffer_size = 0L, output_parquet = FALSE)
 ## Value
 
 The output path, invisibly.
+
+## Examples
+
+``` r
+# \donttest{
+rsx_merge(c("a.tsv", "b.tsv"), tempfile(fileext = ".tsv"))
+#> Error in rsx_merge(c("a.tsv", "b.tsv"), tempfile(fileext = ".tsv")): rsx: merge failed: No such file or directory (os error 2) (status 2)
+# }
+```

@@ -22,8 +22,10 @@ An object of class `marker_table`.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-mt <- marker_table("markers.tsv")
-triage(mt, popmap = "popmap.tsv", min_depth = 10)
-} # }
+tmp <- tempfile(fileext = ".tsv")
+writeLines(c("#Number of markers: 0", "id\tsequence"), tmp)
+mt <- marker_table(tmp)
+print(mt)
+#> <marker_table>
+#>   path: /tmp/RtmpCjiNsn/file2509cecdaf2.tsv 
 ```
