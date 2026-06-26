@@ -43,8 +43,9 @@ jobs:
       - name: System libraries
         run: |
           sudo apt-get update
-          # zlib/bz2/xz for rsxcore; libxml2 for igraph; checkbashisms for R CMD --as-cran
-          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev libxml2-dev devscripts
+          # zlib/bz2/xz for rsxcore; libxml2 for igraph; checkbashisms; TeX for Rd PDF
+          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev libxml2-dev \
+            devscripts texlive-latex-base texlive-fonts-recommended texlive-latex-recommended
 
       - uses: r-lib/actions/setup-pandoc@v2
 
