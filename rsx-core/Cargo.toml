@@ -14,6 +14,23 @@ categories = ["science", "api-bindings"]
 name = "rsx_core"
 crate-type = ["staticlib", "cdylib", "lib"]
 
+# cargo-c metadata: `cargo cinstall` builds and installs the C library, the
+# cbindgen header (rsx/rsx.h), and a pkg-config file (rsx.pc) for system and
+# conda consumers. cargo-c drives cbindgen via the existing cbindgen.toml.
+[package.metadata.capi]
+min_version = "0.10.0"
+
+[package.metadata.capi.header]
+name = "rsx"
+subdirectory = "rsx"
+
+[package.metadata.capi.pkg_config]
+name = "rsx"
+filename = "rsx"
+
+[package.metadata.capi.library]
+name = "rsx"
+
 [features]
 default = ["parallel", "map"]
 gen-header = ["dep:cbindgen"]
