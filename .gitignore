@@ -1,5 +1,5 @@
 /target
-/radsex-core/target
+/rsxcore/target
 /radsex-cli/target
 *.swp
 *.swo
@@ -11,7 +11,7 @@
 pixi.lock
 
 # Build artifacts
-/radsex-core/include/rsx.h
+/rsxcore/include/rsx.h
 
 # Generated documentation
 # orgmode/ (in docs/orgmode/) is the source of truth.

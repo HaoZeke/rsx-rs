@@ -99,5 +99,5 @@ Group counts then reduce to bitwise-AND plus popcount, which is fast and
 constant-memory.
 
 ** cdylib / staticlib
-The C-ABI shared and static library outputs of =radsex-core=, exposed through
+The C-ABI shared and static library outputs of =rsxcore=, exposed through
 cbindgen-generated headers for the C API and consumed by the Python bindings.

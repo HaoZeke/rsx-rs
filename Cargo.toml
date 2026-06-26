@@ -1,5 +1,5 @@
 [workspace]
-members = ["radsex-core", "rsx-cli", "rsx-python"]
+members = ["rsxcore", "rsx-cli", "rsx-python"]
 resolver = "2"
 
 [workspace.package]

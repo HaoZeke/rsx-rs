@@ -12,8 +12,8 @@ check = { cmd = "cargo fmt --check && cargo clippy -- -D warnings && cargo test"
 build = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo build --release" }
 build-portable = { cmd = "cargo build --release" }
 test = { cmd = "cargo test" }
-gen-header = { cmd = "cargo build --manifest-path radsex-core/Cargo.toml --features gen-header" }
-bench = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo bench --manifest-path radsex-core/Cargo.toml" }
+gen-header = { cmd = "cargo build --manifest-path rsxcore/Cargo.toml --features gen-header" }
+bench = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo bench --manifest-path rsxcore/Cargo.toml" }
 
 [feature.dev.dependencies]
 cargo-nextest = "*"
@@ -56,8 +56,8 @@ setup-doxyrest = { cmd = "test -d subprojects/doxyrest || (mkdir -p subprojects 
 patch-doxyrest = { cmd = "cp scripts/patches/doxyrest/doxyrest.py subprojects/doxyrest/sphinx/doxyrest.py && cp scripts/patches/doxyrest/doxyrest-shibuya.css subprojects/doxyrest/sphinx/css/doxyrest-shibuya.css && patch -p1 -N -s < scripts/patches/doxyrest/enum_class_fix.patch || true", depends-on = ["setup-doxyrest"], description = "Patch doxyrest sphinx extension" }
 doxybuild = { cmd = "doxygen Doxyfile_rsx.cfg && doxyrest -c doxyrest-config.lua", cwd = "docs/source", depends-on = ["patch-doxyrest", "gen-c-header"], description = "Generate C API docs via Doxygen and Doxyrest" }
 setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen --root \"$CONDA_PREFIX\"", description = "Install sphinx-rustdocgen for Rust API docs" }
-gen-c-header = { cmd = "cargo build --manifest-path radsex-core/Cargo.toml --features gen-header", description = "Generate cbindgen C header (radsex-core/include/rsx.h) so it is available for literalinclude in the docs" }
-gen-rust-api = { cmd = "rm -rf docs/source/crates/rsx_core || true; sphinx-rustdocgen '{\"crate_name\":\"rsx_core\",\"crate_dir\":\"radsex-core\",\"doc_dir\":\"docs/source/crates\",\"force\":true,\"strip_src\":true}'", depends-on = ["setup-rustdocgen"], description = "Generate Rust API docs into docs/source/crates/rsx_core/." }
+gen-c-header = { cmd = "cargo build --manifest-path rsxcore/Cargo.toml --features gen-header", description = "Generate cbindgen C header (rsxcore/include/rsx.h) so it is available for literalinclude in the docs" }
+gen-rust-api = { cmd = "rm -rf docs/source/crates/rsx_core || true; sphinx-rustdocgen '{\"crate_name\":\"rsx_core\",\"crate_dir\":\"rsxcore\",\"doc_dir\":\"docs/source/crates\",\"force\":true,\"strip_src\":true}'", depends-on = ["setup-rustdocgen"], description = "Generate Rust API docs into docs/source/crates/rsx_core/." }
 mkrst = { cmd = "emacs --batch --load docs/export.el", description = "Export orgmode docs to RST" }
 site = { cmd = "sphinx-build docs/source docs/build -b html", depends-on = ["mkrst", "setup-rustdocgen", "gen-c-header", "gen-rust-api", "doxybuild"] }
 

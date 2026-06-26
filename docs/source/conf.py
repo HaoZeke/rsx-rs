@@ -43,7 +43,7 @@ intersphinx_mapping = {
 import os
 
 rust_crates = {
-    "rsx_core": os.path.abspath("../../radsex-core/"),
+    "rsx_core": os.path.abspath("../../rsxcore/"),
 }
 rust_doc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crates")
 rust_rustdoc_fmt = "rst"

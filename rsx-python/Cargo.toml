@@ -12,7 +12,7 @@ name = "pyrsx"
 crate-type = ["cdylib"]
 
 [dependencies]
-radsex-core = { path = "../radsex-core", features = ["parallel", "arrow-output", "arrow-input"] }
+rsxcore = { path = "../rsxcore", features = ["parallel", "arrow-output", "arrow-input"] }
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 
 # Parquet writer so we can take the real in-memory RecordBatches from

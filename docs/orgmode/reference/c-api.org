@@ -16,12 +16,12 @@ It follows a simple contract (see also the :doc:`Architecture </explanation/arch
 * Building the header
 
 #+begin_src bash
-cargo build --manifest-path radsex-core/Cargo.toml --features gen-header
-# Produces radsex-core/include/rsx.h
+cargo build --manifest-path rsxcore/Cargo.toml --features gen-header
+# Produces rsxcore/include/rsx.h
 #+end_src
 
 The header is a build artifact (gitignored) and must be regenerated after
-changes to the C API surface in ~radsex-core/src/c_api/~.
+changes to the C API surface in ~rsxcore/src/c_api/~.
 
 * API Reference
 

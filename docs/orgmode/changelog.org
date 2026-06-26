@@ -9,7 +9,7 @@ The authoritative, per-release changelog is
 a Changelog format). Tagged releases with prebuilt Linux and macOS binaries are
 on the [[https://github.com/HaoZeke/rsx-rs/releases][GitHub releases page]], and
 the library and CLI are versioned on
-[[https://crates.io/crates/rsx-cli][crates.io]] (=radsex-core=, =rsx-cli=) and
+[[https://crates.io/crates/rsx-cli][crates.io]] (=rsxcore=, =rsx-cli=) and
 [[https://pypi.org/project/pyrsx/][PyPI]] (=pyrsx=).
 
 * Recent releases

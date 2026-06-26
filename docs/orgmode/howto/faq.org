@@ -21,10 +21,10 @@ v1.2.0. ~rsx~ does not change the statistical test, the null distribution, or
 the reported p-value threshold; the Bayesian outputs are additional, not a
 replacement.
 
-** Why is the binary called =rsx= but the crate =radsex-core=?
+** Why is the binary called =rsx= but the crate =rsxcore=?
 
 The command-line tool is =rsx= (crate =rsx-cli=); the library crate is
-=radsex-core= on crates.io. The Python package is =pyrsx= on PyPI. The
+=rsxcore= on crates.io. The Python package is =pyrsx= on PyPI. The
 repository is =rsx-rs=.
 
 * Installation

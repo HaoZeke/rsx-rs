@@ -24,7 +24,7 @@ Resources, 2021. doi:10.1111/1755-0998.13360
 The repository ships a =CITATION.cff=, so GitHub renders a "Cite this
 repository" button with formatted BibTeX and APA. The published artifacts are:
 
-- =radsex-core= and =rsx-cli= (the =rsx= binary) on [[https://crates.io/crates/rsx-cli][crates.io]]
+- =rsxcore= and =rsx-cli= (the =rsx= binary) on [[https://crates.io/crates/rsx-cli][crates.io]]
 - =pyrsx= (Python bindings) on [[https://pypi.org/project/pyrsx/][PyPI]]
 
 Zenodo software archive for v0.2.3:

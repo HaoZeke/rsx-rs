@@ -6,7 +6,7 @@
 Below is the full, auto-generated C FFI header =rsx.h= produced by =cbindgen=.
 
 #+begin_export rst
-.. literalinclude:: ../../../radsex-core/include/rsx.h
+.. literalinclude:: ../../../rsxcore/include/rsx.h
    :language: c
-   :caption: radsex-core/include/rsx.h
+   :caption: rsxcore/include/rsx.h
 #+end_export
