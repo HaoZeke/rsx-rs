@@ -33,8 +33,7 @@ The output path, invisibly.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 rsx_process("reads/", tempfile(fileext = ".tsv"), threads = 2L, min_depth = 5L)
-#> Error in rsx_process("reads/", tempfile(fileext = ".tsv"), threads = 2L,     min_depth = 5L): rsx: process failed: No such file or directory (os error 2) (status 2)
-# }
+} # }
 ```

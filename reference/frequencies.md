@@ -30,10 +30,8 @@ A tibble of frequencies.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 mt <- marker_table("markers.tsv")
-#> Error: marker_table: file does not exist: markers.tsv
 frequencies(mt, min_depth = 5L)
-#> Error: object 'mt' not found
-# }
+} # }
 ```

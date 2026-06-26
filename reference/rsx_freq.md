@@ -29,8 +29,7 @@ The output path, invisibly.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 rsx_freq("markers.tsv", tempfile(fileext = ".tsv"), min_depth = 5L)
-#> Error in rsx_freq("markers.tsv", tempfile(fileext = ".tsv"), min_depth = 5L): rsx: freq failed: No such file or directory (os error 2) (status 2)
-# }
+} # }
 ```

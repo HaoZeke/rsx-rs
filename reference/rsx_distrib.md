@@ -64,9 +64,8 @@ The output path, invisibly.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 rsx_distrib("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
             group1 = "M", group2 = "F")
-#> Error in rsx_distrib("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),     group1 = "M", group2 = "F"): rsx: distrib failed: No such file or directory (os error 2) (status 2)
-# }
+} # }
 ```

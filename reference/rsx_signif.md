@@ -69,9 +69,8 @@ The output path, invisibly.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 rsx_signif("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
            test = "fisher", correction = "fdr")
-#> Error in rsx_signif("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),     test = "fisher", correction = "fdr"): rsx: signif failed: No such file or directory (os error 2) (status 2)
-# }
+} # }
 ```

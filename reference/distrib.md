@@ -34,10 +34,8 @@ A tibble of the marker distribution.
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 mt <- marker_table("markers.tsv")
-#> Error: marker_table: file does not exist: markers.tsv
 distrib(mt, popmap = "popmap.tsv", group1 = "M", group2 = "F")
-#> Error: object 'mt' not found
-# }
+} # }
 ```
