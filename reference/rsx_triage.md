@@ -1,0 +1,67 @@
+# Bayesian sex-linkage triage of markers
+
+Bayesian sex-linkage triage of markers
+
+## Usage
+
+``` r
+rsx_triage(
+  table_path,
+  popmap_path,
+  output_file,
+  min_depth = 10L,
+  signif_threshold = 0.05,
+  posterior_threshold = 0.9,
+  bayes_factor_threshold = 10,
+  prior_probability = 0.01,
+  linked_probability = 0.9,
+  group1 = "M",
+  group2 = "F"
+)
+```
+
+## Arguments
+
+- table_path:
+
+  Marker depth table (TSV).
+
+- popmap_path:
+
+  Population map (TSV).
+
+- output_file:
+
+  Output path (TSV).
+
+- min_depth:
+
+  Minimum depth threshold.
+
+- signif_threshold:
+
+  Significance threshold.
+
+- posterior_threshold:
+
+  Posterior probability cutoff.
+
+- bayes_factor_threshold:
+
+  Bayes factor cutoff.
+
+- prior_probability:
+
+  Prior probability of sex linkage.
+
+- linked_probability:
+
+  Probability model for a linked marker.
+
+- group1, group2:
+
+  Group labels to contrast (e.g. "M", "F").
+
+## Value
+
+The output path, invisibly.
