@@ -1,6 +1,9 @@
 [package]
 name = "rsx-cli"
-version.workspace = true
+# Decoupled from the workspace version for the rsxcore-rename dependent release:
+# 0.2.3 is already published against the old radsex-core, so this cut bumps the
+# CLI to 0.2.4 depending on the published rsxcore 0.2.3.
+version = "0.2.4"
 edition = "2024"
 rust-version = "1.85"
 license = "GPL-3.0-or-later"

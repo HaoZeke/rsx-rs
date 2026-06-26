@@ -14,7 +14,7 @@
 
 set -e
 
-RSX_CORE_VERSION="${RSX_CORE_VERSION:-0.2.4}"
+RSX_CORE_VERSION="${RSX_CORE_VERSION:-0.2.3}"
 PKG_DIR=$(cd "$(dirname "$0")/.." && pwd)
 RUST_DIR="${PKG_DIR}/src/rust"
 
