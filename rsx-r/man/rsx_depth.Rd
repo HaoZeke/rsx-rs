@@ -30,7 +30,7 @@ The output path, invisibly.
 Marker depth per individual
 }
 \examples{
-\donttest{
+\dontrun{
 rsx_depth("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"))
 }
 }

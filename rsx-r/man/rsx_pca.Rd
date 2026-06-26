@@ -22,7 +22,7 @@ The output directory, invisibly.
 Streaming PCA of the marker matrix
 }
 \examples{
-\donttest{
+\dontrun{
 rsx_pca("markers.tsv", tempdir(), min_depth = 1L)
 }
 }

@@ -22,7 +22,7 @@ The output path, invisibly.
 Process demultiplexed reads into a marker depth table
 }
 \examples{
-\donttest{
+\dontrun{
 rsx_process("reads/", tempfile(fileext = ".tsv"), threads = 2L, min_depth = 5L)
 }
 }

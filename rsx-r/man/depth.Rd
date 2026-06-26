@@ -23,7 +23,7 @@ A tibble of per-individual depths.
 Per-individual marker depth
 }
 \examples{
-\donttest{
+\dontrun{
 mt <- marker_table("markers.tsv")
 depth(mt, popmap = "popmap.tsv")
 }

@@ -1,5 +1,5 @@
 Package: rsxr
-Title: R Bindings for the rsx RAD-seq Sex-Determination Toolkit
+Title: R Bindings for the Rsx RAD-Seq Sex-Determination Toolkit
 Version: 0.1.0
 Authors@R: c(
     person("Rohit", "Goswami", email = "rgoswami@ieee.org",
@@ -35,6 +35,5 @@ Config/Needs/pkgcheck: pkgcheck
 Config/roxygen2/version: 8.0.0
 Biarch: TRUE
 URL: https://github.com/HaoZeke/rsx-rs,
-    https://rsx.rgoswami.me,
-    https://haozeke.github.io/rsx-rs/rsxr/
+    https://rsx.rgoswami.me
 BugReports: https://github.com/HaoZeke/rsx-rs/issues

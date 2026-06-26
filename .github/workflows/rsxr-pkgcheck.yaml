@@ -43,8 +43,8 @@ jobs:
       - name: System libraries
         run: |
           sudo apt-get update
-          # zlib/bz2/xz for rsxcore; libxml2 for igraph (pkgcheck dependency stack)
-          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev libxml2-dev
+          # zlib/bz2/xz for rsxcore; libxml2 for igraph; checkbashisms for R CMD --as-cran
+          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev libxml2-dev devscripts
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -86,6 +86,16 @@ jobs:
             res <- pkgcheck::pkgcheck()
             s <- summary(res)
             print(s)
+            # Surface embedded R CMD check / goodpractice details in Actions logs.
+            if (!is.null(res$checks$rcmdcheck)) {
+              message("---- embedded rcmdcheck (pkgcheck) ----")
+              try(print(res$checks$rcmdcheck), silent = TRUE)
+            }
+            if (!is.null(res$goodpractice)) {
+              message("---- goodpractice rcmdcheck errors/warnings ----")
+              gp <- res$goodpractice
+              if (!is.null(gp$rcmdcheck)) try(print(gp$rcmdcheck), silent = TRUE)
+            }
             ok <- isTRUE(attr(s, "checks_okay"))
             if (!isTRUE(ok) && "checks_okay" %in% getNamespaceExports("pkgcheck")) {
               ok <- isTRUE(pkgcheck::checks_okay(res))

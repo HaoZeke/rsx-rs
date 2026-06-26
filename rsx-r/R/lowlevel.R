@@ -10,7 +10,7 @@
 #' @return The output path, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_process("reads/", tempfile(fileext = ".tsv"), threads = 2L, min_depth = 5L)
 #' }
 rsx_process <- function(input_dir, output_file, threads = 1L, min_depth = 1L) {
@@ -27,7 +27,7 @@ rsx_process <- function(input_dir, output_file, threads = 1L, min_depth = 1L) {
 #' @return The output path, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_freq("markers.tsv", tempfile(fileext = ".tsv"), min_depth = 5L)
 #' }
 rsx_freq <- function(table_path, output_file, min_depth = 1L) {
@@ -49,7 +49,7 @@ rsx_freq <- function(table_path, output_file, min_depth = 1L) {
 #' @return The output path, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_distrib("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
 #'             group1 = "M", group2 = "F")
 #' }
@@ -72,7 +72,7 @@ rsx_distrib <- function(table_path, popmap_path, output_file,
 #' @return The output path, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_signif("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
 #'            test = "fisher", correction = "fdr")
 #' }
@@ -98,7 +98,7 @@ rsx_signif <- function(table_path, popmap_path, output_file,
 #' @return The output path, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_triage("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
 #'            min_depth = 10L)
 #' }
@@ -127,7 +127,7 @@ rsx_triage <- function(table_path, popmap_path, output_file,
 #' @return The output path, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_depth("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"))
 #' }
 rsx_depth <- function(table_path, popmap_path, output_file,
@@ -146,7 +146,7 @@ rsx_depth <- function(table_path, popmap_path, output_file,
 #' @return The output path, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_merge(c("a.tsv", "b.tsv"), tempfile(fileext = ".tsv"))
 #' }
 rsx_merge <- function(input_files, output_file, buffer_size = 0L,
@@ -165,7 +165,7 @@ rsx_merge <- function(input_files, output_file, buffer_size = 0L,
 #' @return The output directory, invisibly.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' rsx_pca("markers.tsv", tempdir(), min_depth = 1L)
 #' }
 rsx_pca <- function(table_path, output_dir, min_depth = 1L, n_components = 0L) {

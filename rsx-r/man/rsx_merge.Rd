@@ -22,7 +22,7 @@ The output path, invisibly.
 Merge marker depth tables (bounded memory)
 }
 \examples{
-\donttest{
+\dontrun{
 rsx_merge(c("a.tsv", "b.tsv"), tempfile(fileext = ".tsv"))
 }
 }

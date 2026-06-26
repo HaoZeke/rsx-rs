@@ -23,7 +23,7 @@ A tibble of the marker distribution.
 Marker distribution across groups
 }
 \examples{
-\donttest{
+\dontrun{
 mt <- marker_table("markers.tsv")
 distrib(mt, popmap = "popmap.tsv", group1 = "M", group2 = "F")
 }

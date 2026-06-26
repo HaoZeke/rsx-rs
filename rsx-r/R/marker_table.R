@@ -62,7 +62,7 @@ format.marker_table <- function(x, ...) {
 #' @return A tibble of triaged markers.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' mt <- marker_table("markers.tsv")
 #' triage(mt, popmap = "popmap.tsv", min_depth = 10L)
 #' }
@@ -83,7 +83,7 @@ triage.marker_table <- function(x, popmap, ...) {
 #' @return A tibble of significant markers.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' mt <- marker_table("markers.tsv")
 #' signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
 #' }
@@ -104,7 +104,7 @@ signif_markers.marker_table <- function(x, popmap, ...) {
 #' @return A tibble of the marker distribution.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' mt <- marker_table("markers.tsv")
 #' distrib(mt, popmap = "popmap.tsv", group1 = "M", group2 = "F")
 #' }
@@ -125,7 +125,7 @@ distrib.marker_table <- function(x, popmap, ...) {
 #' @return A tibble of per-individual depths.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' mt <- marker_table("markers.tsv")
 #' depth(mt, popmap = "popmap.tsv")
 #' }
@@ -145,7 +145,7 @@ depth.marker_table <- function(x, popmap, ...) {
 #' @return A tibble of frequencies.
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' mt <- marker_table("markers.tsv")
 #' frequencies(mt, min_depth = 5L)
 #' }

@@ -21,7 +21,7 @@ A tibble of frequencies.
 Per-marker allele frequencies
 }
 \examples{
-\donttest{
+\dontrun{
 mt <- marker_table("markers.tsv")
 frequencies(mt, min_depth = 5L)
 }

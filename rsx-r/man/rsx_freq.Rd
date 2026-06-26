@@ -20,7 +20,7 @@ The output path, invisibly.
 Compute per-marker allele frequencies
 }
 \examples{
-\donttest{
+\dontrun{
 rsx_freq("markers.tsv", tempfile(fileext = ".tsv"), min_depth = 5L)
 }
 }

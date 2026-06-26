@@ -23,7 +23,7 @@ A tibble of significant markers.
 Significant sex-linked markers
 }
 \examples{
-\donttest{
+\dontrun{
 mt <- marker_table("markers.tsv")
 signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
 }

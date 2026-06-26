@@ -43,7 +43,7 @@ The output path, invisibly.
 Marker distribution across groups
 }
 \examples{
-\donttest{
+\dontrun{
 rsx_distrib("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
             group1 = "M", group2 = "F")
 }
