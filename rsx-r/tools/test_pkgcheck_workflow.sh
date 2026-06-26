@@ -15,8 +15,11 @@ grep -q 'pkgcheck::pkgcheck' "$WF"
 grep -q 'workflow_dispatch' "$WF"
 grep -q 'rsx-r/\*\*' "$WF"
 grep -q 'rsxcore/\*\*' "$WF"
-# Must not be Docker-only stock action without custom setup (filename may mention action in comments)
+grep -q 'ropensci-review-tools/pkgcheck' "$WF"
+# Must not use Docker pkgcheck-action as sole install path
 ! grep -E 'uses:.*pkgcheck-action' "$WF"
+# Must not claim CRAN any::pkgcheck (package is GitHub-only)
+! grep -q 'any::pkgcheck' "$WF"
 grep -q 'rsxr-pkgcheck.yaml' "$ROOT/rsx-r/README.md"
 grep -q 'Config/Needs/pkgcheck' "$ROOT/rsx-r/DESCRIPTION"
 echo "test_pkgcheck_workflow.sh: all assertions passed"

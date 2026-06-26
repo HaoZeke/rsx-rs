@@ -31,7 +31,6 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      # Hint to pkgcheck / tools that we are in CI (no interactive prompts).
       CI: true
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +43,8 @@ jobs:
       - name: System libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev
+          # zlib/bz2/xz for rsxcore; libxml2 for igraph (pkgcheck dependency stack)
+          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev libxml2-dev
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -52,13 +52,25 @@ jobs:
         with:
           use-public-rspm: true
 
-      # Install package (+ Suggests) and pkgcheck from CRAN/r-universe as needed.
-      # local::. builds rsxr with cargo present after staging.
+      # Package deps + install rsxr (local::.). pkgcheck is GitHub-only (not CRAN).
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgcheck, local::.
+          extra-packages: local::.
           needs: check
           working-directory: rsx-r
+
+      - name: Install pkgcheck from GitHub
+        run: |
+          Rscript --no-init-file -e '
+            if (!requireNamespace("pak", quietly = TRUE)) {
+              install.packages("pak", repos = sprintf(
+                "https://r-lib.github.io/p/pak/stable/%s/%s/%s",
+                .Platform$pkgType, R.Version()$os, R.Version()$arch
+              ))
+            }
+            pak::pak("ropensci-review-tools/pkgcheck")
+            stopifnot(requireNamespace("pkgcheck", quietly = TRUE))
+          '
 
       - name: Run pkgcheck (fail on non-clean checklist)
         working-directory: rsx-r
@@ -68,7 +80,7 @@ jobs:
             s <- summary(res)
             print(s)
             ok <- isTRUE(attr(s, "checks_okay"))
-            if (!ok && exists("checks_okay", where = asNamespace("pkgcheck"), inherits = FALSE)) {
+            if (!isTRUE(ok) && "checks_okay" %in% getNamespaceExports("pkgcheck")) {
               ok <- isTRUE(pkgcheck::checks_okay(res))
             }
             if (!isTRUE(ok)) {
@@ -76,4 +88,3 @@ jobs:
             }
             message("pkgcheck: checks_okay")
           '
-        shell: bash
