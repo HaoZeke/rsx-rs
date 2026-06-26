@@ -9,6 +9,10 @@
 #' @param min_depth Minimum depth for a marker to be retained.
 #' @return The output path, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_process("reads/", tempfile(fileext = ".tsv"), threads = 2L, min_depth = 5L)
+#' }
 rsx_process <- function(input_dir, output_file, threads = 1L, min_depth = 1L) {
   .Call(C_rsx_process, input_dir, output_file,
         as.integer(threads), as.integer(min_depth))
@@ -22,6 +26,10 @@ rsx_process <- function(input_dir, output_file, threads = 1L, min_depth = 1L) {
 #' @param min_depth Minimum depth threshold.
 #' @return The output path, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_freq("markers.tsv", tempfile(fileext = ".tsv"), min_depth = 5L)
+#' }
 rsx_freq <- function(table_path, output_file, min_depth = 1L) {
   .Call(C_rsx_freq, table_path, output_file, as.integer(min_depth))
   invisible(output_file)
@@ -40,6 +48,11 @@ rsx_freq <- function(table_path, output_file, min_depth = 1L) {
 #' @param output_bayes Also emit Bayesian columns.
 #' @return The output path, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_distrib("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
+#'             group1 = "M", group2 = "F")
+#' }
 rsx_distrib <- function(table_path, popmap_path, output_file,
                         min_depth = 1L, signif_threshold = 0.05,
                         group1 = "", group2 = "",
@@ -58,6 +71,11 @@ rsx_distrib <- function(table_path, popmap_path, output_file,
 #' @param bayes Also emit Bayesian columns.
 #' @return The output path, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_signif("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
+#'            test = "fisher", correction = "fdr")
+#' }
 rsx_signif <- function(table_path, popmap_path, output_file,
                        min_depth = 1L, signif_threshold = 0.05,
                        group1 = "", group2 = "",
@@ -79,6 +97,11 @@ rsx_signif <- function(table_path, popmap_path, output_file,
 #' @param linked_probability Probability model for a linked marker.
 #' @return The output path, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_triage("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
+#'            min_depth = 10L)
+#' }
 rsx_triage <- function(table_path, popmap_path, output_file,
                        min_depth = 10L, signif_threshold = 0.05,
                        posterior_threshold = 0.9,
@@ -103,6 +126,10 @@ rsx_triage <- function(table_path, popmap_path, output_file,
 #' @param streaming Use the streaming (bounded-memory) path.
 #' @return The output path, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_depth("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"))
+#' }
 rsx_depth <- function(table_path, popmap_path, output_file,
                       min_frequency = 0.5, streaming = FALSE) {
   .Call(C_rsx_depth, table_path, popmap_path, output_file,
@@ -118,6 +145,10 @@ rsx_depth <- function(table_path, popmap_path, output_file,
 #' @param output_parquet Write Parquet instead of TSV.
 #' @return The output path, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_merge(c("a.tsv", "b.tsv"), tempfile(fileext = ".tsv"))
+#' }
 rsx_merge <- function(input_files, output_file, buffer_size = 0L,
                       output_parquet = FALSE) {
   .Call(C_rsx_merge, as.character(input_files), output_file,
@@ -133,6 +164,10 @@ rsx_merge <- function(input_files, output_file, buffer_size = 0L,
 #' @param n_components Number of components; 0 uses the default.
 #' @return The output directory, invisibly.
 #' @export
+#' @examples
+#' \donttest{
+#' rsx_pca("markers.tsv", tempdir(), min_depth = 1L)
+#' }
 rsx_pca <- function(table_path, output_dir, min_depth = 1L, n_components = 0L) {
   .Call(C_rsx_pca, table_path, output_dir,
         as.integer(min_depth), as.integer(n_components))

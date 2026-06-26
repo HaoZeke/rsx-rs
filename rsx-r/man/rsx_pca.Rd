@@ -21,3 +21,8 @@ The output directory, invisibly.
 \description{
 Streaming PCA of the marker matrix
 }
+\examples{
+\donttest{
+rsx_pca("markers.tsv", tempdir(), min_depth = 1L)
+}
+}

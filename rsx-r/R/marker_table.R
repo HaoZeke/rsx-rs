@@ -23,10 +23,10 @@ rsxr_read_core_tsv <- function(path) {
 #' @return An object of class `marker_table`.
 #' @export
 #' @examples
-#' \dontrun{
-#' mt <- marker_table("markers.tsv")
-#' triage(mt, popmap = "popmap.tsv", min_depth = 10)
-#' }
+#' tmp <- tempfile(fileext = ".tsv")
+#' writeLines(c("#Number of markers: 0", "id\tsequence"), tmp)
+#' mt <- marker_table(tmp)
+#' print(mt)
 marker_table <- function(x) {
   if (is.character(x) && length(x) == 1L) {
     if (!file.exists(x)) {
@@ -61,6 +61,11 @@ format.marker_table <- function(x, ...) {
 #' @param ... Passed to [rsx_triage()].
 #' @return A tibble of triaged markers.
 #' @export
+#' @examples
+#' \donttest{
+#' mt <- marker_table("markers.tsv")
+#' triage(mt, popmap = "popmap.tsv", min_depth = 10L)
+#' }
 triage <- function(x, ...) UseMethod("triage")
 
 #' @rdname triage
@@ -77,6 +82,11 @@ triage.marker_table <- function(x, popmap, ...) {
 #' @param ... Passed to [rsx_signif()].
 #' @return A tibble of significant markers.
 #' @export
+#' @examples
+#' \donttest{
+#' mt <- marker_table("markers.tsv")
+#' signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
+#' }
 signif_markers <- function(x, ...) UseMethod("signif_markers")
 
 #' @rdname signif_markers
@@ -93,6 +103,11 @@ signif_markers.marker_table <- function(x, popmap, ...) {
 #' @param ... Passed to [rsx_distrib()].
 #' @return A tibble of the marker distribution.
 #' @export
+#' @examples
+#' \donttest{
+#' mt <- marker_table("markers.tsv")
+#' distrib(mt, popmap = "popmap.tsv", group1 = "M", group2 = "F")
+#' }
 distrib <- function(x, ...) UseMethod("distrib")
 
 #' @rdname distrib
@@ -109,6 +124,11 @@ distrib.marker_table <- function(x, popmap, ...) {
 #' @param ... Passed to [rsx_depth()].
 #' @return A tibble of per-individual depths.
 #' @export
+#' @examples
+#' \donttest{
+#' mt <- marker_table("markers.tsv")
+#' depth(mt, popmap = "popmap.tsv")
+#' }
 depth <- function(x, ...) UseMethod("depth")
 
 #' @rdname depth
@@ -124,6 +144,11 @@ depth.marker_table <- function(x, popmap, ...) {
 #' @param ... Passed to [rsx_freq()].
 #' @return A tibble of frequencies.
 #' @export
+#' @examples
+#' \donttest{
+#' mt <- marker_table("markers.tsv")
+#' frequencies(mt, min_depth = 5L)
+#' }
 frequencies <- function(x, ...) UseMethod("frequencies")
 
 #' @rdname frequencies

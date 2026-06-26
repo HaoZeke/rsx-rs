@@ -22,3 +22,9 @@ A tibble of triaged markers.
 \description{
 Bayesian sex-linkage triage
 }
+\examples{
+\donttest{
+mt <- marker_table("markers.tsv")
+triage(mt, popmap = "popmap.tsv", min_depth = 10L)
+}
+}

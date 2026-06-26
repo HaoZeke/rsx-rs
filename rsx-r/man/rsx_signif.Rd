@@ -45,3 +45,9 @@ The output path, invisibly.
 \description{
 Extract significant sex-linked markers
 }
+\examples{
+\donttest{
+rsx_signif("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
+           test = "fisher", correction = "fdr")
+}
+}

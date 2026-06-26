@@ -29,3 +29,8 @@ The output path, invisibly.
 \description{
 Marker depth per individual
 }
+\examples{
+\donttest{
+rsx_depth("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"))
+}
+}

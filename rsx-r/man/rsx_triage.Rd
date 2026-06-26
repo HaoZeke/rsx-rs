@@ -45,3 +45,9 @@ The output path, invisibly.
 \description{
 Bayesian sex-linkage triage of markers
 }
+\examples{
+\donttest{
+rsx_triage("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
+           min_depth = 10L)
+}
+}

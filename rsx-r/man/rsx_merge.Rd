@@ -21,3 +21,8 @@ The output path, invisibly.
 \description{
 Merge marker depth tables (bounded memory)
 }
+\examples{
+\donttest{
+rsx_merge(c("a.tsv", "b.tsv"), tempfile(fileext = ".tsv"))
+}
+}

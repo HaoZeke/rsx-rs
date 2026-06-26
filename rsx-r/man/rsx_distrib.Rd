@@ -42,3 +42,9 @@ The output path, invisibly.
 \description{
 Marker distribution across groups
 }
+\examples{
+\donttest{
+rsx_distrib("markers.tsv", "popmap.tsv", tempfile(fileext = ".tsv"),
+            group1 = "M", group2 = "F")
+}
+}

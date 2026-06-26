@@ -22,3 +22,9 @@ A tibble of per-individual depths.
 \description{
 Per-individual marker depth
 }
+\examples{
+\donttest{
+mt <- marker_table("markers.tsv")
+depth(mt, popmap = "popmap.tsv")
+}
+}

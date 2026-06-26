@@ -17,8 +17,8 @@ An object of class \code{marker_table}.
 Create a marker table handle
 }
 \examples{
-\dontrun{
-mt <- marker_table("markers.tsv")
-triage(mt, popmap = "popmap.tsv", min_depth = 10)
-}
+tmp <- tempfile(fileext = ".tsv")
+writeLines(c("#Number of markers: 0", "id\tsequence"), tmp)
+mt <- marker_table(tmp)
+print(mt)
 }

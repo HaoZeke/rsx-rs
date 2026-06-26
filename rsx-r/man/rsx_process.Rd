@@ -21,3 +21,8 @@ The output path, invisibly.
 \description{
 Process demultiplexed reads into a marker depth table
 }
+\examples{
+\donttest{
+rsx_process("reads/", tempfile(fileext = ".tsv"), threads = 2L, min_depth = 5L)
+}
+}

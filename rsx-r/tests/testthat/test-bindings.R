@@ -10,8 +10,6 @@ test_that("marker_table validates its input", {
 })
 
 test_that("a missing input surfaces the rsx error message", {
-  # The C API returns a non-zero status; the glue turns it into an R error
-  # carrying the thread-local rsx_last_error() text.
   expect_error(
     rsx_freq("/no/such/markers.tsv", tempfile(), min_depth = 1L),
     "rsx:"
@@ -24,4 +22,42 @@ test_that("marker_table prints its path", {
   mt <- marker_table(tmp)
   expect_s3_class(mt, "marker_table")
   expect_output(print(mt), "marker_table")
+  expect_match(format(mt), "marker_table")
+})
+
+test_that("marker_table accepts a data frame", {
+  df <- data.frame(id = "m1", sequence = "ACGT", check.names = FALSE)
+  mt <- marker_table(df)
+  expect_s3_class(mt, "marker_table")
+  expect_true(file.exists(mt$path))
+})
+
+test_that("low-level commands error on missing paths", {
+  miss <- tempfile()
+  out <- tempfile()
+  expect_error(rsx_process(miss, out), "rsx:")
+  expect_error(rsx_distrib(miss, miss, out), "rsx:")
+  expect_error(rsx_signif(miss, miss, out), "rsx:")
+  expect_error(rsx_triage(miss, miss, out), "rsx:")
+  expect_error(rsx_depth(miss, miss, out), "rsx:")
+  expect_error(rsx_merge(miss, out), "rsx:")
+  expect_error(rsx_pca(miss, tempdir()), "rsx:")
+})
+
+test_that("high-level verbs error when inputs are missing", {
+  tmp <- tempfile(fileext = ".tsv")
+  writeLines("#Number of markers: 0\nid\tsequence", tmp)
+  mt <- marker_table(tmp)
+  miss <- tempfile()
+  expect_error(triage(mt, popmap = miss), "rsx:")
+  expect_error(signif_markers(mt, popmap = miss), "rsx:")
+  expect_error(distrib(mt, popmap = miss), "rsx:")
+  expect_error(depth(mt, popmap = miss), "rsx:")
+  # frequencies only needs the table path; missing file still errors from C
+  bad <- marker_table(tmp)
+  # corrupt by pointing at a gone path: build handle then delete
+  path <- bad$path
+  file.remove(path)
+  # object still holds path; frequencies should fail via rsx
+  expect_error(frequencies(bad), "rsx:")
 })

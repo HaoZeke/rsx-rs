@@ -20,3 +20,9 @@ A tibble of frequencies.
 \description{
 Per-marker allele frequencies
 }
+\examples{
+\donttest{
+mt <- marker_table("markers.tsv")
+frequencies(mt, min_depth = 5L)
+}
+}
