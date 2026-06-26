@@ -1,0 +1,55 @@
+#!/bin/sh
+# Configure rsxr: verify the Rust toolchain, report versions (CRAN policy),
+# and generate src/Makevars from src/Makevars.in.
+
+set -e
+
+# Source ~/.cargo/env if present so rustc is on PATH even when only cargo is.
+BEFORE_CARGO_BUILD=''
+if [ -e "${HOME}/.cargo/env" ]; then
+  . "${HOME}/.cargo/env"
+  BEFORE_CARGO_BUILD="${BEFORE_CARGO_BUILD} . \"${HOME}/.cargo/env\" \\&\\&"
+fi
+
+# Check the Rust installation; abort if cargo is unavailable.
+"${R_HOME}/bin/Rscript" "./tools/configure.R"
+ret=$?
+if [ "$ret" -ne 0 ]; then
+  exit "$ret"
+fi
+
+# Report toolchain versions in the install log (CRAN policy).
+echo "using Rust package manager: '$(cargo --version)'"
+echo "using Rust compiler: '$(rustc --version)'"
+
+# Prefer cargo-auditable so the static library embeds a dependency SBOM.
+if cargo auditable --version >/dev/null 2>&1; then
+  CARGO_BUILD="cargo auditable build"
+  echo "using cargo-auditable for an embedded dependency SBOM"
+else
+  CARGO_BUILD="cargo build"
+  echo "cargo-auditable not found, using plain 'cargo build'"
+fi
+
+# CRAN builds must be offline, vendored, and write only inside the package.
+# A developer build (DEBUG=true, or no vendored sources) uses the network and
+# the user's CARGO_HOME and the in-repo rsx-core path dependency.
+if [ "${DEBUG}" != "true" ] && [ -f "./src/rust/vendor.tar.xz" ]; then
+  BEFORE_CARGO_BUILD="${BEFORE_CARGO_BUILD}"' export CARGO_HOME="$(PWD)/.cargo" \&\&'
+  VENDORING="yes"
+  OFFLINE_OPTION="--offline"
+  echo "vendored sources found: building offline"
+else
+  VENDORING="no"
+  OFFLINE_OPTION=""
+  echo "no vendored sources (developer build): building online against ../rsx-core"
+fi
+
+sed \
+  -e "s|@BEFORE_CARGO_BUILD@|${BEFORE_CARGO_BUILD}|" \
+  -e "s|@VENDORING@|${VENDORING}|" \
+  -e "s|@OFFLINE_OPTION@|${OFFLINE_OPTION}|" \
+  -e "s|@CARGO_BUILD@|${CARGO_BUILD}|" \
+  src/Makevars.in > src/Makevars
+
+exit 0

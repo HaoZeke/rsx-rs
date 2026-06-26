@@ -1,0 +1,27 @@
+[workspace]
+authors = ["Rohit Goswami <rgoswami@ieee.org>"]
+channels = ["conda-forge"]
+name = "rsxr"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+document = "Rscript --no-init-file -e 'roxygen2::roxygenise()'"
+install = "R CMD INSTALL --preclean --no-multiarch ."
+check = "Rscript --no-init-file -e 'rcmdcheck::rcmdcheck(args = c(\"--no-manual\"), error_on = \"warning\")'"
+test = "Rscript --no-init-file -e 'devtools::test()'"
+vendor = "sh tools/vendor.sh"
+
+[dependencies]
+r-base = ">=4.3"
+r-devtools = ">=2.4"
+r-roxygen2 = "*"
+r-rcmdcheck = "*"
+r-testthat = ">=3.0"
+r-tibble = "*"
+r-readr = "*"
+rust = ">=1.85"
+# Compression libraries needletail links against (also pulled by the linker).
+zlib = "*"
+bzip2 = "*"
+xz = "*"

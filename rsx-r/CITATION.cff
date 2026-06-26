@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: "rsxr: R bindings for the rsx RAD-seq sex-determination toolkit"
+message: "If you use this software, please cite the rsx software entry below."
+type: software
+authors:
+  - family-names: "Goswami"
+    given-names: "Rohit"
+    orcid: "https://orcid.org/0000-0002-2393-8056"
+  - family-names: "Goswami"
+    given-names: "Ruhila"
+    orcid: "https://orcid.org/0000-0002-5443-9356"
+repository-code: "https://github.com/HaoZeke/rsx-rs"
+url: "https://rsx.rgoswami.me"
+license: GPL-3.0-or-later
+version: "0.1.0"
+references:
+  - type: software
+    title: "rsx: a high-performance streaming toolkit for RAD-seq sex determination"
+    authors:
+      - family-names: "Goswami"
+        given-names: "Rohit"
+      - family-names: "Goswami"
+        given-names: "Ruhila"
+    url: "https://rsx.rgoswami.me"

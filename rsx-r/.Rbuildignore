@@ -1,0 +1,15 @@
+^src/Makevars$
+^src/rust/target$
+^src/rust/\.cargo$
+^src/rust/vendor$
+^src/\.cargo$
+^.*\.o$
+^.*\.a$
+^.*\.so$
+^pixi\.toml$
+^pixi\.lock$
+^\.pixi$
+^\.github$
+^LICENSE\.md$
+^\.vscode$
+^Cargo\.toml\.dev\.bak$

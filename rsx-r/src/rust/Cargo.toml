@@ -1,0 +1,27 @@
+[package]
+name = "rsxr"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+description = "Static-library anchor exposing the rsx-core C API to the rsxr R package"
+license = "GPL-3.0-or-later"
+
+# Standalone workspace so the R-package build is not captured by the outer
+# rsx-rs cargo workspace when invoked through src/Makevars.
+[workspace]
+
+[lib]
+name = "rsxr"
+crate-type = ["staticlib"]
+
+[profile.release]
+# Keep the C-API symbols; they are reached only through the #[used] anchor.
+lto = false
+opt-level = 3
+
+[dependencies]
+# Dev builds use the in-repo crate (carries the C API added for these bindings).
+# CRAN packaging (tools/vendor.sh) rewrites this to the published crates.io
+# version and vendors the dependency tree under ./vendor.
+rsx-core = { path = "../../../rsx-core", default-features = false, features = ["parallel"] }
