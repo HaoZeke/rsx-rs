@@ -1,0 +1,79 @@
+# rOpenSci pkgcheck for rsxr (rsx-r/). Custom job: stages rsxcore + Rust so the
+# monorepo package can compile; does NOT use the stock Docker pkgcheck-action
+# alone (no package-subdir / cargo contract).
+#
+# Known limitation: pkgcheck's "GitHub CI green" assertion can lag while sibling
+# workflows (R-CMD-check matrix, docs) are still running. Prefer package checks;
+# do not invent a wait loop on other Actions jobs.
+name: rsxr-pkgcheck
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "rsx-r/**"
+      - "rsxcore/**"
+      - ".github/workflows/rsxr-pkgcheck.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "rsx-r/**"
+      - "rsxcore/**"
+      - ".github/workflows/rsxr-pkgcheck.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pkgcheck:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      # Hint to pkgcheck / tools that we are in CI (no interactive prompts).
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage rsxcore into rsx-r/src/rust/rsxcore
+        run: sh rsx-r/tools/stage_rsxcore.sh rsx-r
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # Install package (+ Suggests) and pkgcheck from CRAN/r-universe as needed.
+      # local::. builds rsxr with cargo present after staging.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::pkgcheck, local::.
+          needs: check
+          working-directory: rsx-r
+
+      - name: Run pkgcheck (fail on non-clean checklist)
+        working-directory: rsx-r
+        run: |
+          Rscript --no-init-file -e '
+            res <- pkgcheck::pkgcheck()
+            s <- summary(res)
+            print(s)
+            ok <- isTRUE(attr(s, "checks_okay"))
+            if (!ok && exists("checks_okay", where = asNamespace("pkgcheck"), inherits = FALSE)) {
+              ok <- isTRUE(pkgcheck::checks_okay(res))
+            }
+            if (!isTRUE(ok)) {
+              stop("pkgcheck: package is not ready (see checklist above)", call. = FALSE)
+            }
+            message("pkgcheck: checks_okay")
+          '
+        shell: bash

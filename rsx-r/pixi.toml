@@ -13,6 +13,8 @@ install = "env CARGO_HOME=\"$PWD/.pixi/cargo-home\" R CMD INSTALL --preclean --n
 check = "env CARGO_HOME=\"$PWD/.pixi/cargo-home\" Rscript --no-init-file -e 'rcmdcheck::rcmdcheck(args = c(\"--no-manual\"), error_on = \"warning\")'"
 test = "env CARGO_HOME=\"$PWD/.pixi/cargo-home\" Rscript --no-init-file -e 'devtools::test()'"
 vendor = "sh tools/vendor.sh"
+# Structural gate for the monorepo pkgcheck Actions contract (no R required).
+test-pkgcheck-workflow = "sh tools/test_pkgcheck_workflow.sh"
 
 [dependencies]
 r-base = ">=4.3"

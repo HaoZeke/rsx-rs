@@ -31,6 +31,7 @@ Suggests:
 Config/testthat/edition: 3
 Config/rsxr/MSRV: 1.85.0
 Config/Needs/website: pkgdown
+Config/Needs/pkgcheck: pkgcheck
 Config/roxygen2/version: 8.0.0
 Biarch: TRUE
 URL: https://github.com/HaoZeke/rsx-rs,
