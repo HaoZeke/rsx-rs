@@ -8,15 +8,15 @@ R bindings for [rsx](https://github.com/HaoZeke/rsx-rs), a high-performance
 streaming toolkit for RAD-seq sex determination.
 
 rsxr talks to rsx through R's native C interface: the package's C glue calls
-the rsx C API directly and links against the rsx-core static library. There is
+the rsx C API directly and links against the rsxcore static library. There is
 no subprocess and no intermediate serialization beyond the marker TSVs the
 commands already stream.
 
 ## Requirements
 
 - A Rust toolchain (`cargo`, `rustc`); see <https://rustup.rs>.
-- The rsx-core sources. Inside the rsx-rs repository these are found
-  automatically at `../rsx-core`; otherwise set the `RSX_CORE_DIR` environment
+- The rsxcore sources. Inside the rsx-rs repository these are found
+  automatically at `../rsxcore`; otherwise set the `RSX_CORE_DIR` environment
   variable before installing.
 
 ## Install

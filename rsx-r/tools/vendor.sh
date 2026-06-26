@@ -4,9 +4,9 @@
 #
 # CRAN requires the package to build offline. cargo vendor only vendors
 # registry (crates.io) dependencies, not path dependencies, so this script
-# first rewrites the rsx-core dependency to its published crates.io version.
+# first rewrites the rsxcore dependency to its published crates.io version.
 #
-# Prerequisite: rsx-core must be published to crates.io at the version below
+# Prerequisite: rsxcore must be published to crates.io at the version below
 # (it carries the C API the bindings call). Until then this script reports the
 # gap and exits non-zero.
 #
@@ -20,12 +20,12 @@ RUST_DIR="${PKG_DIR}/src/rust"
 
 cd "${RUST_DIR}"
 
-echo "rsxr/vendor: targeting rsx-core ${RSX_CORE_VERSION} from crates.io"
+echo "rsxr/vendor: targeting rsxcore ${RSX_CORE_VERSION} from crates.io"
 
 # Confirm the published crate exists before rewriting the manifest.
-if ! cargo search rsx-core 2>/dev/null | grep -q "^rsx-core = \"${RSX_CORE_VERSION}\""; then
-  echo "WARNING: rsx-core ${RSX_CORE_VERSION} not confirmed on crates.io." >&2
-  echo "Publish rsx-core (with the C API) before vendoring, or set" >&2
+if ! cargo search rsxcore 2>/dev/null | grep -q "^rsxcore = \"${RSX_CORE_VERSION}\""; then
+  echo "WARNING: rsxcore ${RSX_CORE_VERSION} not confirmed on crates.io." >&2
+  echo "Publish rsxcore (with the C API) before vendoring, or set" >&2
   echo "RSX_CORE_VERSION to a published version." >&2
 fi
 
@@ -33,7 +33,7 @@ fi
 # committed Cargo.toml uses the path dep for in-repo development).
 cp Cargo.toml Cargo.toml.dev.bak
 sed -i.tmp \
-  "s|^rsx-core = .*|rsx-core = { version = \"${RSX_CORE_VERSION}\", default-features = false, features = [\"parallel\"] }|" \
+  "s|^rsxcore = .*|rsxcore = { version = \"${RSX_CORE_VERSION}\", default-features = false, features = [\"parallel\"] }|" \
   Cargo.toml
 rm -f Cargo.toml.tmp
 

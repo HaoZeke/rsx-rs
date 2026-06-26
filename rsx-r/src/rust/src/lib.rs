@@ -4,7 +4,7 @@
 //! Static-library anchor for the rsxr R package.
 //!
 //! The package's C glue (`src/rsxr.c`) calls the rsx C API directly. Those
-//! `#[no_mangle] extern "C"` symbols live in `rsx-core`; when `rsx-core` is
+//! `#[no_mangle] extern "C"` symbols live in `rsxcore`; when `rsxcore` is
 //! consumed as an rlib dependency and this crate is archived into a
 //! `staticlib`, the linker would garbage-collect the C-API object files
 //! because nothing in Rust references them. `rsxr_anchor` names every entry
@@ -14,7 +14,7 @@
 use rsx_core::c_api::{commands, types};
 use rsx_core::status;
 
-/// References each rsx-core C entry point so its object file is archived into
+/// References each rsxcore C entry point so its object file is archived into
 /// `librsxr.a`. Exported (`#[no_mangle]`) so it is never dead-code-eliminated.
 #[no_mangle]
 pub extern "C" fn rsxr_anchor() -> usize {

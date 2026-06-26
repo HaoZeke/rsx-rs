@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
 publish = false
-description = "Static-library anchor exposing the rsx-core C API to the rsxr R package"
+description = "Static-library anchor exposing the rsxcore C API to the rsxr R package"
 license = "GPL-3.0-or-later"
 
 # Standalone workspace so the R-package build is not captured by the outer
@@ -22,6 +22,8 @@ opt-level = 3
 
 [dependencies]
 # Dev builds use the in-repo crate (carries the C API added for these bindings).
+# The crate's library name is `rsx_core` (so Rust does `use rsx_core`), while its
+# package name and directory are `rsxcore`.
 # CRAN packaging (tools/vendor.sh) rewrites this to the published crates.io
 # version and vendors the dependency tree under ./vendor.
-rsx-core = { path = "../../../rsx-core", default-features = false, features = ["parallel"] }
+rsxcore = { path = "../../../rsxcore", default-features = false, features = ["parallel"] }

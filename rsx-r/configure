@@ -33,7 +33,7 @@ fi
 
 # CRAN builds must be offline, vendored, and write only inside the package.
 # A developer build (DEBUG=true, or no vendored sources) uses the network and
-# the user's CARGO_HOME and the in-repo rsx-core path dependency.
+# the user's CARGO_HOME and the in-repo rsxcore path dependency.
 if [ "${DEBUG}" != "true" ] && [ -f "./src/rust/vendor.tar.xz" ]; then
   BEFORE_CARGO_BUILD="${BEFORE_CARGO_BUILD}"' export CARGO_HOME="$(PWD)/.cargo" \&\&'
   VENDORING="yes"
@@ -42,7 +42,7 @@ if [ "${DEBUG}" != "true" ] && [ -f "./src/rust/vendor.tar.xz" ]; then
 else
   VENDORING="no"
   OFFLINE_OPTION=""
-  echo "no vendored sources (developer build): building online against ../rsx-core"
+  echo "no vendored sources (developer build): building online against ../rsxcore"
 fi
 
 sed \

@@ -21,7 +21,7 @@ if (!isTRUE(res$success)) {
   cat("
 -------------- ERROR: CONFIGURATION FAILED --------------------
 
-The 'cargo' command is not available. rsxr compiles the rsx-core Rust
+The 'cargo' command is not available. rsxr compiles the rsxcore Rust
 library, so a Rust toolchain is required.
 
 Install Rust from <https://rustup.rs/> (or your distribution's packages)

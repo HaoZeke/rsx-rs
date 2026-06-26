@@ -6,7 +6,7 @@ LIBDIR = ./rust/target/release
 STATLIB = $(LIBDIR)/librsxr.a
 
 PKG_CPPFLAGS = -I.
-# rsx-core bundles Rust std; the trailing libs satisfy needletail's
+# rsxcore bundles Rust std; the trailing libs satisfy needletail's
 # gz/bz2/xz decompression and the usual pthread/dl/math/rt dependencies.
 PKG_LIBS = -L$(LIBDIR) -lrsxr -lpthread -ldl -lm -lrt -lz -lbz2 -llzma
 

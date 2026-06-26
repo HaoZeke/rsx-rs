@@ -13,10 +13,14 @@ build = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo build --release" }
 build-portable = { cmd = "cargo build --release" }
 test = { cmd = "cargo test" }
 gen-header = { cmd = "cargo build --manifest-path rsxcore/Cargo.toml --features gen-header" }
+# Build/install the C library + cbindgen header + pkg-config via cargo-c.
+capi-build = { cmd = "cargo cbuild --release --no-default-features --features parallel --manifest-path rsxcore/Cargo.toml" }
+capi-install = { cmd = "cargo cinstall --release --no-default-features --features parallel --manifest-path rsxcore/Cargo.toml --prefix $CONDA_PREFIX" }
 bench = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo bench --manifest-path rsxcore/Cargo.toml" }
 
 [feature.dev.dependencies]
 cargo-nextest = "*"
+cargo-c = "*"
 compilers = ">=1.8"
 pkg-config = "*"
 zlib = "*"
