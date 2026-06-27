@@ -1,0 +1,3 @@
+#!/bin/sh
+# Windows entry: same configure script (MSYS/Rtools provides sh + uname).
+exec sh ./configure

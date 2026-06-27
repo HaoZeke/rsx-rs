@@ -56,11 +56,32 @@ else
   fi
 fi
 
+# System libraries linked with the static Rust archive (OS-specific).
+OS_NAME=$(uname -s 2>/dev/null || echo unknown)
+case "${OS_NAME}" in
+  Linux)
+    EXTRA_LIBS="-lpthread -ldl -lm -lrt -lz -lbz2 -llzma"
+    ;;
+  Darwin)
+    # No librt on macOS; libdl is part of libSystem.
+    EXTRA_LIBS="-lpthread -lm -lz -lbz2 -llzma"
+    ;;
+  MINGW*|MSYS*|CYGWIN*|Windows_NT|windows*)
+    # MinGW: Rust std + needletail compression + Win sockets/crypto.
+    EXTRA_LIBS="-lz -lbz2 -llzma -lws2_32 -lbcrypt -lntdll -luserenv -ladvapi32"
+    ;;
+  *)
+    EXTRA_LIBS="-lpthread -lm -lz -lbz2 -llzma"
+    ;;
+esac
+echo "using EXTRA_LIBS=${EXTRA_LIBS} (uname=${OS_NAME})"
+
 sed \
   -e "s|@BEFORE_CARGO_BUILD@|${BEFORE_CARGO_BUILD}|" \
   -e "s|@VENDORING@|${VENDORING}|" \
   -e "s|@OFFLINE_OPTION@|${OFFLINE_OPTION}|" \
   -e "s|@CARGO_BUILD@|${CARGO_BUILD}|" \
+  -e "s|@EXTRA_LIBS@|${EXTRA_LIBS}|" \
   src/Makevars.in > src/Makevars
 
 exit 0
