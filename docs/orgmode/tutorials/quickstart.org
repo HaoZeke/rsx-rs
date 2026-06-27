@@ -179,8 +179,7 @@ mt <- marker_table("markers.tsv")
 triaged <- triage(mt, popmap = "popmap.tsv", min_depth = 10L)
 #+end_src
 
-Details: =rsx-r/README.md=, :doc:`howto/r-integration` (after export), and
-=vignette("rsxr")= after install.
+Details: =rsx-r/README.md= and =vignette("rsxr")= after install.
 
 #+begin_export rst
 Full R notes: :doc:`/howto/r-integration`.
