@@ -5,8 +5,7 @@ The ~rsx_core~ crate (the core Rust library) provides the full public API for al
 streaming commands, marker tables, C FFI, and supporting types.
 
 The module tree below is generated from the crate source (rustdoc comments)
-via ~sphinxcontrib_rust~ and ~sphinx-rustdocgen~. Expand *Crate rsx_core* in the
-sidebar or follow the toctree for ~commands~, ~c_api~, ~io~, ~source~, and friends.
+via ~sphinxcontrib_rust~ and ~sphinx-rustdocgen~. Expand "Crate rsx_core" in the sidebar or follow the toctree for ~commands~, ~c_api~, ~io~, ~source~, and friends.
 
 (The high-level user-facing Command Reference is a separate page in this section.)
 
