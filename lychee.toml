@@ -37,6 +37,8 @@ exclude = [
   '^https?://umami\.is/?$',
   '^https?://fonts\.gstatic\.com/',
   '^https?://fonts\.googleapis\.com/',
+  # Badge CDN flaky under automated HEAD (timeouts ≠ broken badges).
+  '^https://img\.shields\.io/',
 ]
 
 # Theme / vendor noise (not content links)
