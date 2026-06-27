@@ -1,0 +1,11 @@
+{#- Edit links target docs/orgmode/*.org (canonical), not generated RST. -#}
+{%- if page_source_suffix -%}
+{%- set org_path = 'docs/orgmode/' ~ pagename ~ '.org' -%}
+{%- set editurl = 'https://github.com/' ~ source_user ~ '/' ~ source_repo ~ '/blob/' ~ source_version ~ '/' ~ org_path -%}
+{#- Only show for narrative pages that have an org source; skip crates/api noise. -#}
+{%- if not pagename.startswith('crates/') and not pagename.startswith('api/') -%}
+<div class="edit-this-page">
+  <a href="{{ editurl }}">{{ _("Edit this page") }}</a>
+</div>
+{%- endif -%}
+{%- endif -%}

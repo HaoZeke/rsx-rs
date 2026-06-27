@@ -33,14 +33,14 @@ html_baseurl = "https://rsx.rgoswami.me/"
 # html_css_files left empty on purpose
 
 # Edit-this-page + repo-stats (Shibuya / LODE readcon-core pattern).
-# RST under docs/source/ is generated from docs/orgmode/ (gitignored); edit
-# links point at generated paths for local/dev and are excluded in lychee CI.
+# Narrative lives in docs/orgmode/; sidebar override points edit links at .org.
+# Generated RST under docs/source/ stays gitignored (build artifact).
 html_context = {
     "source_type": "github",
     "source_user": "HaoZeke",
     "source_repo": "rsx-rs",
     "source_version": "main",
-    "source_docs_path": "/docs/source/",
+    "source_docs_path": "/docs/orgmode/",
 }
 
 html_sidebars = {
