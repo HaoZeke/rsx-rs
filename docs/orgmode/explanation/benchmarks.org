@@ -134,23 +134,35 @@ sex-linked marker hypotheses under the same published workflow.
 pixi run -e benchmark plot-literature-benchmarks
 #+end_src
 
-The generated figure and table assets are written to =docs/figures/=:
+Generated assets live in =docs/figures/= (tracked SVGs + TSVs). Key plots are
+embedded below; regenerate with =pixi run -e benchmark plot-literature-benchmarks=.
 
-- =literature_runtime_breakdown.svg=
-- =literature_compute_breakdown.svg=
-- =literature_marker_throughput.svg=
-- =literature_downstream_times.svg=
-- =literature_bayesian_evidence.svg=
-- =literature_prior_sensitivity_heatmap.svg=
-- =literature_candidate_recovery.svg=
-- =literature_bio_unlocks.svg=
-- =literature_mode_candidate_counts.svg=
-- =literature_mode_qc.svg=
-- =literature_depth_stability.svg=
-- =literature_radsex_speedups.svg=
-- =literature_benchmark_summary.tsv=
-- =literature_speedup_summary.tsv=
-- =literature_speedup_pairs.tsv=
+#+begin_export rst
+.. figure:: /_static/figures/literature_radsex_speedups.svg
+   :alt: Geometric-mean speedups of rsx-rs vs C++ RADSex across literature datasets
+   :width: 100%
+   :align: center
+
+   Literature speed comparison (rsx-rs vs C++ RADSex). Source: ``docs/figures/literature_radsex_speedups.svg``.
+
+.. figure:: /_static/figures/literature_runtime_breakdown.svg
+   :alt: Runtime breakdown across process and downstream stages
+   :width: 100%
+   :align: center
+
+   Runtime breakdown. Source: ``docs/figures/literature_runtime_breakdown.svg``.
+
+.. figure:: /_static/figures/literature_compute_breakdown.svg
+   :alt: Compute time breakdown
+   :width: 100%
+   :align: center
+
+   Compute breakdown. Source: ``docs/figures/literature_compute_breakdown.svg``.
+#+end_export
+
+TSV companions (not embedded): =literature_benchmark_summary.tsv=,
+=literature_speedup_summary.tsv=, =literature_speedup_pairs.tsv=. Full SVG list
+on disk: =literature_*_*.svg= under =docs/figures/=.
 
 ** Literature speed comparison
 
@@ -189,8 +201,23 @@ pixi run -e benchmark plot-literature-benchmarks
 
 Bayesian evidence is summarized from the aggregated =distrib= tables without
 materializing marker-level multi-GB =signif --bayes= outputs. The summary is
-tracked in =benchmarks/results/literature_bayesian_evidence.csv= and plotted
-in =docs/figures/literature_bayesian_evidence.svg=.
+tracked in =benchmarks/results/literature_bayesian_evidence.csv=.
+
+#+begin_export rst
+.. figure:: /_static/figures/literature_bayesian_evidence.svg
+   :alt: Bayesian evidence summary across literature datasets
+   :width: 100%
+   :align: center
+
+   Bayesian biological evidence. Source: ``docs/figures/literature_bayesian_evidence.svg``.
+
+.. figure:: /_static/figures/literature_candidate_recovery.svg
+   :alt: Candidate recovery strict FASTA vs posterior-supported markers
+   :width: 100%
+   :align: center
+
+   Candidate recovery (strict Bonferroni FASTA vs posterior-supported markers).
+#+end_export
 
 The strongest Bayesian signal in the current panel is
 =danio_albolineatus= at minimum depth 1: 61,191 markers have posterior
@@ -214,8 +241,16 @@ prevalence in the linked sex. The sensitivity sweep runs =rsx triage= on
 every (pi in {0.001, 0.005, 0.01, 0.02, 0.05, 0.1}) x (p_sex in {0.8, 0.85,
 0.9, 0.95}) combination across the four literature datasets, producing 96
 per-marker triage tables in =benchmarks/results/slurm/=. The aggregated
-counts go to =benchmarks/results/prior_sensitivity_from_triage.csv= and the
-heatmap to =docs/figures/literature_prior_sensitivity_heatmap.svg=.
+counts go to =benchmarks/results/prior_sensitivity_from_triage.csv=.
+
+#+begin_export rst
+.. figure:: /_static/figures/literature_prior_sensitivity_heatmap.svg
+   :alt: Prior sensitivity heatmap for triage parameters pi and p_sex
+   :width: 100%
+   :align: center
+
+   Prior sensitivity heatmap (``pi`` × ``p_sex``). Large asset; scroll if needed.
+#+end_export
 
 #+begin_src bash
 sbatch --export=ALL,RSX_REPO=$PWD \

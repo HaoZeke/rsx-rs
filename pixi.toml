@@ -68,7 +68,8 @@ fix-doc-links = { cmd = "python docs/scripts/fix_doc_links.py", depends-on = ["m
 site = { cmd = "mkdir -p docs/source/_static && rm -rf docs/build/reference/architecture.html docs/build/reference/benchmarks.html docs/build/reference/hpc-design.html docs/build/reference/python-api-design.html 2>/dev/null; sphinx-build -E docs/source docs/build -b html", depends-on = ["polish-rst", "setup-rustdocgen", "gen-c-header"], description = "Build HTML site (org export + C/Rust API + Sphinx)" }
 docbld = { cmd = "mkdir -p docs/source/_static && rm -rf docs/build/reference/architecture.html docs/build/reference/benchmarks.html docs/build/reference/hpc-design.html docs/build/reference/python-api-design.html 2>/dev/null; sphinx-build -E docs/source docs/build -b html", depends-on = ["polish-rst", "setup-rustdocgen", "gen-c-header"], description = "Alias of site (readcon-core naming)" }
 # Link check on the artifact CI deploys. Requires `lychee` on PATH (cargo install lychee, or CI taiki-e/install-action).
-polish-rst = { cmd = "python docs/scripts/fix_doc_links.py && python docs/scripts/fix_doxyrest_rst.py", depends-on = ["fix-doc-links", "doxybuild", "gen-rust-api"], description = "Re-run RST link/role fixes after all generators" }
+sync-doc-figures = { cmd = "mkdir -p docs/source/_static/figures && cp -u docs/figures/*.svg docs/source/_static/figures/ 2>/dev/null || cp docs/figures/*.svg docs/source/_static/figures/", description = "Copy tracked SVGs into Sphinx _static/figures for embedding" }
+polish-rst = { cmd = "python docs/scripts/fix_doc_links.py && python docs/scripts/fix_doxyrest_rst.py", depends-on = ["fix-doc-links", "doxybuild", "gen-rust-api", "sync-doc-figures"], description = "Re-run RST link/role fixes after all generators" }
 linkcheck = { cmd = "lychee --config lychee.toml --no-progress 'docs/build/**/*.html' README.md", depends-on = ["site"], description = "Lychee on built HTML (same args as ci_docs.yml)" }
 
 [feature.python.dependencies]

@@ -67,3 +67,6 @@ repro/benchmarks/figshare_package/
 
 # Sphinx build subprojects
 /subprojects/
+
+# Copied from docs/figures/ by pixi sync-doc-figures (do not commit duplicates)
+/docs/source/_static/figures/
