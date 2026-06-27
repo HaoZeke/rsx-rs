@@ -167,12 +167,21 @@ hardware; the biological results (marker counts and evidence grades) do not.
 
 ** R bindings (=rsxr=)
 
+Install (needs =cargo= on =PATH=), then load and triage:
+
 #+begin_src r
-# pak::pak("HaoZeke/rsx-rs/rsx-r")  # needs cargo
+pak::pak("HaoZeke/rsx-rs/rsx-r")
 library(rsxr)
+
 rsx_version()
+
 mt <- marker_table("markers.tsv")
 triaged <- triage(mt, popmap = "popmap.tsv", min_depth = 10L)
 #+end_src
 
-Details: =rsx-r/README.md= and =vignette("rsxr")= after install.
+Details: =rsx-r/README.md=, :doc:`howto/r-integration` (after export), and
+=vignette("rsxr")= after install.
+
+#+begin_export rst
+Full R notes: :doc:`/howto/r-integration`.
+#+end_export
