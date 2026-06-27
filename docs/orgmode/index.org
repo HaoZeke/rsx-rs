@@ -11,9 +11,9 @@
      <p class="rc-hero-tagline">RAD-seq sex determination — streaming kernels, Bayesian marker evidence, CLI plus Python (<code>pyrsx</code>) and R (<code>rsxr</code>) bindings, RADSex-compatible TSV.</p>
    </div>
 
-======
+========
 ``rsx``
-======
+========
 
 Rust toolkit for **RAD-seq marker analysis** and sex determination. Bounded-memory
 streaming, Bayesian triage, and language bindings over a shared C API. Command-compatible
