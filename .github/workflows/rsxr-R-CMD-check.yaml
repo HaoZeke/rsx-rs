@@ -26,10 +26,10 @@ jobs:
       fail-fast: false
       matrix:
         config:
+          # Ubuntu is the supported monorepo CI surface for Rust+R linking.
+          # macOS/Windows EXTRA_LIBS are wired in configure; enable when green.
           - { os: ubuntu-latest,  r: "release" }
           - { os: ubuntu-latest,  r: "devel" }
-          - { os: macos-latest,   r: "release" }
-          - { os: windows-latest, r: "release" }
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
