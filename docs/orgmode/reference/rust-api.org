@@ -17,11 +17,6 @@ See also:
 - CLI flags: :doc:`/reference/commands`
 - Architecture: :doc:`/explanation/architecture`
 
-Start here for the crate root:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: rsx_core modules
-
-   ../crates/rsx_core/lib
+The module toctree (crate root and children) is injected below by
+``sphinx-rustdoc-postprocess`` during the docs build.
 #+end_export
