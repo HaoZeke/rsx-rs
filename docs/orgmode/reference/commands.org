@@ -1,3 +1,4 @@
+#+OPTIONS: author:nil
 #+TITLE: Command Reference
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
 

@@ -1,7 +1,7 @@
 #+TITLE: Changelog
 #+AUTHOR: [[https://rgoswami.me][Rohit Goswami]], Ruhila Goswami
 #+EMAIL: rgoswami@ieee.org
-#+OPTIONS: toc:nil num:nil
+#+OPTIONS: toc:nil num:nil author:nil
 
 
 The authoritative, per-release changelog is

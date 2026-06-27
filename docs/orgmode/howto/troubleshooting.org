@@ -1,7 +1,7 @@
 #+TITLE: Troubleshooting
 #+AUTHOR: [[https://rgoswami.me][Rohit Goswami]], Ruhila Goswami
 #+EMAIL: rgoswami@ieee.org
-#+OPTIONS: toc:t num:nil
+#+OPTIONS: toc:t num:nil author:nil
 
 
 * Build

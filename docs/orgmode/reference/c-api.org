@@ -1,11 +1,14 @@
 #+TITLE: C API Reference
-
+#+OPTIONS: toc:2 num:t author:nil
 
 The C API (exposed via a ~cbindgen~-generated header) provides stable,
 binary-compatible access to the core ~rsx_core~ functionality from C, C++,
 Python (~ctypes~ / ~cffi~), R (~.Call~), and other languages.
 
-It follows a simple contract (see also the :doc:`Architecture </explanation/architecture>` page):
+#+begin_export rst
+It follows a simple contract (see also the :doc:`/explanation/architecture`
+page):
+#+end_export
 
 - All public types are ~#[repr(C)]~.
 - Functions return ~rsx_status_t~ first.
@@ -41,12 +44,15 @@ All fallible functions return an ~rsx_status_t~. On failure, call
 
 * Cross-language notes
 
-- **C/C++**: Link against the ~cdylib~ (~librsx_core.so~ / ~.dylib~ / ~.dll~) and
+- *C/C++*: Link against the ~cdylib~ (~librsx_core.so~ / ~.dylib~ / ~.dll~) and
   include the header.
-- **Python**: Use ~ctypes~ or ~cffi~ to load the library and call the functions
-  (see the R-integration how-to for a similar pattern).
-- **R**: The ~.so~ can be used via ~.Call()~ or ~dyn.load~ (work in progress;
-  see the issue tracker).
+- *Python*: Use ~ctypes~ or ~cffi~ to load the library and call the functions
+  (see the R-integration how-to for a similar pattern). Prefer the ~pyrsx~
+  package for notebooks and pipelines.
+- *R*: Prefer the in-process ~rsxr~ package (~.Call~ into the static library).
+  Raw ~dyn.load~ of the shared object is possible but unsupported.
 
+#+begin_export rst
 For the underlying Rust implementation of these functions and types, see the
-:doc:`Rust API Reference <rust-api>`.
+:doc:`rust-api`.
+#+end_export

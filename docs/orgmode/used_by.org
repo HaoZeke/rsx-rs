@@ -1,7 +1,7 @@
 #+TITLE: Used By
 #+AUTHOR: [[https://rgoswami.me][Rohit Goswami]], Ruhila Goswami
 #+EMAIL: rgoswami@ieee.org
-#+OPTIONS: toc:nil todo:nil num:nil author:t title:t ^:nil
+#+OPTIONS: toc:nil todo:nil num:nil author:t title:t ^:nil author:nil
 
 Publications, theses, and reproducibility packages that use ~rsx~.
 

@@ -1,7 +1,7 @@
 #+TITLE: Frequently Asked Questions
 #+AUTHOR: [[https://rgoswami.me][Rohit Goswami]], Ruhila Goswami
 #+EMAIL: rgoswami@ieee.org
-#+OPTIONS: toc:t num:nil
+#+OPTIONS: toc:t num:nil author:nil
 
 
 * General
@@ -51,7 +51,7 @@ pak::pak("HaoZeke/rsx-rs/rsx-r")
 See the Language bindings page and =rsx-r/README.md=.
 
 #+begin_export rst
-Cross-link: :doc:`../reference/bindings`.
+Cross-link to the Language bindings page.
 #+end_export
 
 CI runs R-CMD-check and rOpenSci =pkgcheck=.
@@ -98,6 +98,7 @@ pinned pixi + Snakemake workflow that builds ~rsx~ and the C++ RADSex reference
 and regenerates every figure and number.
 
 #+begin_export rst
-See the :doc:`Used By </used_by>` page and the
-:doc:`benchmarks reference </explanation/benchmarks>`.
+#+begin_export rst
+See the :doc:`/used_by` page and the :doc:`/explanation/benchmarks` page.
+#+end_export
 #+end_export

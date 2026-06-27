@@ -1,7 +1,7 @@
 #+TITLE: How to Cite rsx
 #+AUTHOR: [[https://rgoswami.me][Rohit Goswami]], Ruhila Goswami
 #+EMAIL: rgoswami@ieee.org
-#+OPTIONS: toc:nil num:nil
+#+OPTIONS: toc:nil num:nil author:nil
 
 
 If you use ~rsx~ in your research, please cite the paper and the software.

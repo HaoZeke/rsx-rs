@@ -1,7 +1,7 @@
 #+TITLE: Glossary
 #+AUTHOR: [[https://rgoswami.me][Rohit Goswami]], Ruhila Goswami
 #+EMAIL: rgoswami@ieee.org
-#+OPTIONS: toc:t num:nil
+#+OPTIONS: toc:t num:nil author:nil
 
 
 Terms used across the ~rsx~ documentation, the command reference, and the paper.

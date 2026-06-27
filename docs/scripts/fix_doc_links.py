@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Rewrite accidental `label <page.rst|org>`_ links to :doc:`…` in Sphinx RST.
-
-Run after org→RST export (mkrst). Mirrors LODE readcon-core so lychee does not
-see file:// …/foo.rst links in built HTML.
-"""
+"""Post-process exported RST: links, escaped :doc: roles, org/markdown bold leaks."""
 from __future__ import annotations
 
 import re
@@ -14,24 +10,24 @@ ROOT = Path(__file__).resolve().parents[1] / "source"
 
 
 def fix_text(t: str) -> str:
-    def repl(m: re.Match[str]) -> str:
+    def repl_link(m: re.Match[str]) -> str:
         target = m.group(2).strip()
-        # Keep Sphinx doc path relative (drop extension); preserve ../ segments.
-        stem = target
         for ext in (".rst", ".org"):
-            if stem.endswith(ext):
-                stem = stem[: -len(ext)]
+            if target.endswith(ext):
+                target = target[: -len(ext)]
                 break
-        # Absolute-ish paths under source/ → doc name from ROOT
-        p = Path(stem)
-        if not stem.startswith("."):
-            # e.g. reference/bindings or commands
-            return f":doc:`{stem}`"
-        # relative ../reference/bindings → resolve later as written
-        return f":doc:`{stem}`"
+        return f":doc:`{target}`"
 
-    t = re.sub(r"`([^\`<>]+)\s+<([^>]+?\.(?:rst|org))>`_", repl, t)
-    # stray "./" after period from some ox-rst exports
+    t = re.sub(r"`([^\`<>]+)\s+<([^>]+?\.(?:rst|org))>`_", repl_link, t)
+    # ox-rst escapes roles as :doc:\`...\` — restore
+    t = re.sub(r":(doc|ref|mod|class|func|meth|attr|exc|data|const|envvar|token|option|term|eq|abbr|menuselection|guilabel|kbd|command|program|makevar|dfn|file|samp|pep|rfc|mailheader|mimetype|newsgroup|code):\\`([^`]+)\\`", r":\1:`\2`", t)
+    # double-escaped angle brackets in roles
+    t = t.replace("\\<", "<").replace("\\>", ">")
+    # ****Label**** or **Label** left as strong+stars from org ** inside paragraphs
+    t = re.sub(r"\*\*\*\*([^*]+)\*\*\*\*", r"**\1**", t)
+    # Author line noise from ox-rst (duplicate of HTML theme)
+    t = re.sub(r"^:Author:.*\n", "", t, flags=re.M)
+    t = re.sub(r"^\.\. sectionauthor::.*\n", "", t, flags=re.M)
     t = re.sub(r"(\S)\./(\s|$)", r"\1.\2", t)
     return t
 
@@ -42,11 +38,11 @@ def main() -> int:
         return 1
     n = 0
     for path in sorted(ROOT.rglob("*.rst")):
-        # skip generated crate API dumps (often huge; no narrative links)
         if "crates/" in path.as_posix() or "/xml/" in path.as_posix():
             continue
         if path.name.startswith("group__") or path.name.startswith("struct_"):
             continue
+        # still fix api/ for author/escape issues
         orig = path.read_text(encoding="utf-8")
         new = fix_text(orig)
         if new != orig:

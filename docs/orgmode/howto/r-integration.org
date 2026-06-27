@@ -1,9 +1,9 @@
 #+TITLE: R integration
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
-#+OPTIONS: toc:2 num:t
+#+OPTIONS: toc:2 num:t author:nil
 
-Two ways to use rsx from R: the **in-process** =rsxr= package (preferred), or
-**subprocess** calls to the =rsx= CLI for existing RADSex-style pipelines.
+Two ways to use rsx from R: the *in-process* =rsxr= package (preferred), or
+*subprocess* calls to the =rsx= CLI for existing RADSex-style pipelines.
 
 * Preferred: =rsxr= (in-process C API)
 

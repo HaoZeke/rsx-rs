@@ -58,16 +58,17 @@ sphinx-tabs = "*"
 [feature.docs.tasks]
 setup-doxyrest = { cmd = "test -d subprojects/doxyrest || (mkdir -p subprojects && git clone --depth 1 --single-branch https://github.com/vovkos/doxyrest subprojects/doxyrest)", description = "Clone doxyrest sphinx dependency" }
 patch-doxyrest = { cmd = "cp scripts/patches/doxyrest/doxyrest.py subprojects/doxyrest/sphinx/doxyrest.py && cp scripts/patches/doxyrest/doxyrest-shibuya.css subprojects/doxyrest/sphinx/css/doxyrest-shibuya.css && patch -p1 -N -s < scripts/patches/doxyrest/enum_class_fix.patch || true", depends-on = ["setup-doxyrest"], description = "Patch doxyrest sphinx extension" }
-doxybuild = { cmd = "doxygen Doxyfile_rsx.cfg && doxyrest -c doxyrest-config.lua", cwd = "docs/source", depends-on = ["patch-doxyrest", "gen-c-header"], description = "Generate C API docs via Doxygen and Doxyrest" }
+doxybuild = { cmd = "doxygen Doxyfile_rsx.cfg && doxyrest -c doxyrest-config.lua && python ../../docs/scripts/fix_doxyrest_rst.py", cwd = "docs/source", depends-on = ["patch-doxyrest", "gen-c-header"], description = "Generate C API docs via Doxygen and Doxyrest (post-fix RST)" }
 setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen --root \"$CONDA_PREFIX\"", description = "Install sphinx-rustdocgen for Rust API docs" }
 gen-c-header = { cmd = "cargo build --manifest-path rsxcore/Cargo.toml --features gen-header", description = "Generate cbindgen C header (rsxcore/include/rsx.h) so it is available for literalinclude in the docs" }
 gen-rust-api = { cmd = "rm -rf docs/source/crates/rsx_core || true; sphinx-rustdocgen '{\"crate_name\":\"rsx_core\",\"crate_dir\":\"rsxcore\",\"doc_dir\":\"docs/source/crates\",\"force\":true,\"strip_src\":true}'", depends-on = ["setup-rustdocgen"], description = "Generate Rust API docs into docs/source/crates/rsx_core/." }
 mkrst = { cmd = "emacs --batch --load docs/export.el", description = "Export orgmode docs to RST (canonical narrative source: docs/orgmode/)" }
 fix-doc-links = { cmd = "python docs/scripts/fix_doc_links.py", depends-on = ["mkrst"], description = "Rewrite accidental .rst/.org hyperlinks to :doc: roles (readcon-core pattern)" }
 # Full docs pipeline (CI + local). Prefer `pixi run -e docs docbld` or `site` — same task.
-site = { cmd = "mkdir -p docs/source/_static && sphinx-build docs/source docs/build -b html", depends-on = ["fix-doc-links", "setup-rustdocgen", "gen-c-header", "gen-rust-api", "doxybuild"], description = "Build HTML site (org export + C/Rust API + Sphinx)" }
-docbld = { cmd = "mkdir -p docs/source/_static && sphinx-build docs/source docs/build -b html", depends-on = ["fix-doc-links", "setup-rustdocgen", "gen-c-header", "gen-rust-api", "doxybuild"], description = "Alias of site (readcon-core naming)" }
+site = { cmd = "mkdir -p docs/source/_static && rm -rf docs/build/reference/architecture.html docs/build/reference/benchmarks.html docs/build/reference/hpc-design.html docs/build/reference/python-api-design.html 2>/dev/null; sphinx-build -E docs/source docs/build -b html", depends-on = ["polish-rst", "setup-rustdocgen", "gen-c-header"], description = "Build HTML site (org export + C/Rust API + Sphinx)" }
+docbld = { cmd = "mkdir -p docs/source/_static && rm -rf docs/build/reference/architecture.html docs/build/reference/benchmarks.html docs/build/reference/hpc-design.html docs/build/reference/python-api-design.html 2>/dev/null; sphinx-build -E docs/source docs/build -b html", depends-on = ["polish-rst", "setup-rustdocgen", "gen-c-header"], description = "Alias of site (readcon-core naming)" }
 # Link check on the artifact CI deploys. Requires `lychee` on PATH (cargo install lychee, or CI taiki-e/install-action).
+polish-rst = { cmd = "python docs/scripts/fix_doc_links.py && python docs/scripts/fix_doxyrest_rst.py", depends-on = ["fix-doc-links", "doxybuild", "gen-rust-api"], description = "Re-run RST link/role fixes after all generators" }
 linkcheck = { cmd = "lychee --config lychee.toml --no-progress 'docs/build/**/*.html' README.md", depends-on = ["site"], description = "Lychee on built HTML (same args as ci_docs.yml)" }
 
 [feature.python.dependencies]

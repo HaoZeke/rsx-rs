@@ -1,6 +1,6 @@
 #+TITLE: Language bindings
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
-#+OPTIONS: toc:2 num:t
+#+OPTIONS: toc:2 num:t author:nil
 
 The rsx engine is one Rust core (=rsxcore=) with several user-facing surfaces.
 This page is the **bindings slice** of the documentation (same role as

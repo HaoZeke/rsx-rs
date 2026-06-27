@@ -1,3 +1,4 @@
+#+OPTIONS: author:nil
 #+TITLE: Rust API Reference
 
 The ~rsx_core~ crate (the core Rust library) provides the full public API for all
