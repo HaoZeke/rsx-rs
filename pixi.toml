@@ -57,7 +57,7 @@ sphinx-tabs = "*"
 
 [feature.docs.tasks]
 setup-doxyrest = { cmd = "test -d subprojects/doxyrest || (mkdir -p subprojects && git clone --depth 1 --single-branch https://github.com/vovkos/doxyrest subprojects/doxyrest)", description = "Clone doxyrest sphinx dependency" }
-patch-doxyrest = { cmd = "cp scripts/patches/doxyrest/doxyrest.py subprojects/doxyrest/sphinx/doxyrest.py && cp scripts/patches/doxyrest/doxyrest-shibuya.css subprojects/doxyrest/sphinx/css/doxyrest-shibuya.css && patch -p1 -N -s < scripts/patches/doxyrest/enum_class_fix.patch || true", depends-on = ["setup-doxyrest"], description = "Patch doxyrest sphinx extension" }
+patch-doxyrest = { cmd = "cp scripts/patches/doxyrest/doxyrest.py subprojects/doxyrest/sphinx/doxyrest.py && cp scripts/patches/doxyrest/doxyrest-shibuya.css subprojects/doxyrest/sphinx/css/doxyrest-shibuya.css && cp scripts/patches/doxyrest/doxyrest-pygments.css subprojects/doxyrest/sphinx/css/doxyrest-pygments.css && patch -p1 -N -s < scripts/patches/doxyrest/enum_class_fix.patch || true", depends-on = ["setup-doxyrest"], description = "Patch doxyrest sphinx extension" }
 doxybuild = { cmd = "doxygen Doxyfile_rsx.cfg && doxyrest -c doxyrest-config.lua && python ../../docs/scripts/fix_doxyrest_rst.py", cwd = "docs/source", depends-on = ["patch-doxyrest", "gen-c-header"], description = "Generate C API docs via Doxygen and Doxyrest (post-fix RST)" }
 setup-rustdocgen = { cmd = "cargo install sphinx-rustdocgen --root \"$CONDA_PREFIX\"", description = "Install sphinx-rustdocgen for Rust API docs" }
 gen-c-header = { cmd = "cargo build --manifest-path rsxcore/Cargo.toml --features gen-header", description = "Generate cbindgen C header (rsxcore/include/rsx.h) so it is available for literalinclude in the docs" }

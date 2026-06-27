@@ -63,6 +63,27 @@
       s.style.setProperty("line-height", "inherit", "important");
     });
   });
+
+  /* Token a11y on dark fences: doxyrest-pygments may still force #000 if CSS order loses */
+  var tokColor = {
+    n: "#e6edf3", nx: "#e6edf3", nv: "#e6edf3", nl: "#e6edf3", nn: "#e6edf3",
+    nf: "#d2a8ff", fm: "#d2a8ff", nc: "#ffa657", na: "#d2a8ff",
+    nb: "#79c0ff", bp: "#79c0ff",
+    k: "#ff7b72", kc: "#ff7b72", kd: "#ff7b72", kn: "#ff7b72", kp: "#ff7b72", kr: "#ff7b72", kt: "#ff7b72",
+    s: "#a5d6ff", s1: "#a5d6ff", s2: "#a5d6ff", sb: "#a5d6ff", sc: "#a5d6ff", sd: "#a5d6ff",
+    m: "#79c0ff", mi: "#79c0ff", mf: "#79c0ff", mh: "#79c0ff", mo: "#79c0ff",
+    o: "#ff7b72", ow: "#ff7b72",
+    p: "#c9d1d9",
+    c: "#8b949e", c1: "#8b949e", cm: "#8b949e", cp: "#8b949e", cs: "#8b949e",
+    w: "#e6edf3"
+  };
+  document.querySelectorAll(".highlight pre span[class], div[class*='highlight-'] pre span[class]").forEach(function (s) {
+    var cls = (s.getAttribute("class") || "").trim().split(/\s+/)[0];
+    if (tokColor[cls]) {
+      s.style.setProperty("color", tokColor[cls], "important");
+    }
+  });
+
   /* Code blocks: ensure pre is keyboard-scrollable and labelled */
   document.querySelectorAll(".sy-page pre, .highlight pre, pre.literal-block").forEach(function (pre, i) {
     if (!pre.hasAttribute("tabindex")) pre.setAttribute("tabindex", "0");

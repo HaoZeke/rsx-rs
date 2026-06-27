@@ -1,0 +1,21 @@
+.highlight .k  { color: #902000 !important; font-weight: bold !important } /* Keyword */
+.highlight .kc { color: #902000 !important; font-weight: bold !important } /* Keyword.Constant */
+.highlight .kd { color: #902000 !important; font-weight: bold !important } /* Keyword.Declaration */
+.highlight .kn { color: #902000 !important; font-weight: bold !important } /* Keyword.Namespace */
+.highlight .kp { color: #902000 !important; font-weight: bold !important } /* Keyword.Pseudo */
+.highlight .kr { color: #902000 !important; font-weight: bold !important } /* Keyword.Reserved */
+.highlight .kt { color: #902000 !important; font-weight: bold !important } /* Keyword.Type */
+
+.highlight .nb { color: #902000 !important; font-weight: bold !important } /* Name.Builtin */
+
+.highlight .na { color: inherit !important; font-weight: normal !important } /* Name.Attribute */
+.highlight .nc { color: inherit !important; font-weight: normal !important } /* Name.Class */
+.highlight .no { color: inherit !important; font-weight: normal !important } /* Name.Constant */
+.highlight .nd { color: inherit !important; font-weight: normal !important } /* Name.Decorator */
+.highlight .ni { color: inherit !important; font-weight: normal !important } /* Name.Entity */
+.highlight .ne { color: inherit !important; font-weight: normal !important } /* Name.Exception */
+.highlight .nf { color: inherit !important; font-weight: normal !important } /* Name.Function */
+.highlight .nl { color: inherit !important; font-weight: normal !important } /* Name.Label */
+.highlight .nn { color: inherit !important; font-weight: normal !important } /* Name.Namespace */
+.highlight .nt { color: inherit !important; font-weight: normal !important } /* Name.Tag */
+.highlight .nv { color: inherit !important; font-weight: normal !important } /* Name.Variable */

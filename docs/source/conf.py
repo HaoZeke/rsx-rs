@@ -135,4 +135,6 @@ Rust API (``rsx_core``)
 
 
 def setup(app):
-    app.add_css_file("custom.css")
+    # priority > default so we load *after* doxyrest-pygments.css (which paints
+    # many Pygments names #000 !important and wins on equal/earlier cascade).
+    app.add_css_file("custom.css", priority=1000)
