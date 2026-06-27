@@ -29,9 +29,12 @@ html_static_path = ["_static"]
 html_favicon = "_static/favicon.png"
 html_title = "rsx-rs documentation"
 html_baseurl = "https://rsx.rgoswami.me/"
-html_css_files = ["custom.css"]
+# CSS via setup() so it loads after theme (readcon-core pattern)
+# html_css_files left empty on purpose
 
-# Edit-this-page + repo-stats (Shibuya / LODE readcon-core pattern)
+# Edit-this-page + repo-stats (Shibuya / LODE readcon-core pattern).
+# RST under docs/source/ is generated from docs/orgmode/ (gitignored); edit
+# links point at generated paths for local/dev and are excluded in lychee CI.
 html_context = {
     "source_type": "github",
     "source_user": "HaoZeke",
@@ -102,6 +105,12 @@ html_theme_options = {
     ],
 }
 
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: |R> "
+copybutton_prompt_is_regexp = True
+copybutton_exclude = ".linenos, .gp, .go"
+copybutton_line_continuation_character = "\\"
+copybutton_here_doc_delimiter = "EOF"
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
 }
@@ -123,3 +132,7 @@ Rust API (``rsx_core``)
 
    ../crates/rsx_core/lib
 """
+
+
+def setup(app):
+    app.add_css_file("custom.css")

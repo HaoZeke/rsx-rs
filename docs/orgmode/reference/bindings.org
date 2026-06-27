@@ -9,13 +9,42 @@ install it, and a side-by-side "run triage" example.
 
 * Surfaces at a glance
 
-| Surface | Package / artifact | Install | In-process? | Primary docs |
-|---------+--------------------+---------+-------------+--------------|
-| CLI | =rsx= binary | =cargo install --path rsx-cli= or pixi | n/a | [[file:commands.org][Commands]] |
-| Rust library | =rsxcore= on crates.io | =rsxcore = "0.2"= | yes | [[file:rust-api.org][Rust API]] |
-| Python | =pyrsx= on PyPI | =pip install pyrsx= | yes (PyO3) | this page + package README |
-| R | =rsxr= in monorepo =rsx-r/= | =pak::pak("HaoZeke/rsx-rs/rsx-r")= | yes (C API + =.Call=) | this page + =rsx-r/README.md= |
-| C / C++ | =librsx= / =rsx.h= (cbindgen) | =cargo cinstall= / pixi =capi-install= | yes | [[file:c-api.org][C API]] |
+#+begin_export rst
+.. list-table:: Surfaces at a glance
+   :header-rows: 1
+   :widths: 14 22 28 12 24
+
+   * - Surface
+     - Package / artifact
+     - Install
+     - In-process?
+     - Primary docs
+   * - CLI
+     - ``rsx`` binary
+     - ``cargo install --path rsx-cli`` or pixi
+     - n/a
+     - :doc:`commands`
+   * - Rust library
+     - ``rsxcore`` on crates.io
+     - ``rsxcore = "0.2"``
+     - yes
+     - :doc:`rust-api`
+   * - Python
+     - ``pyrsx`` on PyPI
+     - ``pip install pyrsx``
+     - yes (PyO3)
+     - this page + package README
+   * - R
+     - ``rsxr`` in monorepo ``rsx-r/``
+     - ``pak::pak("HaoZeke/rsx-rs/rsx-r")``
+     - yes (C API + ``.Call``)
+     - this page + ``rsx-r/README.md``
+   * - C / C++
+     - ``librsx`` / ``rsx.h`` (cbindgen)
+     - ``cargo cinstall`` / pixi ``capi-install``
+     - yes
+     - :doc:`c-api`
+#+end_export
 
 Companion **analysis** R packages (ChromSex, SexPCR) consume RADSex-compatible
 TSV outputs; they are not the engine bindings (see ecosystem notes on the
@@ -175,14 +204,22 @@ sig     <- signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
 #+end_src
 
 After install: =vignette("rsxr", package = "rsxr")=. Subprocess CLI integration
-(for pipelines that still shell out) is documented in
-[[file:../howto/r-integration.org][R integration how-to]].
+(for pipelines that still shell out) is documented in the R integration how-to.
+
+#+begin_export rst
+See :doc:`../howto/r-integration` for subprocess CLI patterns and RADSex TSV
+compatibility notes.
+#+end_export
 
 * C API
 
 Stable FFI for embedding and for the R package static link. Header generation
-and Doxyrest pages: [[file:c-api.org][C API]] and the literal header page. Prefer the
+and Doxyrest pages: see C API and the literal header page. Prefer the
 Python or R wrappers unless you are writing another language binding.
+
+#+begin_export rst
+C surfaces: :doc:`c-api` and :doc:`c-api-header`.
+#+end_export
 
 * Choosing a surface
 

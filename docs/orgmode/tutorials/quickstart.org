@@ -112,7 +112,9 @@ For 200 individuals and 75M markers, typical peak memory is < 500MB
 * Language bindings (Python and R)
 
 See the full matrix and install notes in
-[[file:../reference/bindings.org][Language bindings]]. Short form below.
+#+begin_export rst
+Full matrix: :doc:`../reference/bindings`. Short form below.
+#+end_export
 
 ** Python bindings (high-level API)
 

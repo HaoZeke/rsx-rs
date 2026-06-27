@@ -25,7 +25,11 @@ sig     <- signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
 #+end_src
 
 Full install notes, vignette, and CI badges: =rsx-r/README.md=. Language matrix
-and Python comparison: [[file:../reference/bindings.org][Language bindings]].
+and Python comparison:
+
+#+begin_export rst
+:doc:`../reference/bindings`
+#+end_export
 
 * RADSex output compatibility
 

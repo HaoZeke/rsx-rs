@@ -25,4 +25,22 @@ exclude = [
   # these excludes once they are public (required for rOpenSci/CRAN anyway).
   '^https://github\.com/RuhiRG/ChromSex',
   '^https://github\.com/RuhiRG/SexPCR',
+  # Edit-this-page / view-source targets main RST under docs/source/, which is
+  # generated from docs/orgmode/ and gitignored (same pattern as LODE readcon-core
+  # excluding blob links during CI). Canonical narrative is docs/orgmode/.
+  '^https://github\.com/HaoZeke/rsx-rs/blob/',
+  # Live site lags deploy; CI checks local HTML. Remote may 404 for new pages.
+  '^https://rsx\.rgoswami\.me/',
+  # Theme / analytics vendor (Shibuya / TurtleTech antics); not content links.
+  '^https?://antics-api\.turtletech\.us/',
+  '^https?://analytics\.turtletech\.us/',
+  '^https?://umami\.is/?$',
+  '^https?://fonts\.gstatic\.com/',
+  '^https?://fonts\.googleapis\.com/',
+]
+
+# Theme / vendor noise (not content links)
+exclude_path = [
+  "docs/build/_static/.*",
+  "docs/build/searchindex.js",
 ]
