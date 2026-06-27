@@ -1,0 +1,25 @@
+/* rsx-rs docs — readability (LODE readcon-core / Shibuya peers) */
+:root {
+  --rsx-font-sans: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --rsx-indigo: #4f46e5;
+  --rsx-measure: 68ch;
+  --rsx-focus: #1d4ed8;
+  --rsx-radius: 0.5rem;
+}
+html { font-family: var(--rsx-font-sans); }
+.rc-hero { text-align: center; margin: 1.5rem 0 2rem; }
+.rc-hero-logo { max-width: min(460px, 90vw); height: auto; }
+.rc-hero-tagline {
+  max-width: var(--rsx-measure);
+  margin: 1rem auto 0;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  opacity: 0.92;
+}
+.sd-card { border-radius: var(--rsx-radius); }
+a:focus-visible, button:focus-visible {
+  outline: 3px solid var(--rsx-focus);
+  outline-offset: 2px;
+}
+pre, code { font-size: 0.94rem; }
