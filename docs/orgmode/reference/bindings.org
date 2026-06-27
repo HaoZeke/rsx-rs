@@ -1,0 +1,195 @@
+#+TITLE: Language bindings
+#+AUTHOR: Rohit Goswami, Ruhila Goswami
+#+OPTIONS: toc:2 num:t
+
+The rsx engine is one Rust core (=rsxcore=) with several user-facing surfaces.
+This page is the **bindings slice** of the documentation (same role as
+readcon-core's language-bindings matrix): what each language can do, how to
+install it, and a side-by-side "run triage" example.
+
+* Surfaces at a glance
+
+| Surface | Package / artifact | Install | In-process? | Primary docs |
+|---------+--------------------+---------+-------------+--------------|
+| CLI | =rsx= binary | =cargo install --path rsx-cli= or pixi | n/a | [[file:commands.org][Commands]] |
+| Rust library | =rsxcore= on crates.io | =rsxcore = "0.2"= | yes | [[file:rust-api.org][Rust API]] |
+| Python | =pyrsx= on PyPI | =pip install pyrsx= | yes (PyO3) | this page + package README |
+| R | =rsxr= in monorepo =rsx-r/= | =pak::pak("HaoZeke/rsx-rs/rsx-r")= | yes (C API + =.Call=) | this page + =rsx-r/README.md= |
+| C / C++ | =librsx= / =rsx.h= (cbindgen) | =cargo cinstall= / pixi =capi-install= | yes | [[file:c-api.org][C API]] |
+
+Companion **analysis** R packages (ChromSex, SexPCR) consume RADSex-compatible
+TSV outputs; they are not the engine bindings (see ecosystem notes on the
+project README).
+
+* Feature parity matrix
+
+Coarse map of engine capabilities across surfaces. "yes" means a first-class
+binding exists; "CLI only" means invoke =rsx= as a subprocess; "via C" means
+the C ABI is available and higher-level wrappers may be thin.
+
+| Feature | CLI | Rust (=rsxcore=) | Python (=pyrsx=) | R (=rsxr=) | C API |
+|---------+-----+------------------+------------------+------------+-------|
+| =process= (FASTQ → marker table) | yes | yes | yes | yes (=rsx_process=) | yes |
+| =freq= | yes | yes | yes | yes | yes |
+| =distrib= | yes | yes | yes | yes | yes |
+| =signif= (frequentist) | yes | yes | yes | yes | yes |
+| =signif= + Bayes columns | yes | yes | yes (=bayes=True=) | yes (=bayes=TRUE=) | yes |
+| =triage= (Bayesian evidence) | yes | yes | yes | yes | yes |
+| =depth= | yes | yes | yes | yes | yes |
+| =merge= (external sort) | yes | yes | yes | yes | yes |
+| =pca= (streaming) | yes | yes | yes | yes | yes |
+| =map= / =subset= | yes | feature-gated | via CLI / future | no (use CLI) | partial |
+| High-level table object | n/a | internal types | =MarkerTable= | =marker_table= | n/a |
+| Tibble / DataFrame return | n/a | n/a | Narwhals / Arrow adapters | tibble verbs | n/a |
+| Byte-identical RADSex TSV | yes | yes | yes | yes | yes |
+| No intermediate subprocess | n/a | yes | yes | yes | yes |
+
+* Multi-language: Bayesian triage on a marker table
+
+Same task in each user-facing language (paths are examples; inputs must exist).
+
+#+begin_export rst
+.. tab-set::
+
+   .. tab-item:: CLI
+
+      .. code-block:: bash
+
+         rsx triage -t markers.tsv -p popmap.tsv -o triage.tsv -d 10 -G M,F
+
+   .. tab-item:: Python (pyrsx)
+
+      .. code-block:: python
+
+         import pyrsx
+
+         # Path-based (mirrors the CLI)
+         pyrsx.triage(
+             "markers.tsv", "popmap.tsv", "triage.tsv",
+             min_depth=10, groups=["M", "F"],
+         )
+
+         # High-level table handle
+         tbl = pyrsx.MarkerTable.from_path("markers.tsv")
+         # See pyrsx README for dataframe adapters and plot helpers
+
+   .. tab-item:: R (rsxr)
+
+      .. code-block:: r
+
+         library(rsxr)
+
+         # Low-level (returns output path invisibly)
+         rsx_triage("markers.tsv", "popmap.tsv", "triage.tsv",
+                    min_depth = 10L, group1 = "M", group2 = "F")
+
+         # High-level: tibble of triaged markers
+         mt <- marker_table("markers.tsv")
+         triaged <- triage(mt, popmap = "popmap.tsv", min_depth = 10L)
+
+   .. tab-item:: C
+
+      .. code-block:: c
+
+         #include "rsx/rsx.h"
+         /* See reference/c-api and the generated header page. */
+         /* rsx_triage(...) returns a status; errors via rsx_last_error(). */
+#+end_export
+
+* Python (=pyrsx=)
+
+**Install**
+
+#+begin_src bash
+pip install pyrsx
+# from monorepo:
+pixi run -e python build-python
+pixi run -e python test-python
+#+end_src
+
+**Layout**
+
+- Low-level functions (=process=, =freq=, =distrib=, =signif=, =triage=, =depth=,
+  =merge=, =pca=) mirror the CLI and write TSV (or Parquet for merge when built
+  with Parquet features).
+- =MarkerTable= loads a marker depth table for notebook workflows.
+- Optional =plot= helpers (plotnine + ruhi theme) for evidence-class figures.
+- Click-based =pyrsx= CLI entry for scripting without the Rust binary.
+
+**Quick example**
+
+#+begin_src python
+import pyrsx
+
+pyrsx.process("reads/", "markers.tsv", threads=8, min_depth=5)
+pyrsx.signif(
+    "markers.tsv", "popmap.tsv", "signif.tsv",
+    groups=["M", "F"], bayes=True,
+)
+pyrsx.triage("markers.tsv", "popmap.tsv", "triage.tsv", min_depth=10)
+tbl = pyrsx.MarkerTable.from_path("markers.tsv")
+#+end_src
+
+See the =rsx-python/= tree and PyPI project page for the full surface
+(=from_dataframe=, Arrow adapters, custom triage parameters).
+
+* R (=rsxr=)
+
+**Install** (package lives in the =rsx-r/= subdirectory of this monorepo)
+
+#+begin_src r
+# pak
+pak::pak("HaoZeke/rsx-rs/rsx-r")
+
+# remotes
+remotes::install_github("HaoZeke/rsx-rs", subdir = "rsx-r")
+#+end_src
+
+Requirements: a Rust toolchain (=cargo= / =rustc=; see =Config/rsxr/MSRV= in
+=DESCRIPTION=) and =rsxcore= sources as a sibling of the package (or
+=RSX_CORE_DIR=). CI runs R-CMD-check and rOpenSci =pkgcheck=; badges are on
+=rsx-r/README.md=.
+
+**Two layers**
+
+1. *Low-level* =rsx_*= functions call the C API via =.Call= and return the
+   output path invisibly (same contract as =pyrsx= path functions).
+2. *High-level* =marker_table= + S3 verbs (=triage=, =signif_markers=, =distrib=,
+   =depth=, =frequencies=) run the command into a temp file and return a
+   **tibble**.
+
+**Quick example**
+
+#+begin_src r
+library(rsxr)
+
+rsx_version()
+
+rsx_process("reads/", "markers.tsv", threads = 8L, min_depth = 5L)
+rsx_signif("markers.tsv", "popmap.tsv", "signif.tsv",
+           test = "fisher", correction = "fdr", bayes = TRUE)
+
+mt <- marker_table("markers.tsv")
+triaged <- triage(mt, popmap = "popmap.tsv", min_depth = 10L)
+sig     <- signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
+#+end_src
+
+After install: =vignette("rsxr", package = "rsxr")=. Subprocess CLI integration
+(for pipelines that still shell out) is documented in
+[[file:../howto/r-integration.org][R integration how-to]].
+
+* C API
+
+Stable FFI for embedding and for the R package static link. Header generation
+and Doxyrest pages: [[file:c-api.org][C API]] and the literal header page. Prefer the
+Python or R wrappers unless you are writing another language binding.
+
+* Choosing a surface
+
+- **CLI** — reproducible pipelines, SLURM, byte-identical RADSex workflows.
+- **Python** — notebooks, Snakemake/Nextflow Python steps, Arrow/Narwhals tables.
+- **R** — tidyverse analysis, in-process tibbles, rOpenSci-oriented packaging.
+- **Rust / C** — embedding, new language bindings, performance-critical hosts.
+
+All path-based surfaces share TSV (and optional Parquet) on disk so you can mix
+CLI and bindings in one pipeline.

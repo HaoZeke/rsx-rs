@@ -1,44 +1,58 @@
-#+TITLE: R Integration
+#+TITLE: R integration
 #+AUTHOR: Rohit Goswami, Ruhila Goswami
+#+OPTIONS: toc:2 num:t
 
+Two ways to use rsx from R: the **in-process** =rsxr= package (preferred), or
+**subprocess** calls to the =rsx= CLI for existing RADSex-style pipelines.
 
-rsx output files (TSV) can be loaded directly by R analysis pipelines
-that consume RADSex-format data.
+* Preferred: =rsxr= (in-process C API)
+
+Install from the monorepo subdirectory (needs =cargo=; see =rsx-r/README.md=):
+
+#+begin_src r
+pak::pak("HaoZeke/rsx-rs/rsx-r")
+# or: remotes::install_github("HaoZeke/rsx-rs", subdir = "rsx-r")
+library(rsxr)
+rsx_version()
+#+end_src
+
+High-level workflow returns tibbles:
+
+#+begin_src r
+mt <- marker_table("markers.tsv")
+triaged <- triage(mt, popmap = "popmap.tsv", min_depth = 10L)
+sig     <- signif_markers(mt, popmap = "popmap.tsv", test = "fisher")
+#+end_src
+
+Full install notes, vignette, and CI badges: =rsx-r/README.md=. Language matrix
+and Python comparison: [[file:../reference/bindings.org][Language bindings]].
 
 * RADSex output compatibility
 
-rsx-rs produces byte-identical output to C++ RADSex when groups are
-specified explicitly (=-G M,F=). The existing your R pipeline R functions
-(=load_radsex_distribution=, =load_radsex_alignment=, =extract_signif_markers=)
-work without any changes.
+rsx produces byte-identical TSV to C++ RADSex when groups are specified
+explicitly (=-G M,F= / =group1= / =group2=). Existing R helpers that read RADSex
+marker tables, distributions, or alignments keep working without changes.
 
-* Adding to your R pipeline pixi.toml
+* Subprocess CLI (legacy / orchestration)
 
-The =build-rsx= task in your R pipeline's =pixi.toml= builds rsx-rs from source:
+Build the binary once (pixi or cargo), then call it from R:
 
-#+begin_src toml
-build-rsx = """bash -c 'if ! command -v rsx >/dev/null 2>&1; then \
-  cd /tmp && git clone https://github.com/HaoZeke/rsx-rs.git && \
-  cd rsx-rs && cargo build --release -j4 && \
-  cp target/release/rsx ~/.local/bin/rsx; fi'"""
-#+end_src
-
-* Running from your R pipeline
-
-Use =system()= or =processx::run()= to call radsex from R:
-
-#+begin_src R
+#+begin_src r
 system2("rsx", c(
   "distrib",
-  "-t", "data/radsex/BT/markers_table.tsv",
-  "-p", "data/popmaps/popmap_BT_sex_hestvatn.tsv",
-  "-o", "data/radsex/BT/hestvatn_BT_distribution.tsv",
+  "-t", "data/markers_table.tsv",
+  "-p", "data/popmap.tsv",
+  "-o", "data/distribution.tsv",
   "-d", "5", "-G", "M,F"
 ))
 #+end_src
 
-* Direct R FFI
+Example pixi task that ensures =rsx= is on =PATH=:
 
-The C API (=librsx_core.so=) will enable direct =.Call()= from R,
-eliminating intermediate file I/O. See the
-[[https://github.com/HaoZeke/rsx-rs/issues][issue tracker]] for progress.
+#+begin_src toml
+build-rsx = """bash -c 'if ! command -v rsx >/dev/null 2>&1; then \
+  cargo install --path /path/to/rsx-rs/rsx-cli; fi'"""
+#+end_src
+
+Prefer =rsxr= when you want tibbles and no intermediate process; prefer the CLI
+when a scheduler or Snakemake rule already shells out to =rsx=.

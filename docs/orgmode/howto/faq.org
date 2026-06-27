@@ -39,6 +39,18 @@ Or grab a prebuilt binary from the
 [[https://github.com/HaoZeke/rsx-rs/releases][releases page]] (Linux and macOS),
 or build from source with =cargo build --release=.
 
+** How do I install the R bindings?
+
+The package is =rsxr= in the =rsx-r/= subdirectory of this repository (not yet
+on CRAN). With =cargo= on =PATH=:
+
+#+begin_src r
+pak::pak("HaoZeke/rsx-rs/rsx-r")
+#+end_src
+
+See [[file:../reference/bindings.org][Language bindings]] and =rsx-r/README.md=. CI runs R-CMD-check and
+rOpenSci =pkgcheck=.
+
 ** How do I install the Python bindings?
 
 #+begin_src bash

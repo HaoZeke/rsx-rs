@@ -109,7 +109,12 @@ All commands operate in bounded memory regardless of input size:
 For 200 individuals and 75M markers, typical peak memory is < 500MB
 (except map which loads the minimap2 genome index).
 
-* Python bindings (high-level API)
+* Language bindings (Python and R)
+
+See the full matrix and install notes in
+[[file:../reference/bindings.org][Language bindings]]. Short form below.
+
+** Python bindings (high-level API)
 
 Install with =pip install pyrsx= (or =pixi run -e python build-python= from source).
 
@@ -156,3 +161,15 @@ v1.2.0 reference, and regenerates the four-panel literature benchmark (the
 8.38x geometric-mean speedup across 56 paired timings), the Bayesian evidence
 grades, and the sex-linked marker calls. Timings scale with the host
 hardware; the biological results (marker counts and evidence grades) do not.
+
+** R bindings (=rsxr=)
+
+#+begin_src r
+# pak::pak("HaoZeke/rsx-rs/rsx-r")  # needs cargo
+library(rsxr)
+rsx_version()
+mt <- marker_table("markers.tsv")
+triaged <- triage(mt, popmap = "popmap.tsv", min_depth = 10L)
+#+end_src
+
+Details: =rsx-r/README.md= and =vignette("rsxr")= after install.

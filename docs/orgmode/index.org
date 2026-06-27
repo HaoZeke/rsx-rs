@@ -39,11 +39,15 @@ unchanged and prior biological results remain directly comparable.
 - Parallel file processing via [[https://docs.rs/rayon][rayon]]
 - minimap2 alignment (replaces BWA-MEM)
 - Optional Parquet output for merge (=--features parquet-io=)
-- Python bindings for notebook and workflow use; full Rust crate API (see
+- Language bindings: Python (=pyrsx= on PyPI), R (=rsxr= in =rsx-r/=), C API
+  (cbindgen); see
+#+begin_export rst
+:doc:`Language bindings </reference/bindings>`
+#+end_export
+  and the Rust crate API
 #+begin_export rst
 :doc:`Rust API Reference </reference/rust-api>`
 #+end_export
-); C API with cbindgen for R/Python/C++ integration
 - Cross-platform: Linux, macOS (Intel + Apple Silicon), Windows (without map)
 - SymPy/Sollya mathematical proofs for all optimizations
 
@@ -63,6 +67,8 @@ pixi run build
 pip install pyrsx
 # or pixi run -e python build-python
 
+# R bindings (in-process; needs cargo — see rsx-r/README.md)
+# pak::pak("HaoZeke/rsx-rs/rsx-r")
 
 # Run the pipeline
 rsx process -i reads/ -o markers.tsv -T 8
