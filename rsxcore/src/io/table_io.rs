@@ -58,16 +58,47 @@ impl TableHeader {
 /// Fast integer parsing for non-negative integers (matching C++ `fast_stoi`).
 /// Saturates at u16::MAX instead of wrapping, to avoid silent corruption on
 /// high-depth tags (>65535 reads of one RAD marker in one individual).
+///
+/// Depth fields in RAD tables are almost always 1–3 ASCII digits; a short
+/// unrolled path avoids the saturating mul loop and its overflow branch for
+/// the common case (still saturates correctly for longer digit strings).
 #[inline(always)]
 pub fn fast_parse_u16(bytes: &[u8]) -> u16 {
-    let mut val: u16 = 0;
-    for &b in bytes {
-        if val > u16::MAX / 10 {
-            return u16::MAX;
+    match bytes.len() {
+        0 => 0,
+        1 => (bytes[0].wrapping_sub(b'0')) as u16,
+        2 => {
+            let d0 = (bytes[0].wrapping_sub(b'0')) as u16;
+            let d1 = (bytes[1].wrapping_sub(b'0')) as u16;
+            d0 * 10 + d1
         }
-        val = val.saturating_mul(10).saturating_add((b - b'0') as u16);
+        3 => {
+            let d0 = (bytes[0].wrapping_sub(b'0')) as u16;
+            let d1 = (bytes[1].wrapping_sub(b'0')) as u16;
+            let d2 = (bytes[2].wrapping_sub(b'0')) as u16;
+            d0 * 100 + d1 * 10 + d2
+        }
+        4 => {
+            // 1000..=9999 all fit in u16
+            let mut val: u16 = 0;
+            for &b in bytes {
+                val = val * 10 + (b.wrapping_sub(b'0')) as u16;
+            }
+            val
+        }
+        _ => {
+            let mut val: u32 = 0;
+            for &b in bytes {
+                val = val
+                    .saturating_mul(10)
+                    .saturating_add((b.wrapping_sub(b'0')) as u32);
+                if val >= u16::MAX as u32 {
+                    return u16::MAX;
+                }
+            }
+            val as u16
+        }
     }
-    val
 }
 
 #[cfg(test)]

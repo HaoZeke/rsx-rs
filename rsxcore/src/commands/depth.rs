@@ -137,13 +137,13 @@ fn run_exact_source<S: MarkerStream>(
     for i in 0..n_individuals {
         let individual_name = &header_cols[i + 2];
         let group = popmap.get_group(individual_name).unwrap_or("");
-        depths[i].sort_unstable();
         let size = depths[i].len() as u64;
-        let min_d = depths[i].first().copied().unwrap_or(0);
-        let max_d = depths[i].last().copied().unwrap_or(0);
+        // Min/max in linear scans; median via order-statistic selection (no full sort).
+        let min_d = depths[i].iter().copied().min().unwrap_or(0);
+        let max_d = depths[i].iter().copied().max().unwrap_or(0);
         let total: u64 = depths[i].iter().map(|&d| d as u64).sum();
         let median_d = stats::find_median(&mut depths[i]);
-        let avg_d = total / size;
+        let avg_d = if size == 0 { 0 } else { total / size };
         writeln!(
             output,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",

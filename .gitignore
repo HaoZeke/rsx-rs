@@ -70,3 +70,7 @@ repro/benchmarks/figshare_package/
 
 # Copied from docs/figures/ by pixi sync-doc-figures (do not commit duplicates)
 /docs/source/_static/figures/
+
+# Lean build
+**/.lake/
+

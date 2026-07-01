@@ -223,17 +223,23 @@ pub fn group_bias(n_group1: u32, total_group1: u32, n_group2: u32, total_group2:
     (n_group1 as f64 / total_group1 as f64) - (n_group2 as f64 / total_group2 as f64)
 }
 
-/// Find median of a mutable slice (partially sorts in-place).
+/// Find median of a mutable slice (partially reorders in-place).
+///
+/// Uses order-statistic selection (`select_nth_unstable`) at index `len/2`
+/// instead of a full sort. This is the **upper median** for even length:
+/// after zeros, the element at conceptual position `len/2` (0-based), matching
+/// the streaming external-sort path. Selection is O(n) average vs O(n log n)
+/// sort; proven equivalent to sorting then indexing `len/2` (see
+/// `proofs/lean/MedianSelect.lean` and `scripts/sympy/median_select_proof.py`).
 pub fn find_median(data: &mut [u16]) -> u16 {
     let len = data.len();
     if len == 0 {
         return 0;
     }
-    data.sort_unstable();
-    // Upper median for even length: matches the streaming external-sort path
-    // (picks the element at conceptual position len/2 after zeros).
-    // This unifies in-memory and --streaming modes and keeps integer depths.
-    data[len / 2]
+    let k = len / 2;
+    // Partition so data[k] is the element that would sit at index k if fully sorted.
+    let (_left, mid, _right) = data.select_nth_unstable(k);
+    *mid
 }
 
 // ========================================================================
@@ -298,26 +304,36 @@ pub fn fisher_exact(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     let min_a = col1.saturating_sub(n - row1);
     let max_a = row1.min(col1);
 
-    // Collect log-probs of tables as or more extreme (density tail).
-    // Use log-sum-exp for numerical stability when individual probs underflow.
-    let mut tail_logs: Vec<f64> = Vec::new();
+    // Online log-sum-exp over the density tail (tables as or more extreme).
+    // Same math as collecting a Vec then logsumexp, without per-call heap alloc
+    // (signif --test fisher invokes this once per marker).
+    // Include if log_p <= observed (within tiny fp tolerance for lgamma error).
+    let mut max_log = f64::NEG_INFINITY;
+    let mut sum_rel = 0.0f64;
+    let mut any = false;
     for a_i in min_a..=max_a {
         let b_i = col1 - a_i;
         let c_i = row1 - a_i;
         let d_i = (n - row1) - b_i;
         let log_p = log_hypergeometric(a_i, b_i, c_i, d_i, n, row1, col1);
-        // Include if <= observed (within tiny fp tolerance for lgamma error)
         if log_p <= log_p_observed + 1e-9 {
-            tail_logs.push(log_p);
+            // Standard online logsumexp update (Goldberg / Press et al.)
+            if !any {
+                max_log = log_p;
+                sum_rel = 1.0;
+                any = true;
+            } else if log_p > max_log {
+                sum_rel = sum_rel * (max_log - log_p).exp() + 1.0;
+                max_log = log_p;
+            } else {
+                sum_rel += (log_p - max_log).exp();
+            }
         }
     }
 
-    let p_sum = if tail_logs.is_empty() {
+    let p_sum = if !any {
         0.0
     } else {
-        // logsumexp then exp
-        let max_log = tail_logs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let sum_rel: f64 = tail_logs.iter().map(|&l| (l - max_log).exp()).sum();
         (max_log + sum_rel.ln()).exp()
     };
 
@@ -672,6 +688,25 @@ mod tests {
         // Upper median for even length (data[len/2] after sort): unifies with
         // streaming external-sort median in depth command (no fractional depths).
         assert_eq!(find_median(&mut data), 3); // sorted [1,2,3,4], position 2 -> 3
+    }
+
+    /// Selection at k=len/2 must match full sort then index k (upper median).
+    #[test]
+    fn test_find_median_matches_sorted_index() {
+        for seed in 0u64..40 {
+            let mut rng = seed;
+            let n = 1 + (rng % 64) as usize;
+            let mut data: Vec<u16> = (0..n)
+                .map(|_| {
+                    rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
+                    (rng >> 33) as u16
+                })
+                .collect();
+            let mut sorted = data.clone();
+            sorted.sort_unstable();
+            let expected = sorted[n / 2];
+            assert_eq!(find_median(&mut data), expected, "seed={seed} n={n}");
+        }
     }
 
     // === G-test ===

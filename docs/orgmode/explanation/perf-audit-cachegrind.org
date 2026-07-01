@@ -1,0 +1,97 @@
+#+TITLE: Performance audit (Cachegrind / hot paths)
+#+OPTIONS: toc:2 num:t author:nil
+
+This note records concrete engine hot-path issues found in =rsxcore=, how they
+were measured on **rg.terra** with Cachegrind, and what shipped optimisations
+change. Evidence files live under the implementer scratch directory for the
+perf goal run (and are summarised in-repo after deltas).
+
+* Issue 1 — =find_median= full =sort_unstable= (depth exact mode)
+
+** Mechanism
+
+=commands/depth.rs= (exact mode) accumulates per-individual depth vectors then
+calls =stats::find_median=. The previous implementation fully sorted each
+vector (=O(n log n)= comparisons and moves) only to read index =len/2= (upper
+median). That is an order-statistic problem: selection at =k = n/2= is enough.
+
+** Evidence
+
+- Code: =rsxcore/src/stats.rs= (=find_median=), call site =commands/depth.rs=.
+- Cachegrind: depth leg of =scripts/perf/run_cachegrind_workload.sh= on
+  =benchmarks/data/medium= (before/after Ir totals under scratch
+  =cachegrind-baseline.txt= / =cachegrind-after.txt=).
+- Accuracy: =test_find_median_*= and =test_find_median_matches_sorted_index=
+  (selection ≡ sorted[=n/2=]).
+
+** Fix
+
+=slice::select_nth_unstable(k)= with =k = len/2=. Same upper-median value as
+full sort. Also remove the redundant full =sort_unstable= in =depth= exact
+mode that only existed to read first/last as min/max (now linear min/max
+scans). Lean: =proofs/lean/MedianSelect= (index theorems). SymPy/Python
+PEP 723: =scripts/sympy/median_select_proof.py=.
+
+** Cachegrind (rg.terra, medium data)
+
+| Leg | Baseline Ir | After Ir | Δ |
+|-----+-------------+----------+---|
+| depth exact | 48,445,067 | 37,944,504 | −10,500,563 |
+| signif fisher | 110,446,595 | 107,714,345 | −2,732,250 |
+| **sum** | 158,891,662 | 145,658,849 | **−13,232,813** |
+
+* Issue 2 — =fisher_exact= per-marker heap =Vec= for tail log-probs
+
+** Mechanism
+
+=stats::fisher_exact= (used by =signif --test fisher= and triage-adjacent
+paths) formerly pushed every extreme-table log-probability into a =Vec<f64>=
+then ran log-sum-exp. For every marker this allocates/resizes a small vector
+and streams it twice (max + sum), adding instruction traffic and allocator
+pressure on the Fisher signif path.
+
+** Evidence
+
+- Code: =rsxcore/src/stats.rs= (=fisher_exact=).
+- Cachegrind: signif Fisher leg of the same workload script (Ir drop attributed
+  primarily to fewer alloc/copy paths in the hot loop).
+- Accuracy: existing =test_fisher_exact_*= (same tail definition, online
+  logsumexp).
+
+** Fix
+
+Online log-sum-exp over the density tail (no intermediate =Vec=). Pure
+accumulation refactor of the same sum — not a new statistical model.
+
+* Issue 3 (supporting) — =fast_parse_u16= general loop for short depths
+
+** Mechanism
+
+Depth fields in RAD TSVs are almost always 1–3 ASCII digits. The previous
+always-on saturating loop paid overflow branches for every field. An unrolled
+path for =len ∈ {1,2,3,4}= reduces instruction count on the parse-heavy
+=for_each_skip_seq= / full paths (=markers_table.rs=).
+
+** Evidence / fix
+
+- Code: =rsxcore/src/io/table_io.rs= (=fast_parse_u16=).
+- Accuracy: =test_fast_parse_u16= (including saturation cases).
+- Cachegrind: included in both workload legs (all marker streams parse depths
+  when =min_depth > 1= or depths are stored).
+
+* Workload definition (fixed)
+
+On **rg.terra**, release =rsx= binary, data =benchmarks/data/medium=:
+
+1. =rsx signif -t markers.tsv -p popmap.tsv -o … -d 5 -G M,F --test fisher=
+2. =rsx depth -t markers.tsv -p popmap.tsv -o …=
+
+Script: =scripts/perf/run_cachegrind_workload.sh=.
+
+* Non-algorithmic vs algorithmic
+
+| Change | Class |
+|--------+-------|
+| =select_nth= median | Algorithm (order statistic); Lean + SymPy |
+| Fisher online logsumexp | Engineering (same sum, no heap) |
+| =fast_parse_u16= unroll | Engineering (same mapping on digits) |

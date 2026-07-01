@@ -1,0 +1,6 @@
+name = "MedianSelect"
+version = "0.1.0"
+defaultTargets = ["MedianSelect"]
+
+[[lean_lib]]
+name = "MedianSelect"
