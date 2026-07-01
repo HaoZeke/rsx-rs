@@ -22,7 +22,7 @@ Pre-built binaries for Linux (x86_64/aarch64), macOS (x86_64/arm64), Windows (wi
 
 ```bash
 # See https://github.com/HaoZeke/rsx-rs/releases for the latest
-curl -sSfL https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.4/rsx-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.4/rsx-cli-installer.sh | sh
 ```
 
 ### From source
