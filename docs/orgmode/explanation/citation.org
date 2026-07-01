@@ -27,7 +27,7 @@ repository" button with formatted BibTeX and APA. The published artifacts are:
 - =rsxcore= and =rsx-cli= (the =rsx= binary) on [[https://crates.io/crates/rsx-cli][crates.io]]
 - =pyrsx= (Python bindings) on [[https://pypi.org/project/pyrsx/][PyPI]]
 
-Zenodo software archive for v0.2.4:
+Zenodo software archive for v0.2.5:
 [[https://doi.org/10.5281/zenodo.20531538][doi:10.5281/zenodo.20531538]]
 
 * Reproducibility archive
@@ -75,6 +75,6 @@ BibTeX/APA.
          }
 #+end_export
 
-For the rsx v0.2.4 software itself, use the Zenodo page (https://doi.org/10.5281/zenodo.20531538)
+For the rsx v0.2.5 software itself, use the Zenodo page (https://doi.org/10.5281/zenodo.20531538)
 or GitHub's Cite button / =CITATION.cff= (it can generate BibTeX, APA, etc.).
 The reproducibility archive has its own Zenodo BibTeX.

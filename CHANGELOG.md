@@ -4,7 +4,11 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
-## [0.2.4] - 2026-07-01
+## [0.2.5] - 2026-07-01
+
+Corrective lockstep cut superseding the broken `0.2.4` publish. crates.io
+cannot replace a version once uploaded, so `rsxcore`/`rsx-cli` `0.2.4` are
+yanked and this release is the CI-clean source of truth.
 
 ### Changed
 - **Median**: exact upper-median via `select_nth_unstable_by` (no full sort of
@@ -19,6 +23,9 @@ All notable changes to rsx-rs are documented here.
   sparse rank-1 microbench path; dense panel path kept for typical RAD panels.
 - **Bitset**: unrolled popcount on masked words for triage/signif masks.
 - **Frequency (Arrow)**: columnar tile histogram path for marker streams.
+- **Packaging**: `rsx-cli` depends on `rsxcore` `0.2.5` in lockstep (the
+  yanked `rsx-cli` `0.2.4` on crates.io still required `rsxcore` `^0.2.3`
+  while `rsxcore` `0.2.4` had already been published from a failing commit).
 
 ### Fixed
 - Sphinx/Shibuya docs: code-fence whitespace (unwrap `data-line` / force
@@ -26,11 +33,22 @@ All notable changes to rsx-rs are documented here.
   and readable token colours on dark backgrounds (custom.css after doxyrest;
   inherit doxyrest keyword styles).
 - Docs linkcheck (lychee) and org→RST conversion issues for the published site.
+- `cargo fmt` and `clippy -D warnings` cleanups that landed after the
+  mistaken `v0.2.4` tag (`checked_div` in depth averages, infallible `Ok`
+  return in frequency, PCA doc/`GramStreamingAcc` type alias, Arrow source
+  formatting).
 
 ### Added
 - rOpenSci-oriented **rsxr** scaffolding and monorepo-aware pkgcheck CI (package
   remains at 0.1.0 pending software-review submission).
 - Language-bindings matrix and readcon-core-aligned docs flourish on the site.
+
+## [0.2.4] - 2026-07-01
+
+YANKED on crates.io and superseded by `0.2.5`. The `v0.2.4` tag pointed at
+`db230c6` (`chore(release): 0.2.4`) before the `rustfmt`/`clippy` fixes on
+`main`, so CI never passed on that commit; `rsxcore` `0.2.4` was published
+from it while `rsx-cli` `0.2.4` still depended on `rsxcore` `^0.2.3`.
 
 ## [0.2.3] - 2026-06-04
 
