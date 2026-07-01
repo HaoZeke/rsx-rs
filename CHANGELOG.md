@@ -4,6 +4,34 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-07-01
+
+### Changed
+- **Median**: exact upper-median via `select_nth_unstable_by` (no full sort of
+  the depth vector); order-stat identity checked with Lean and an independent
+  SymPy/quickselect validator (`proofs/lean/MedianSelect`,
+  `scripts/sympy/median_select_proof.py`).
+- **Fisher / signif**: online log-sum-exp accumulation (single pass, no second
+  materialised log-prob buffer).
+- **TSV parse**: `fast_parse_u16` for depth cells on the hot path.
+- **Depth**: min/max without an extra full sort before the median selection.
+- **PCA**: streaming Gram contraction (`accumulate_gram_streaming`) with a
+  sparse rank-1 microbench path; dense panel path kept for typical RAD panels.
+- **Bitset**: unrolled popcount on masked words for triage/signif masks.
+- **Frequency (Arrow)**: columnar tile histogram path for marker streams.
+
+### Fixed
+- Sphinx/Shibuya docs: code-fence whitespace (unwrap `data-line` / force
+  inline tokens), single frame on `pre` blocks (override theme `display:grid`),
+  and readable token colours on dark backgrounds (custom.css after doxyrest;
+  inherit doxyrest keyword styles).
+- Docs linkcheck (lychee) and org→RST conversion issues for the published site.
+
+### Added
+- rOpenSci-oriented **rsxr** scaffolding and monorepo-aware pkgcheck CI (package
+  remains at 0.1.0 pending software-review submission).
+- Language-bindings matrix and readcon-core-aligned docs flourish on the site.
+
 ## [0.2.3] - 2026-06-04
 
 ### Added

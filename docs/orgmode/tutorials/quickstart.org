@@ -150,7 +150,7 @@ See the Python README for the full surface (including =from_dataframe=, =to_arro
 Every benchmark, figure, and biological result reported for rsx is
 reproducible from a single deposited archive. The Zenodo deposit
 [[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]
-bundles the pinned workflow (=v0.2.3=), the downloaded literature inputs, the
+bundles the pinned workflow (=v0.2.4=), the downloaded literature inputs, the
 result tables, and a one-command pixi + Snakemake pipeline:
 
 #+begin_src bash

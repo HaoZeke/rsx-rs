@@ -12,12 +12,12 @@ authors:
 repository-code: "https://github.com/HaoZeke/rsx-rs"
 url: "https://rsx.rgoswami.me"
 license: GPL-3.0-or-later
-version: "0.2.3"
-date-released: 2026-06-04
+version: "0.2.4"
+date-released: 2026-07-01
 identifiers:
   - type: doi
     value: "10.5281/zenodo.20531538"
-    description: "Zenodo software archive for rsx v0.2.3"
+    description: "Zenodo software archive for rsx (concept DOI; version DOIs on deposit page)"
 
 references:
   - type: article

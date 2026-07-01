@@ -17,10 +17,10 @@
 #include <stdlib.h>
 
 
-#define RSX_VERSION "0.2.3"
+#define RSX_VERSION "0.2.4"
 #define RSX_VERSION_MAJOR 0
 #define RSX_VERSION_MINOR 2
-#define RSX_VERSION_PATCH 3
+#define RSX_VERSION_PATCH 4
 
 /**
  * Bytes per depth cell. We always store u16 in the marker buffer

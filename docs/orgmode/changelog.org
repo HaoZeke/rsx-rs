@@ -14,6 +14,10 @@ the library and CLI are versioned on
 
 * Recent releases
 
+- *0.2.4* -- Core hot-path speedups (select_nth median, online Fisher
+  log-sum-exp, fast depth parse, streaming PCA Gram, bitset popcount, Arrow
+  frequency tiles) without changing statistical results; Sphinx/Shibuya code
+  fence and dark-theme token fixes; rsxr rOpenSci scaffolding.
 - *0.2.3* -- Legible prior-sensitivity heatmap annotations (value-based
   contrast); documentation, packaging, and crates.io/PyPI publishing.
   Accompanying arXiv preprint: https://arxiv.org/abs/2606.06434 .
