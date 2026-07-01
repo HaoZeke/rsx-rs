@@ -143,7 +143,7 @@ fn run_exact_source<S: MarkerStream>(
         let max_d = depths[i].iter().copied().max().unwrap_or(0);
         let total: u64 = depths[i].iter().map(|&d| d as u64).sum();
         let median_d = stats::find_median(&mut depths[i]);
-        let avg_d = if size == 0 { 0 } else { total / size };
+        let avg_d = total.checked_div(size).unwrap_or(0);
         writeln!(
             output,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",

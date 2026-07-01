@@ -66,7 +66,7 @@ pub fn compute_frequency<S: MarkerStream>(
                 a
             },
         )?;
-        return Ok(frequency);
+        Ok(frequency)
     }
 
     #[cfg(not(feature = "parallel"))]

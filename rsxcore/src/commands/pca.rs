@@ -47,9 +47,9 @@ fn compute_pca(
 
 /// Core streaming PCA against any `MarkerStream`.
 ///
-/// Builds the centered Gram as a **streaming contraction** \(G = X_c^	op X_c\):
-/// one pass accumulates uncentered \(X^	op X\) (upper triangle) and column
-/// means, then applies \(G \leftarrow X^	op X - m\mu\mu^	op\).
+/// Builds the centered Gram as a **streaming contraction** \(G = X_c^\mathrm{T} X_c\):
+/// one pass accumulates uncentered \(X^\mathrm{T} X\) (upper triangle) and column
+/// means, then applies \(G \leftarrow X^\mathrm{T} X - m\mu\mu^\mathrm{T}\).
 fn compute_pca_with_source<S: MarkerStream>(
     source: &S,
     n_components: Option<usize>,
@@ -120,10 +120,12 @@ fn compute_pca_with_source<S: MarkerStream>(
 }
 
 /// Streaming contraction pass: uncentered Gram upper triangle + column sums.
+type GramStreamingAcc = (Vec<f64>, Vec<f64>, u64);
+
 fn accumulate_gram_streaming<S: MarkerStream>(
     source: &S,
     n: usize,
-) -> Result<(Vec<f64>, Vec<f64>, u64), Box<dyn std::error::Error>> {
+) -> Result<GramStreamingAcc, Box<dyn std::error::Error>> {
     let mut gram = vec![0.0f64; n * n];
     let mut mean = vec![0.0f64; n];
     let mut n_markers = 0u64;
