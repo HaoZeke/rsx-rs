@@ -213,7 +213,10 @@ fn arrow_columnar_freq_matches_marker_stream_and_is_faster() {
             stream_hist[m.n_individuals as usize] += 1;
         })
         .unwrap();
-    assert_eq!(col, stream_hist, "columnar tile reduce must match Marker stream");
+    assert_eq!(
+        col, stream_hist,
+        "columnar tile reduce must match Marker stream"
+    );
 
     // Demonstrable gain: time columnar vs forced Marker materialisation
     let t0 = std::time::Instant::now();
@@ -234,7 +237,10 @@ fn arrow_columnar_freq_matches_marker_stream_and_is_faster() {
     }
     let stream_ns = t1.elapsed().as_nanos();
 
-    eprintln!("arrow_columnar_ns={col_ns} marker_stream_ns={stream_ns} speedup≈{:.2}x", stream_ns as f64 / col_ns as f64);
+    eprintln!(
+        "arrow_columnar_ns={col_ns} marker_stream_ns={stream_ns} speedup≈{:.2}x",
+        stream_ns as f64 / col_ns as f64
+    );
     assert!(
         col_ns < stream_ns,
         "columnar Arrow tile path should beat Marker materialisation: col={col_ns} stream={stream_ns}"

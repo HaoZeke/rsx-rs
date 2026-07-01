@@ -196,9 +196,8 @@ impl MarkerStream for ArrowMarkerSource {
                 continue;
             }
             // Borrow depth columns once per batch (tensor tile).
-            let depth_cols: Vec<&dyn Array> = (0..n_ind)
-                .map(|i| batch.column(i + 2).as_ref())
-                .collect();
+            let depth_cols: Vec<&dyn Array> =
+                (0..n_ind).map(|i| batch.column(i + 2).as_ref()).collect();
             for row in 0..n_rows {
                 let mut present = 0u32;
                 for col in &depth_cols {

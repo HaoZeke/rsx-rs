@@ -119,7 +119,6 @@ fn compute_pca_with_source<S: MarkerStream>(
     })
 }
 
-
 /// Streaming contraction pass: uncentered Gram upper triangle + column sums.
 fn accumulate_gram_streaming<S: MarkerStream>(
     source: &S,
