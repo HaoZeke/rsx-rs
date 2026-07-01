@@ -185,6 +185,36 @@ impl MarkerStream for ArrowMarkerSource {
         Ok(())
     }
 
+    /// Columnar `freq` histogram: for each row count how many depth columns
+    /// are ≥ `min_depth`, without allocating a `Marker` (tile = RecordBatch).
+    fn freq_histogram_columnar(&self, min_depth: u16) -> Option<std::io::Result<Vec<u32>>> {
+        let n_ind = self.header.n_individuals as usize;
+        let mut frequency = vec![0u32; n_ind + 1];
+        for batch in self.batches.iter() {
+            let n_rows = batch.num_rows();
+            if n_rows == 0 {
+                continue;
+            }
+            // Borrow depth columns once per batch (tensor tile).
+            let depth_cols: Vec<&dyn Array> = (0..n_ind)
+                .map(|i| batch.column(i + 2).as_ref())
+                .collect();
+            for row in 0..n_rows {
+                let mut present = 0u32;
+                for col in &depth_cols {
+                    let d = array_value_as_u16(*col, row);
+                    if d >= min_depth {
+                        present += 1;
+                    }
+                }
+                if present as usize <= n_ind {
+                    frequency[present as usize] += 1;
+                }
+            }
+        }
+        Some(Ok(frequency))
+    }
+
     #[cfg(feature = "parallel")]
     fn par_for_each<F>(&self, f: F) -> io::Result<()>
     where

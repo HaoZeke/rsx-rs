@@ -70,12 +70,24 @@ pub trait MarkerStream {
         Acc: Send + Sync + Clone,
         Fold: Fn(&mut Acc, &Marker) + Send + Sync + Clone,
         Reduce: Fn(Acc, Acc) -> Acc + Send + Sync;
+
+    /// Optional columnar fast path for the `freq` histogram (count markers by
+    /// number of individuals with depth ≥ min_depth).
+    ///
+    /// Default: `None` → callers use the generic `Marker` stream. Arrow sources
+    /// override this to walk typed columns as tiles without materialising a
+    /// `Marker` per row.
+    fn freq_histogram_columnar(&self, _min_depth: u16) -> Option<std::io::Result<Vec<u32>>> {
+        None
+    }
 }
 
 impl MarkerStream for crate::markers_table::MarkersTableStream {
     fn header(&self) -> &TableHeader {
         &self.header
     }
+
+    // freq_histogram_columnar: default (TSV path stays mmap + bitset stream)
 
     fn groups(&self) -> &[String] {
         &self.groups

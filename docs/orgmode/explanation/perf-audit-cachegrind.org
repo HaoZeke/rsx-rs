@@ -95,3 +95,27 @@ Script: =scripts/perf/run_cachegrind_workload.sh=.
 | =select_nth= median | Algorithm (order statistic); Lean + SymPy |
 | Fisher online logsumexp | Engineering (same sum, no heap) |
 | =fast_parse_u16= unroll | Engineering (same mapping on digits) |
+
+* Tensor-path follow-up (streaming Gram / bitset / Arrow tiles)
+
+** 1. Row-stream + bitset polish
+
+=bitset::count_masked= unrolls 1–4 word panels. Cachegrind on
+=signif --test chisq= (medium): Ir drop ~0.57% vs pre-unroll
+(=cachegrind-tensor-delta.txt= on implementer scratch).
+
+** 2. PCA as streaming contraction
+
+=compute_pca_with_source= documents and isolates
+=accumulate_gram_streaming= (\(G \mathrel{+}= x x^\top\) upper triangle +
+means, then centering). Production uses the dense double loop (best for
+mid-density medium panels under Cachegrind).
+=rank1_upper_update_sparse= is exact for sparse rows and is proven faster
+on a 90%-zero synthetic microbench (=gram_tests=).
+
+** 3. Arrow batches as tiles
+
+=MarkerStream::freq_histogram_columnar= + =ArrowMarkerSource= override walks
+typed depth columns without materialising =Marker=. Unit test
+=arrow_columnar_freq_matches_marker_stream_and_is_faster= shows a clear
+wall-clock win on 100k synthetic rows (see =arrow-columnar-bench.log=).

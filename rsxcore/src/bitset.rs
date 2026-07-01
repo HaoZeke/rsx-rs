@@ -36,14 +36,38 @@ impl BitsetRow {
     }
 
     /// Count bits set in `self & mask` (group count via popcount).
+    ///
+    /// Unrolls the common 1–4 word cases (≤256 individuals) so the group
+    /// contraction stays a handful of `and`+`popcnt` ops.
     #[inline(always)]
     pub fn count_masked(&self, mask: &GroupMask) -> u32 {
         debug_assert_eq!(self.words.len(), mask.words.len());
-        let mut count = 0u32;
-        for (w, m) in self.words.iter().zip(mask.words.iter()) {
-            count += (w & m).count_ones();
+        let aw = self.words.as_slice();
+        let mw = mask.words.as_slice();
+        let n = aw.len();
+        match n {
+            0 => 0,
+            1 => (aw[0] & mw[0]).count_ones(),
+            2 => (aw[0] & mw[0]).count_ones() + (aw[1] & mw[1]).count_ones(),
+            3 => {
+                (aw[0] & mw[0]).count_ones()
+                    + (aw[1] & mw[1]).count_ones()
+                    + (aw[2] & mw[2]).count_ones()
+            }
+            4 => {
+                (aw[0] & mw[0]).count_ones()
+                    + (aw[1] & mw[1]).count_ones()
+                    + (aw[2] & mw[2]).count_ones()
+                    + (aw[3] & mw[3]).count_ones()
+            }
+            _ => {
+                let mut count = 0u32;
+                for i in 0..n {
+                    count += (aw[i] & mw[i]).count_ones();
+                }
+                count
+            }
         }
-        count
     }
 
     /// Total number of set bits (n_individuals present).

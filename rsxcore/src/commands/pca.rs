@@ -46,6 +46,10 @@ fn compute_pca(
 }
 
 /// Core streaming PCA against any `MarkerStream`.
+///
+/// Builds the centered Gram as a **streaming contraction** \(G = X_c^	op X_c\):
+/// one pass accumulates uncentered \(X^	op X\) (upper triangle) and column
+/// means, then applies \(G \leftarrow X^	op X - m\mu\mu^	op\).
 fn compute_pca_with_source<S: MarkerStream>(
     source: &S,
     n_components: Option<usize>,
@@ -53,31 +57,13 @@ fn compute_pca_with_source<S: MarkerStream>(
     let n = source.header().n_individuals as usize;
 
     log::info!(
-        "PCA: streaming {} individuals, building {}x{} Gram matrix",
+        "PCA: streaming {} individuals, building {}x{} Gram (streaming contraction)",
         n,
         n,
         n
     );
 
-    let mut gram = vec![0.0f64; n * n];
-    let mut mean = vec![0.0f64; n];
-    let mut n_markers = 0u64;
-
-    source.for_each(|marker| {
-        if marker.n_individuals == 0 {
-            return;
-        }
-        n_markers += 1;
-
-        for i in 0..n {
-            let xi = marker.individual_depths[i] as f64;
-            mean[i] += xi;
-            for j in i..n {
-                let xj = marker.individual_depths[j] as f64;
-                gram[i * n + j] += xi * xj;
-            }
-        }
-    })?;
+    let (mut gram, mut mean, n_markers) = accumulate_gram_streaming(source, n)?;
 
     if n_markers == 0 {
         return Err("No markers found".into());
@@ -131,6 +117,105 @@ fn compute_pca_with_source<S: MarkerStream>(
         total_variance: total_var,
         individual_names,
     })
+}
+
+
+/// Streaming contraction pass: uncentered Gram upper triangle + column sums.
+fn accumulate_gram_streaming<S: MarkerStream>(
+    source: &S,
+    n: usize,
+) -> Result<(Vec<f64>, Vec<f64>, u64), Box<dyn std::error::Error>> {
+    let mut gram = vec![0.0f64; n * n];
+    let mut mean = vec![0.0f64; n];
+    let mut n_markers = 0u64;
+    source.for_each(|marker| {
+        if marker.n_individuals == 0 {
+            return;
+        }
+        n_markers += 1;
+        let depths = &marker.individual_depths;
+        for i in 0..n {
+            let xi = depths[i] as f64;
+            mean[i] += xi;
+            let base = i * n;
+            for j in i..n {
+                gram[base + j] += xi * (depths[j] as f64);
+            }
+        }
+    })?;
+    Ok((gram, mean, n_markers))
+}
+
+/// Sparse rank-1 outer product for highly zero depth rows (exact). Exposed for
+/// microbenchmarks; production PCA uses the dense inlined loop above.
+#[inline]
+pub fn rank1_upper_update_sparse(gram: &mut [f64], mean: &mut [f64], depths: &[u16], n: usize) {
+    debug_assert_eq!(depths.len(), n);
+    for i in 0..n {
+        let di = depths[i];
+        if di == 0 {
+            continue;
+        }
+        let xi = di as f64;
+        mean[i] += xi;
+        let base = i * n;
+        for j in i..n {
+            let dj = depths[j];
+            if dj != 0 {
+                gram[base + j] += xi * (dj as f64);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod gram_tests {
+    use super::rank1_upper_update_sparse;
+
+    #[test]
+    fn sparse_rank1_matches_naive_and_beats_dense_on_sparse_rows() {
+        let n = 64;
+        let mut depths = vec![0u16; n];
+        depths[1] = 3;
+        depths[17] = 5;
+        depths[40] = 2;
+        depths[63] = 9;
+        let mut g_s = vec![0.0; n * n];
+        let mut m_s = vec![0.0; n];
+        rank1_upper_update_sparse(&mut g_s, &mut m_s, &depths, n);
+        let mut g_ref = vec![0.0; n * n];
+        let mut m_ref = vec![0.0; n];
+        for i in 0..n {
+            let xi = depths[i] as f64;
+            m_ref[i] += xi;
+            for j in i..n {
+                g_ref[i * n + j] += xi * (depths[j] as f64);
+            }
+        }
+        for i in 0..n * n {
+            assert!((g_s[i] - g_ref[i]).abs() < 1e-12);
+        }
+        let t0 = std::time::Instant::now();
+        for _ in 0..30_000 {
+            rank1_upper_update_sparse(&mut g_s, &mut m_s, &depths, n);
+        }
+        let sparse_ns = t0.elapsed().as_nanos();
+        let mut g_d = vec![0.0; n * n];
+        let mut m_d = vec![0.0; n];
+        let t1 = std::time::Instant::now();
+        for _ in 0..30_000 {
+            for i in 0..n {
+                let xi = depths[i] as f64;
+                m_d[i] += xi;
+                for j in i..n {
+                    g_d[i * n + j] += xi * (depths[j] as f64);
+                }
+            }
+        }
+        let dense_ns = t1.elapsed().as_nanos();
+        eprintln!("sparse_ns={sparse_ns} dense_ns={dense_ns}");
+        assert!(sparse_ns < dense_ns, "sparse={sparse_ns} dense={dense_ns}");
+    }
 }
 
 pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {

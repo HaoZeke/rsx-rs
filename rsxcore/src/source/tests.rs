@@ -153,3 +153,90 @@ fn freq_outputs_match_across_sources() {
     assert_eq!(file_body, arrow_body, "arrow vs file freq output");
     assert_eq!(file_body, spill_body, "spill vs file freq output");
 }
+
+#[test]
+fn arrow_columnar_freq_matches_marker_stream_and_is_faster() {
+    use arrow::array::UInt16Array;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
+    use std::sync::Arc;
+
+    // Large synthetic tile set: 40 individuals × 25_000 rows × 4 batches
+    let n_ind = 40usize;
+    let n_rows = 25_000usize;
+    let n_batches = 4usize;
+    let mut fields = vec![
+        Field::new("id", DataType::Utf8, false),
+        Field::new("sequence", DataType::Utf8, false),
+    ];
+    for i in 0..n_ind {
+        fields.push(Field::new(format!("ind{i}"), DataType::UInt16, false));
+    }
+    let schema = Arc::new(Schema::new(fields));
+
+    let mut batches = Vec::with_capacity(n_batches);
+    for b in 0..n_batches {
+        let ids: Vec<String> = (0..n_rows).map(|r| format!("{b}_{r}")).collect();
+        let seqs: Vec<&str> = vec!["ACGT"; n_rows];
+        let mut cols: Vec<Arc<dyn arrow::array::Array>> = vec![
+            Arc::new(StringArray::from(ids)),
+            Arc::new(StringArray::from(seqs)),
+        ];
+        for i in 0..n_ind {
+            let data: Vec<u16> = (0..n_rows)
+                .map(|r| {
+                    // ~25% non-zero depths
+                    if (r + i + b) % 4 == 0 {
+                        ((r + i) % 20 + 1) as u16
+                    } else {
+                        0
+                    }
+                })
+                .collect();
+            cols.push(Arc::new(UInt16Array::from(data)));
+        }
+        batches.push(RecordBatch::try_new(schema.clone(), cols).unwrap());
+    }
+
+    let arrow = ArrowMarkerSource::from_batches(batches, None, 1).unwrap();
+    let min_depth = 1u16;
+
+    // Correctness: columnar == generic stream histogram
+    let col = arrow
+        .freq_histogram_columnar(min_depth)
+        .expect("columnar path")
+        .unwrap();
+    // Force Marker materialisation path (not columnar) for comparison
+    let mut stream_hist = vec![0u32; n_ind + 1];
+    arrow
+        .for_each(|m| {
+            stream_hist[m.n_individuals as usize] += 1;
+        })
+        .unwrap();
+    assert_eq!(col, stream_hist, "columnar tile reduce must match Marker stream");
+
+    // Demonstrable gain: time columnar vs forced Marker materialisation
+    let t0 = std::time::Instant::now();
+    for _ in 0..8 {
+        let _ = arrow.freq_histogram_columnar(min_depth).unwrap().unwrap();
+    }
+    let col_ns = t0.elapsed().as_nanos();
+
+    let t1 = std::time::Instant::now();
+    for _ in 0..8 {
+        let mut h = vec![0u32; n_ind + 1];
+        arrow
+            .for_each(|m| {
+                h[m.n_individuals as usize] += 1;
+            })
+            .unwrap();
+        std::hint::black_box(h);
+    }
+    let stream_ns = t1.elapsed().as_nanos();
+
+    eprintln!("arrow_columnar_ns={col_ns} marker_stream_ns={stream_ns} speedup≈{:.2}x", stream_ns as f64 / col_ns as f64);
+    assert!(
+        col_ns < stream_ns,
+        "columnar Arrow tile path should beat Marker materialisation: col={col_ns} stream={stream_ns}"
+    );
+}
