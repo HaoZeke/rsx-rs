@@ -20,7 +20,7 @@
 #define RSX_VERSION "0.2.6"
 #define RSX_VERSION_MAJOR 0
 #define RSX_VERSION_MINOR 2
-#define RSX_VERSION_PATCH 5
+#define RSX_VERSION_PATCH 6
 
 /**
  * Bytes per depth cell. We always store u16 in the marker buffer
