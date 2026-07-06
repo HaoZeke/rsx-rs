@@ -47,10 +47,21 @@ rsx distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0
 | =-d= | 1       | Minimum depth |
 | =-G= | auto    | Groups to compare (comma-separated) |
 | =-S= | 0.05    | Significance threshold |
-| =--correction= | bonferroni | Multiple testing on the cell grid: bonferroni, fdr, none |
+| =--correction= | bonferroni | Multiple testing (see note below) |
 | =--test= | chisq | Statistical test: chisq, fisher, gtest |
 | =--bayes= | | Add Bayes Factor + posterior columns per cell |
 | =-C= | false   | Legacy alias for =--correction none= |
+
+Correction note (not interchangeable):
+
+- =bonferroni= follows RADSex: each cell's p is compared to =S / n_markers=
+  (marker-table size), preserving byte-compatible significance flags with
+  C++ RADSex when groups are explicit.
+- =fdr= applies Benjamini–Hochberg across the *cell grid*
+  (=(n_group1+1)×(n_group2+1)−1= non-empty presence-count cells), not across
+  markers. =CorrectedP= / =Signif= under FDR are therefore *not* a milder
+  version of the Bonferroni column — different multiple-testing universe.
+- =none= uses the raw threshold =S= on each cell p-value.
 
 * signif
 

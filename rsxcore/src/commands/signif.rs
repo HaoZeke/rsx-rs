@@ -44,6 +44,16 @@ pub fn run_with_source<S: MarkerStream>(
     popmap: &Popmap,
     params: &SignifParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Reject invalid flag combinations *before* creating/truncating the output file.
+    if matches!(params.correction, CorrectionMethod::Fdr) && params.output_fasta {
+        return Err(
+            "signif: --output-fasta is not supported with --correction fdr \
+             (FDR needs a full p-value pass then a re-stream table write; \
+             use table output or correction=bonferroni/none for FASTA)"
+                .into(),
+        );
+    }
+
     let mut groups = GroupConfig {
         group1: params.group1.clone(),
         group2: params.group2.clone(),
@@ -53,28 +63,10 @@ pub fn run_with_source<S: MarkerStream>(
     let total_g1 = popmap.get_count(&groups.group1);
     let total_g2 = popmap.get_count(&groups.group2);
 
-    log::info!("signif pass 1: counting markers");
-    let n_markers = source.count_markers()?;
-    log::info!("signif pass 1: {} markers", n_markers);
-
-    let threshold = params.signif_threshold as f64;
-    let corrected_threshold = match params.correction {
-        CorrectionMethod::Bonferroni => threshold / n_markers as f64,
-        CorrectionMethod::None => threshold,
-        CorrectionMethod::Fdr => threshold,
-    };
-    let effective_n_markers = match params.correction {
-        CorrectionMethod::Bonferroni => n_markers,
-        CorrectionMethod::None | CorrectionMethod::Fdr => 1,
-    };
-
-    log::info!("signif pass 2: filtering and writing");
     let header_columns = source.header().columns.clone();
     let n_individuals = source.header().n_individuals;
     let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
     let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
-
-    let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 
     let test_name = match params.test_method {
         TestMethod::ChiSquared => "chisq",
@@ -86,6 +78,102 @@ pub fn run_with_source<S: MarkerStream>(
         CorrectionMethod::Fdr => "fdr",
         CorrectionMethod::None => "none",
     };
+    let threshold = params.signif_threshold as f64;
+
+    let fasta_groups = vec![
+        (groups.group1.clone(), &mask_g1),
+        (groups.group2.clone(), &mask_g2),
+    ];
+
+    // FDR: two full table passes only (p-values, then re-stream write). n_markers
+    // for the header is p_values.len() — no separate count_markers pass.
+    // Stores O(n_markers) p/q floats only. Documented in commands.org / README.
+    if matches!(params.correction, CorrectionMethod::Fdr) {
+        log::info!("signif FDR pass 1: collecting p-values");
+        let mut p_values: Vec<f64> = Vec::new();
+        source.for_each(|marker| {
+            if marker.n_individuals > 0 {
+                let g1 = marker.presence.count_masked(&mask_g1);
+                let g2 = marker.presence.count_masked(&mask_g2);
+                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
+                p_values.push(p);
+            }
+        })?;
+        let n_markers = p_values.len() as u64;
+        log::info!("signif FDR pass 1: {} markers", n_markers);
+
+        let q_values = stats::benjamini_hochberg(&p_values);
+
+        log::info!("signif FDR pass 2: filtering and writing");
+        let mut output =
+            std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
+        writeln!(
+            output,
+            "#source:rsx-signif;min_depth:{};signif_threshold:{};correction:{};test:{};n_markers:{}",
+            params.min_depth, params.signif_threshold, corr_name, test_name, n_markers
+        )?;
+        if params.output_bayes {
+            writeln!(
+                output,
+                "{}\tBayes_Factor\tPosterior_SexLinked",
+                header_columns.join("\t")
+            )?;
+        } else {
+            writeln!(output, "{}", header_columns.join("\t"))?;
+        }
+
+        let mut idx = 0usize;
+        let mut write_err: Option<std::io::Error> = None;
+        source.for_each(|marker| {
+            if write_err.is_some() || marker.n_individuals == 0 {
+                return;
+            }
+            let q = q_values[idx];
+            idx += 1;
+            if q >= threshold {
+                return;
+            }
+            let g1 = marker.presence.count_masked(&mask_g1);
+            let g2 = marker.presence.count_masked(&mask_g2);
+            let result = if params.output_bayes {
+                write_marker_bayes_row(&mut output, marker, g1, g2, total_g1, total_g2)
+            } else {
+                marker.write_as_table(&mut output)
+            };
+            if let Err(e) = result {
+                write_err = Some(e);
+            }
+        })?;
+        if let Some(e) = write_err {
+            return Err(e.into());
+        }
+        return Ok(());
+    }
+
+    // Bonferroni / none: count then single filter/write pass.
+    log::info!("signif pass 1: counting markers");
+    let n_markers = source.count_markers()?;
+    log::info!("signif pass 1: {} markers", n_markers);
+
+    let corrected_threshold = match params.correction {
+        CorrectionMethod::Bonferroni => {
+            if n_markers == 0 {
+                threshold
+            } else {
+                threshold / n_markers as f64
+            }
+        }
+        CorrectionMethod::None => threshold,
+        CorrectionMethod::Fdr => unreachable!("FDR handled above"),
+    };
+    let effective_n_markers = match params.correction {
+        CorrectionMethod::Bonferroni => n_markers.max(1),
+        CorrectionMethod::None => 1,
+        CorrectionMethod::Fdr => unreachable!("FDR handled above"),
+    };
+
+    log::info!("signif pass 2: filtering and writing");
+    let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 
     if !params.output_fasta {
         writeln!(
@@ -105,99 +193,57 @@ pub fn run_with_source<S: MarkerStream>(
         }
     }
 
-    let fasta_groups = vec![
-        (groups.group1.clone(), &mask_g1),
-        (groups.group2.clone(), &mask_g2),
-    ];
-
-    // FDR needs all p-values before writing (BH step-up). Pass 2 re-streams the
-    // table so we only store O(n_markers) p-values, not full sequences/depths.
-    // This is still O(n_markers) memory for p/q, not O(n_individuals). Documented
-    // in commands.org / README. FASTA + FDR is rejected (would need full materialize
-    // or a third pass with presence metadata in the header).
-    if matches!(params.correction, CorrectionMethod::Fdr) {
-        if params.output_fasta {
-            return Err(
-                "signif: --output-fasta is not supported with --correction fdr \
-                 (FDR needs a full p-value pass then a re-stream table write; \
-                 use table output or correction=bonferroni/none for FASTA)"
-                    .into(),
-            );
+    let mut write_err: Option<std::io::Error> = None;
+    source.for_each(|marker| {
+        if write_err.is_some() || marker.n_individuals == 0 {
+            return;
         }
+        let g1 = marker.presence.count_masked(&mask_g1);
+        let g2 = marker.presence.count_masked(&mask_g2);
+        let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
 
-        let mut p_values: Vec<f64> = Vec::new();
-        source.for_each(|marker| {
-            if marker.n_individuals > 0 {
-                let g1 = marker.presence.count_masked(&mask_g1);
-                let g2 = marker.presence.count_masked(&mask_g2);
-                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
-                p_values.push(p);
-            }
-        })?;
+        // Full f64 compare (do not cast to f32 — lossy near thresholds).
+        if p >= corrected_threshold {
+            return;
+        }
+        let p_corr = stats::bonferroni_correct(p, effective_n_markers);
 
-        let q_values = stats::benjamini_hochberg(&p_values);
-        let mut idx = 0usize;
-        source.for_each(|marker| {
-            if marker.n_individuals == 0 {
-                return;
-            }
-            let q = q_values[idx];
-            idx += 1;
-            if q < threshold {
-                let g1 = marker.presence.count_masked(&mask_g1);
-                let g2 = marker.presence.count_masked(&mask_g2);
-                if params.output_bayes {
-                    let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
-                    let post =
-                        stats::posterior_sex_linked(g1, g2, total_g1, total_g2, 0.01, 0.9);
-                    write!(output, "{}\t{}", marker.id, marker.sequence).ok();
-                    for &d in &marker.individual_depths {
-                        write!(output, "\t{d}").ok();
-                    }
-                    let _ = writeln!(output, "\t{:.4}\t{:.4}", bf, post);
-                } else {
-                    let _ = marker.write_as_table(&mut output);
-                }
-            }
-        })?;
-    } else {
-        source.for_each(|marker| {
-            if marker.n_individuals > 0 {
-                let g1 = marker.presence.count_masked(&mask_g1);
-                let g2 = marker.presence.count_masked(&mask_g2);
-                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
-
-                // Full f64 compare (do not cast to f32 — lossy near thresholds).
-                if p < corrected_threshold {
-                    let p_corr = stats::bonferroni_correct(p, effective_n_markers);
-
-                    if params.output_fasta {
-                        let mut m = marker.clone();
-                        m.p = p;
-                        m.p_corrected = p_corr;
-                        let _ = m.write_as_fasta_bitset(
-                            &mut output,
-                            params.min_depth as u32,
-                            &fasta_groups,
-                        );
-                    } else if params.output_bayes {
-                        let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
-                        let post =
-                            stats::posterior_sex_linked(g1, g2, total_g1, total_g2, 0.01, 0.9);
-                        write!(output, "{}\t{}", marker.id, marker.sequence).ok();
-                        for &d in &marker.individual_depths {
-                            write!(output, "\t{d}").ok();
-                        }
-                        let _ = writeln!(output, "\t{:.4}\t{:.4}", bf, post);
-                    } else {
-                        let _ = marker.write_as_table(&mut output);
-                    }
-                }
-            }
-        })?;
+        let result = if params.output_fasta {
+            let mut m = marker.clone();
+            m.p = p;
+            m.p_corrected = p_corr;
+            m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)
+        } else if params.output_bayes {
+            write_marker_bayes_row(&mut output, marker, g1, g2, total_g1, total_g2)
+        } else {
+            marker.write_as_table(&mut output)
+        };
+        if let Err(e) = result {
+            write_err = Some(e);
+        }
+    })?;
+    if let Some(e) = write_err {
+        return Err(e.into());
     }
 
     Ok(())
+}
+
+fn write_marker_bayes_row<W: Write>(
+    output: &mut W,
+    marker: &crate::marker::Marker,
+    g1: u32,
+    g2: u32,
+    total_g1: u32,
+    total_g2: u32,
+) -> std::io::Result<()> {
+    let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
+    let post = stats::posterior_sex_linked(g1, g2, total_g1, total_g2, 0.01, 0.9);
+    write!(output, "{}\t{}", marker.id, marker.sequence)?;
+    for &d in &marker.individual_depths {
+        write!(output, "\t{d}")?;
+    }
+    writeln!(output, "\t{:.4}\t{:.4}", bf, post)
 }
 
 #[cfg(test)]
@@ -276,10 +322,11 @@ mod tests {
     }
 
     #[test]
-    fn signif_fdr_plus_fasta_is_rejected() {
+    fn signif_fdr_plus_fasta_is_rejected_without_truncating_output() {
         let dir = tempfile::tempdir().unwrap();
         let (table, pop) = write_fixture(dir.path());
-        let out = dir.path().join("signif.fa");
+        let out = dir.path().join("preexisting.fa");
+        std::fs::write(&out, b">keep_me\nACGT\n").unwrap();
         let err = run(&SignifParams {
             markers_table_path: table.to_str().unwrap().to_string(),
             popmap_file_path: pop.to_str().unwrap().to_string(),
@@ -298,6 +345,12 @@ mod tests {
         assert!(
             msg.contains("fdr") || msg.contains("FASTA") || msg.contains("fasta"),
             "error should mention fdr/fasta: {msg}"
+        );
+        // Must not truncate an existing path on the rejected invocation.
+        let preserved = std::fs::read_to_string(&out).unwrap();
+        assert_eq!(
+            preserved, ">keep_me\nACGT\n",
+            "rejected FASTA+FDR must not wipe an existing output file"
         );
     }
 
