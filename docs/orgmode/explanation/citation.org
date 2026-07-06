@@ -6,6 +6,11 @@
 
 If you use ~rsx~ in your research, please cite the paper and the software.
 
+#+begin_export rst
+The site bibliography (Sphinx + sphinxcontrib-bibtex) also lists these works in
+:file:`docs/source/references.bib` for formal :cite: roles when building the docs.
+#+end_export
+
 * Paper
 
 Goswami R, Goswami R. /rsx: A high-performance streaming toolkit for RAD-seq
@@ -67,7 +72,7 @@ BibTeX/APA.
       .. code-block:: bibtex
 
          @article{Feron2021radsex,
-           title   = {RAD sequencing reveals sex determination systems in the genus {RADSex}},
+           title   = {{RADSex}: a computational workflow to study sex determination using restriction site-associated {DNA} sequencing data},
            author  = {Feron, Romain and others},
            journal = {Molecular Ecology Resources},
            year    = {2021},

@@ -24,16 +24,19 @@ rsx process -i <input_dir> -o <output.tsv> [-T threads] [-d min_depth] [-k kmer_
 Supported extensions: =.fq=, =.fastq=, =.fasta=, =.fa=, =.fna= (optionally =.gz=).
 Individual names are derived from filenames.
 
-Optional =-k= / =--kmer-dedup= groups markers by canonical k-mer of the
-given size before output. The representative marker from each k-mer group is
-the sequence with the highest total depth.
+Optional =-k= / =--kmer-dedup= groups markers by *min-hash of canonical k-mers*
+of the given size (LSH heuristic for near-duplicate collapse — not a majority
+vote and not guaranteed for single-base errors). Within each group the sequence
+with the highest total depth is retained. The header =#Number of markers=
+counts only rows that pass =-d= / =--min-depth=.
 
 * distrib
 
 Compute marker distribution between two groups.
 
 #+begin_src bash
-rsx distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] [-C]
+rsx distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] \
+  [--correction bonferroni|fdr|none] [--test chisq|fisher|gtest] [--bayes] [-C]
 #+end_src
 
 | Flag | Default | Description |
@@ -44,7 +47,10 @@ rsx distrib -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0
 | =-d= | 1       | Minimum depth |
 | =-G= | auto    | Groups to compare (comma-separated) |
 | =-S= | 0.05    | Significance threshold |
-| =-C= | false   | Disable Bonferroni correction |
+| =--correction= | bonferroni | Multiple testing on the cell grid: bonferroni, fdr, none |
+| =--test= | chisq | Statistical test: chisq, fisher, gtest |
+| =--bayes= | | Add Bayes Factor + posterior columns per cell |
+| =-C= | false   | Legacy alias for =--correction none= |
 
 * signif
 
@@ -62,9 +68,15 @@ rsx signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.
 | =--bayes=      |            | Add Bayes Factor + posterior P(sex-linked) cols  |
 | =-a=           |            | Output FASTA instead of table                    |
 
-Two-pass streaming: pass 1 counts markers, pass 2 writes directly.
-O(n_individuals) memory. FDR correction collects p-values first (uses
-more memory but still bounded).
+Two-pass streaming for Bonferroni / none: pass 1 counts markers, pass 2 writes
+directly with O(n_individuals) working memory.
+
+FDR correction (=--correction fdr=) stores all marker p-values (O(n_markers)
+floats) for Benjamini–Hochberg, then *re-streams* the table to write hits — it
+does **not** materialize full sequences/depths for every marker. Still not
+suitable for panels where even a float per marker exceeds RAM. Combining
+=--output-fasta= with FDR is rejected with an error (use table output or
+Bonferroni/none for FASTA).
 
 =--bayes= is table output. It adds =Bayes_Factor= and
 =Posterior_SexLinked= columns, where the posterior treats either compared
@@ -205,15 +217,17 @@ rsx pca -t <table.tsv> -o <output_dir/> [-d 5] [-r 10]
 
 Computes sample principal components by streaming the centered Gram matrix
 X^T X (n_individuals x n_individuals) and eigendecomposing it. The
-loadings are the same right singular vectors that full-matrix PCA would
-produce, but the marker table does not need to be materialized.
+per-individual columns are the same right singular vectors (sample-space
+axes / scores) that full-matrix PCA would produce; the marker table does
+not need to be materialized. These are *not* classical marker feature loadings.
 
 Memory: O(n_individuals^2) = 320KB for 200 individuals, regardless of
 the number of markers. Works on arbitrarily large tables.
 
 Output files:
 - =eigenvalues.tsv=: component, eigenvalue, variance_fraction, cumulative
-- =loadings.tsv=: individual x component loading matrix
+- =loadings.tsv=: individual × component sample scores (legacy filename)
+- =sample_scores.tsv=: same matrix under the clearer name
 - =summary.txt=: total variance, top components
 
 Use cases:

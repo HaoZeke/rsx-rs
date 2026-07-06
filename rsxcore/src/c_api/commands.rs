@@ -26,16 +26,51 @@ unsafe fn parse_test(ptr: *const c_char) -> Result<TestMethod, rsx_status_t> {
     })
 }
 
-/// Helper to convert a C string pointer to a Rust string, returning error on null.
-unsafe fn cstr_to_string(ptr: *const c_char, name: &str) -> Result<String, rsx_status_t> {
+/// Helper to convert a C string pointer to a Rust string, returning error on null
+/// or invalid UTF-8 (never invents an empty string for bad encodings).
+pub(crate) unsafe fn cstr_to_string(
+    ptr: *const c_char,
+    name: &str,
+) -> Result<String, rsx_status_t> {
     if ptr.is_null() {
         set_last_error(&format!("null pointer for {name}"));
         return Err(rsx_status_t::RSX_INVALID_PARAMETER);
     }
-    Ok(unsafe { CStr::from_ptr(ptr) }
-        .to_str()
-        .unwrap_or("")
-        .to_string())
+    match unsafe { CStr::from_ptr(ptr) }.to_str() {
+        Ok(s) => Ok(s.to_string()),
+        Err(_) => {
+            set_last_error(&format!("invalid UTF-8 in {name}"));
+            Err(rsx_status_t::RSX_INVALID_PARAMETER)
+        }
+    }
+}
+
+#[cfg(test)]
+mod cstr_tests {
+    use super::*;
+    use std::ffi::CString;
+
+    #[test]
+    fn cstr_to_string_accepts_valid_utf8() {
+        let s = CString::new("markers.tsv").unwrap();
+        let got = unsafe { cstr_to_string(s.as_ptr(), "path") }.unwrap();
+        assert_eq!(got, "markers.tsv");
+    }
+
+    #[test]
+    fn cstr_to_string_rejects_null() {
+        let err = unsafe { cstr_to_string(std::ptr::null(), "path") }.unwrap_err();
+        assert_eq!(err, rsx_status_t::RSX_INVALID_PARAMETER);
+    }
+
+    #[test]
+    fn cstr_to_string_rejects_invalid_utf8() {
+        // C string with invalid UTF-8 (0xFF byte) and trailing NUL.
+        let bytes = [b'a', 0xFFu8, b'b', 0];
+        let ptr = bytes.as_ptr() as *const c_char;
+        let err = unsafe { cstr_to_string(ptr, "path") }.unwrap_err();
+        assert_eq!(err, rsx_status_t::RSX_INVALID_PARAMETER);
+    }
 }
 
 /// Run the `process` command.

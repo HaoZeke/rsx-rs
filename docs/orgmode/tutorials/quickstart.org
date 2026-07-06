@@ -84,8 +84,10 @@ Uses bounded-memory external sort (~500MB) for arbitrarily large datasets.
 rsx pca -t combined.tsv -o pca_results/ -d 5 -r 10
 #+end_src
 
-Produces eigenvalues, loadings, and summary in the output directory.
-PC1 typically separates males and females for sex-linked markers.
+Produces eigenvalues, per-individual sample scores (=loadings.tsv= legacy name
+and =sample_scores.tsv=), and summary in the output directory. These are
+sample-space principal axes (not marker feature loadings). On real RAD panels
+PC1 often reflects library size / population structure rather than sex.
 
 * Output format
 
@@ -95,17 +97,20 @@ R scripts work without modification.
 
 * Memory guarantees
 
-All commands operate in bounded memory regardless of input size:
+Default analysis paths stream with memory independent of marker count; some
+modes intentionally accumulate more:
 
-| Command         | Memory                |
-|-----------------+-----------------------|
-| distrib, freq   | O(n_individuals)      |
-| signif, subset  | O(n_individuals)      |
-| map             | O(genome_index)       |
-| depth (small)   | O(n_markers * n_ind)  |
-| depth (> 2GB)   | O(buffer_size)        |
-| merge           | O(buffer_size)        |
-| pca             | O(n_individuals^2)    |
+| Command                    | Memory                         |
+|----------------------------+--------------------------------|
+| distrib, freq              | O(n_individuals) or O(n² cells)|
+| signif (bonferroni / none) | O(n_individuals)               |
+| signif (FDR)               | O(n_markers) p/q-values + re-stream |
+| subset, triage             | O(n_individuals)               |
+| map                        | O(genome_index)                |
+| depth (small, < 2 GB file) | O(n_markers × n_ind) depths    |
+| depth (> 2 GB)             | O(buffer_size) external sort   |
+| merge                      | O(buffer_size)                 |
+| pca                        | O(n_individuals²) Gram         |
 
 For 200 individuals and 75M markers, typical peak memory is < 500MB
 (except map which loads the minimap2 genome index).

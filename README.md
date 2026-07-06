@@ -70,10 +70,10 @@ Full pipeline, memory guarantees, and all 10 commands (including new `merge`, `p
 
 ## Features
 
-- All original RADSex commands + `merge` (external sort for 75M+ markers, ~500 MB RAM), `pca` (streaming Tucker), `triage` (Bayes + strict candidate ranking).
-- Bounded-memory streaming for every command — no O(n_markers) accumulation.
+- All original RADSex commands + `merge` (external sort for 75M+ markers, ~500 MB RAM), `pca` (streaming sample-space / Tucker mode-2 factors), `triage` (Bayes + strict candidate ranking).
+- Bounded-memory streaming for the default analysis paths (Bonferroni `signif`, `distrib`, `freq`, `triage`, streaming `pca` / `merge`). Exceptions: FDR `signif` stores O(n_markers) p-values for BH correction then re-streams; non-streaming `depth` on tables under 2 GB can hold per-individual depth vectors. See the [quickstart memory table](https://rsx.rgoswami.me/tutorials/quickstart.html).
 - 2-6x+ faster than C++ RADSex on literature panels (byte-identical output when groups specified).
-- Python bindings (low-level + ergonomic `MarkerTable` / Arrow / narwhals), C API via cbindgen.
+- Python (`pyrsx`), R (`rsxr`), and C (`rsx.h` / cargo-c) bindings over the shared core.
 - Optional: parquet I/O, MPI, minimap2 mapping (feature-gated for Windows).
 - Reproducible: pixi environments, ASV + literature benchmark harness, SymPy/Sollya proofs for the math.
 

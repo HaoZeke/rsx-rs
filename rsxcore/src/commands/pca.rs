@@ -254,20 +254,32 @@ fn write_pca_outputs(c: &ComputedPca, output_dir: &str) -> Result<(), Box<dyn st
         writeln!(f, "PC{}\t{:.6}\t{:.6}\t{:.6}", k + 1, ev, frac, cumulative)?;
     }
 
+    // Sample-space principal axes (right singular vectors of the marker×ind
+    // depth matrix / eigenvectors of the n_ind×n_ind Gram). Historically named
+    // loadings.tsv for RADSex-adjacent tooling; content is per-individual scores.
     let loadings_path = Path::new(output_dir).join("loadings.tsv");
+    let scores_path = Path::new(output_dir).join("sample_scores.tsv");
     let mut f = std::fs::File::create(&loadings_path)?;
+    let mut scores_f = std::fs::File::create(&scores_path)?;
     write!(f, "individual")?;
+    write!(scores_f, "individual")?;
     for k in 0..c.n_components {
         write!(f, "\tPC{}", k + 1)?;
+        write!(scores_f, "\tPC{}", k + 1)?;
     }
     writeln!(f)?;
+    writeln!(scores_f)?;
 
     for (i, name) in c.individual_names.iter().enumerate() {
         write!(f, "{}", name)?;
+        write!(scores_f, "{}", name)?;
         for &idx in c.sorted_indices.iter().take(c.n_components) {
-            write!(f, "\t{:.6}", c.eigenvectors[i * c.n_individuals + idx])?;
+            let v = c.eigenvectors[i * c.n_individuals + idx];
+            write!(f, "\t{:.6}", v)?;
+            write!(scores_f, "\t{:.6}", v)?;
         }
         writeln!(f)?;
+        writeln!(scores_f)?;
     }
 
     let summary_path = Path::new(output_dir).join("summary.txt");

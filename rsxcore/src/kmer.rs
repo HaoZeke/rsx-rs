@@ -18,9 +18,9 @@ pub fn canonical_kmer_hash(seq: &[u8], k: usize) -> u64 {
         return hash_bytes(seq);
     }
 
-    // Use the majority canonical k-mer as the representative hash.
-    // For deduplication: two sequences share a group if their majority
-    // k-mer matches.
+    // Min-hash of canonical k-mers: representative is the minimum 2-bit
+    // encoding among all windows (not a majority vote). Two sequences share
+    // a group only if they share this min-hash — an LSH heuristic.
     let mut best_hash = u64::MAX;
     for window in seq.windows(k) {
         let fwd = kmer_to_u64(window);
@@ -169,16 +169,46 @@ mod tests {
     }
 
     #[test]
-    fn test_group_single_base_error() {
-        // Two sequences differing by 1 base should share k-mers if k < seq_len
+    fn test_group_single_base_error_not_guaranteed() {
+        // Min-hash co-grouping of 1-SNP neighbours is *not* guaranteed: the
+        // last window changes the min when it is the smallest canonical value.
         let seq1 = b"ATCGATCGATCGATCG".to_vec(); // 16bp
         let seq2 = b"ATCGATCGATCGATCC".to_vec(); // differs at last base
-        let seqs = vec![seq1, seq2];
+        let seqs = vec![seq1.clone(), seq2.clone()];
         let groups_k8 = group_by_kmer(&seqs, 8);
-        // With k=8, they share 8 out of 9 k-mers, so min-hash likely the same
-        // (not guaranteed but highly probable for this specific case)
-        // At minimum, both should be assigned to some group
-        assert!(!groups_k8.is_empty());
+        let total: usize = groups_k8.values().map(|v| v.len()).sum();
+        assert_eq!(total, 2, "both sequences must be assigned to some group");
+        // For this pair the min-hashes differ (SNP in a window that owns the min).
+        assert_ne!(
+            canonical_kmer_hash(&seq1, 8),
+            canonical_kmer_hash(&seq2, 8),
+            "this SNP fixture is a documented non-co-group case for k=8"
+        );
+    }
+
+    #[test]
+    fn test_min_hash_groups_identical_windows() {
+        // Shared min window → co-group (identical prefix of length k with a
+        // unique high-value tail that cannot become the min).
+        let seq1 = b"AAAAAAAAXXXXTTTT".to_vec();
+        let seq2 = b"AAAAAAAAYYYYGGGG".to_vec();
+        let h1 = canonical_kmer_hash(&seq1, 8);
+        let h2 = canonical_kmer_hash(&seq2, 8);
+        assert_eq!(h1, h2, "shared poly-A window of length k must be the min");
+        let groups = group_by_kmer(&[seq1, seq2], 8);
+        assert_eq!(groups.len(), 1);
+    }
+
+    #[test]
+    fn test_min_hash_not_majority_label() {
+        // Distinct unrelated sequences must not co-group solely by accident of
+        // a majority-vote rule (we use min-hash of canonical k-mers).
+        let seqs = vec![
+            b"AAAAAAAAAAAAAAAA".to_vec(),
+            b"CCCCCCCCCCCCCCCC".to_vec(),
+        ];
+        let groups = group_by_kmer(&seqs, 8);
+        assert_eq!(groups.len(), 2, "unrelated poly-A/C must not co-group");
     }
 
     #[test]

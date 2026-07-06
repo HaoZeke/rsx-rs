@@ -272,8 +272,19 @@ impl MarkersTableStream {
         Ok(markers)
     }
 
+    /// Materialize all markers for iterator use. Prefer [`Self::for_each`] for
+    /// streaming; this path is fallible and does **not** swallow I/O errors.
+    pub fn try_iter(&self) -> std::io::Result<std::vec::IntoIter<Marker>> {
+        Ok(self.collect()?.into_iter())
+    }
+
+    /// Convenience iterator over a successful collect. Panics on I/O error so
+    /// failures are never turned into a silent empty success (the old
+    /// `unwrap_or_default` behavior). Prefer [`Self::try_iter`] or
+    /// [`Self::for_each`] in production code.
     pub fn iter(&self) -> impl Iterator<Item = Marker> {
-        self.collect().unwrap_or_default().into_iter()
+        self.try_iter()
+            .expect("MarkersTableStream::iter: I/O error reading markers table")
     }
 
     /// Returns line-aligned chunks of the data for parallel processing.

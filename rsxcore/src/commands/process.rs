@@ -63,6 +63,8 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "parallel")]
     let mut global = {
         use rayon::prelude::*;
+        use std::sync::Mutex;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         rayon::ThreadPoolBuilder::new()
             .num_threads(params.n_threads as usize)
@@ -80,31 +82,54 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             let initial_capacity = estimate_parallel_merge_capacity(&input_files);
             let dm: DashMap<PackedDnaKey, Vec<u16>, ahash::RandomState> =
                 DashMap::with_capacity_and_hasher(initial_capacity, ahash::RandomState::new());
+            let err_count = AtomicUsize::new(0);
+            let first_err: Mutex<Option<String>> = Mutex::new(None);
 
-            input_files
-                .par_iter()
-                .for_each(|f| match count_sequences_packed(&f.path) {
-                    Ok(counts) => {
-                        let idx = individual_indices[&f.individual_name];
-                        for (packed_seq, count) in counts {
-                            let mut entry = dm
-                                .entry(packed_seq)
-                                .or_insert_with(|| vec![0u16; n_individuals]);
-                            entry[idx] = count;
-                        }
-                        log::debug!("Finished processing individual {}", f.individual_name);
+            input_files.par_iter().for_each(|f| match count_sequences_packed(&f.path) {
+                Ok(counts) => {
+                    let idx = individual_indices[&f.individual_name];
+                    for (packed_seq, count) in counts {
+                        let mut entry = dm
+                            .entry(packed_seq)
+                            .or_insert_with(|| vec![0u16; n_individuals]);
+                        entry[idx] = count;
                     }
-                    Err(e) => log::error!("Error processing {}: {e}", f.path.display()),
-                });
+                    log::debug!("Finished processing individual {}", f.individual_name);
+                }
+                Err(e) => {
+                    let msg = format!("Error processing {}: {e}", f.path.display());
+                    log::error!("{msg}");
+                    err_count.fetch_add(1, Ordering::Relaxed);
+                    if let Ok(mut slot) = first_err.lock() {
+                        if slot.is_none() {
+                            *slot = Some(msg);
+                        }
+                    }
+                }
+            });
+
+            if err_count.load(Ordering::Relaxed) > 0 {
+                let detail = first_err
+                    .into_inner()
+                    .ok()
+                    .and_then(|s| s)
+                    .unwrap_or_else(|| "one or more input files failed".into());
+                return Err(format!(
+                    "process failed for {} of {} individuals: {detail}",
+                    err_count.load(Ordering::Relaxed),
+                    n_individuals
+                )
+                .into());
+            }
 
             // Convert to AHashMap for uniform output path
             dm.into_iter().collect::<ahash::AHashMap<_, _>>()
         } else {
             // Few files: collect per-file results, merge sequentially
-            let per_file: Vec<_> = input_files
+            let per_file: Vec<Result<_, _>> = input_files
                 .par_iter()
-                .filter_map(|f| {
-                    count_sequences_packed(&f.path).ok().map(|c| {
+                .map(|f| {
+                    count_sequences_packed(&f.path).map(|c| {
                         log::debug!("Finished processing individual {}", f.individual_name);
                         (f.individual_name.clone(), c)
                     })
@@ -112,7 +137,10 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                 .collect();
 
             let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
-            for (name, counts) in per_file {
+            for result in per_file {
+                let (name, counts) = result.map_err(|e| {
+                    format!("process failed while reading an input file: {e}")
+                })?;
                 let idx = individual_indices[&name];
                 for (packed_seq, count) in counts {
                     let entry = global
@@ -141,7 +169,11 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                     log::info!("Finished processing individual {}", f.individual_name);
                 }
                 Err(e) => {
-                    log::error!("Error processing {}: {e}", f.path.display());
+                    return Err(format!(
+                        "Error processing {}: {e}",
+                        f.path.display()
+                    )
+                    .into());
                 }
             }
         }
@@ -188,9 +220,20 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         log::info!("K-mer dedup: retained {} markers", global.len());
     }
 
+    // Retain only markers that pass min_depth *before* writing the header so
+    // `#Number of markers` matches the number of data rows (RADSex contract).
+    let mut retained: Vec<(PackedDnaKey, Vec<u16>)> = global
+        .into_iter()
+        .filter(|(_, depths)| {
+            params.min_depth <= 1 || depths.iter().any(|&d| d >= params.min_depth)
+        })
+        .collect();
+    // Deterministic row order by packed sequence key.
+    retained.sort_by(|(a, _), (b, _)| a.as_slice().cmp(b.as_slice()));
+
     // Write output (unpack 2-bit keys back to ASCII for TSV)
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
-    writeln!(output, "#Number of markers : {}", global.len())?;
+    writeln!(output, "#Number of markers : {}", retained.len())?;
 
     write!(output, "id\tsequence")?;
     for f in &input_files {
@@ -198,13 +241,13 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     }
     writeln!(output)?;
 
-    log::info!("Writing marker depths to output file");
+    log::info!(
+        "Writing {} retained marker depths to output file",
+        retained.len()
+    );
     let mut id: u64 = 0;
 
-    for (packed_seq, depths) in &global {
-        if params.min_depth > 1 && !depths.iter().any(|&d| d >= params.min_depth) {
-            continue;
-        }
+    for (packed_seq, depths) in &retained {
         let unpacked = unpack_2bit(packed_seq.as_slice());
         let seq_str = std::str::from_utf8(&unpacked).unwrap_or("?");
         write!(output, "{}\t{}", id, seq_str)?;
@@ -260,5 +303,92 @@ mod tests {
         }
 
         assert_eq!(estimate_parallel_merge_capacity(&input_files), 32_768);
+    }
+
+    /// Header `#Number of markers` must equal retained data rows when min_depth filters.
+    #[test]
+    fn process_header_matches_retained_rows_with_min_depth() {
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().unwrap();
+        // Two individuals; shared high-depth tag + per-ind low-depth unique tags.
+        let mut f0 = std::fs::File::create(dir.path().join("ind0.fa")).unwrap();
+        writeln!(f0, ">r1").unwrap();
+        writeln!(f0, "AAAAAAAA").unwrap(); // high — will appear depth 2 in ind0 after two reads
+        writeln!(f0, ">r2").unwrap();
+        writeln!(f0, "AAAAAAAA").unwrap();
+        writeln!(f0, ">r3").unwrap();
+        writeln!(f0, "CCCCCCCC").unwrap(); // depth 1 only — filtered by min_depth=2
+        drop(f0);
+
+        let mut f1 = std::fs::File::create(dir.path().join("ind1.fa")).unwrap();
+        writeln!(f1, ">r1").unwrap();
+        writeln!(f1, "AAAAAAAA").unwrap();
+        writeln!(f1, ">r2").unwrap();
+        writeln!(f1, "AAAAAAAA").unwrap();
+        writeln!(f1, ">r3").unwrap();
+        writeln!(f1, "GGGGGGGG").unwrap(); // depth 1 only — filtered
+        drop(f1);
+
+        let out = dir.path().join("markers.tsv");
+        run(&ProcessParams {
+            input_dir_path: dir.path().to_str().unwrap().to_string(),
+            output_file_path: out.to_str().unwrap().to_string(),
+            n_threads: 1,
+            min_depth: 2,
+            kmer_dedup: None,
+        })
+        .expect("process must succeed");
+
+        let body = std::fs::read_to_string(&out).unwrap();
+        let mut lines = body.lines();
+        let header_line = lines.next().expect("header comment");
+        assert!(
+            header_line.starts_with("#Number of markers :"),
+            "unexpected header: {header_line}"
+        );
+        let claimed: u64 = header_line
+            .split(':')
+            .nth(1)
+            .unwrap()
+            .trim()
+            .parse()
+            .expect("parse marker count");
+        let _col_header = lines.next().expect("column header");
+        let data_rows = lines.filter(|l| !l.is_empty()).count() as u64;
+        assert_eq!(
+            claimed, data_rows,
+            "header count must match data rows; body:\n{body}"
+        );
+        // Only AAAAAAAA is retained (depth >= 2 in at least one individual).
+        assert_eq!(claimed, 1, "expected one retained marker; body:\n{body}");
+    }
+
+    #[test]
+    fn process_errors_when_an_input_file_is_unreadable() {
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut f0 = std::fs::File::create(dir.path().join("ind0.fa")).unwrap();
+        writeln!(f0, ">r1").unwrap();
+        writeln!(f0, "AAAAAAAA").unwrap();
+        drop(f0);
+        // Corrupt gzip forces needletail / flate2 to fail for this individual.
+        let mut bad = std::fs::File::create(dir.path().join("ind1.fq.gz")).unwrap();
+        bad.write_all(b"this is not valid gzip content").unwrap();
+        drop(bad);
+
+        let out = dir.path().join("markers.tsv");
+        let err = run(&ProcessParams {
+            input_dir_path: dir.path().to_str().unwrap().to_string(),
+            output_file_path: out.to_str().unwrap().to_string(),
+            n_threads: 1,
+            min_depth: 1,
+            kmer_dedup: None,
+        });
+        assert!(
+            err.is_err(),
+            "must fail when an individual cannot be read, got Ok"
+        );
     }
 }

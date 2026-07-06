@@ -100,29 +100,9 @@ pub fn run_with_source<S: MarkerStream>(
         }
     })?;
 
-    let is_corrected = !matches!(params.correction, CorrectionMethod::None);
-    let effective_n_markers = if is_corrected { n_markers } else { 1u64 };
-    let signif_threshold = if is_corrected {
-        params.signif_threshold as f64 / n_markers as f64
-    } else {
-        params.signif_threshold as f64
-    };
-
-    let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
-    writeln!(
-        output,
-        "#source:rsx-distrib;min_depth:{};signif_threshold:{};bonferroni:{};n_markers:{}",
-        params.min_depth,
-        Cg(signif_threshold),
-        is_corrected,
-        effective_n_markers
-    )?;
-    writeln!(
-        output,
-        "{}\t{}\tMarkers\tP\tCorrectedP\tSignif\tBias",
-        groups.group1, groups.group2
-    )?;
-
+    // Build the ordered list of non-empty cells once so Bonferroni and BH FDR
+    // share the same grid iteration.
+    let mut cells: Vec<(u32, u32, u64, f64)> = Vec::new();
     for g in 0..=total_g1 {
         for h in 0..=total_g2 {
             if g + h == 0 {
@@ -130,20 +110,84 @@ pub fn run_with_source<S: MarkerStream>(
             }
             let count = distribution[g as usize][h as usize];
             let p = compute_p(params.test_method, g, h, total_g1, total_g2);
-            let p_corrected = stats::bonferroni_correct(p, effective_n_markers);
-            let signif = p < signif_threshold;
-            let bias = stats::group_bias(g, total_g1, h, total_g2);
-            writeln!(
-                output,
-                "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                g,
-                h,
-                count,
-                Cg(p),
-                Cg(p_corrected),
-                if signif { "True" } else { "False" },
-                Cg(bias)
-            )?;
+            cells.push((g, h, count, p));
+        }
+    }
+
+    let n_tests = cells.len().max(1) as u64;
+    let (p_corrected_vals, signif_flags, corr_label, threshold_note): (
+        Vec<f64>,
+        Vec<bool>,
+        &str,
+        f64,
+    ) = match params.correction {
+        CorrectionMethod::None => {
+            let thr = params.signif_threshold as f64;
+            let corr: Vec<f64> = cells.iter().map(|c| c.3).collect();
+            let flags: Vec<bool> = cells.iter().map(|c| c.3 < thr).collect();
+            (corr, flags, "none", thr)
+        }
+        CorrectionMethod::Bonferroni => {
+            let thr = params.signif_threshold as f64 / n_markers.max(1) as f64;
+            let corr: Vec<f64> = cells
+                .iter()
+                .map(|c| stats::bonferroni_correct(c.3, n_markers.max(1)))
+                .collect();
+            let flags: Vec<bool> = cells.iter().map(|c| c.3 < thr).collect();
+            (corr, flags, "bonferroni", thr)
+        }
+        CorrectionMethod::Fdr => {
+            let thr = params.signif_threshold as f64;
+            let raw: Vec<f64> = cells.iter().map(|c| c.3).collect();
+            let q = stats::benjamini_hochberg(&raw);
+            let flags: Vec<bool> = q.iter().map(|&qi| qi < thr).collect();
+            (q, flags, "fdr", thr)
+        }
+    };
+
+    let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
+    writeln!(
+        output,
+        "#source:rsx-distrib;min_depth:{};signif_threshold:{};correction:{};n_markers:{};n_tests:{}",
+        params.min_depth,
+        Cg(threshold_note),
+        corr_label,
+        n_markers,
+        n_tests
+    )?;
+    if params.output_bayes {
+        writeln!(
+            output,
+            "{}\t{}\tMarkers\tP\tCorrectedP\tSignif\tBias\tBayes_Factor\tPosterior_SexLinked",
+            groups.group1, groups.group2
+        )?;
+    } else {
+        writeln!(
+            output,
+            "{}\t{}\tMarkers\tP\tCorrectedP\tSignif\tBias",
+            groups.group1, groups.group2
+        )?;
+    }
+
+    for (i, &(g, h, count, p)) in cells.iter().enumerate() {
+        let bias = stats::group_bias(g, total_g1, h, total_g2);
+        write!(
+            output,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            g,
+            h,
+            count,
+            Cg(p),
+            Cg(p_corrected_vals[i]),
+            if signif_flags[i] { "True" } else { "False" },
+            Cg(bias)
+        )?;
+        if params.output_bayes {
+            let bf = stats::bayes_factor_2x2(g, h, total_g1, total_g2);
+            let post = stats::posterior_sex_linked(g, h, total_g1, total_g2, 0.01, 0.9);
+            writeln!(output, "\t{:.4}\t{:.4}", bf, post)?;
+        } else {
+            writeln!(output)?;
         }
     }
     Ok(())

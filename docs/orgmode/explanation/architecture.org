@@ -17,7 +17,7 @@ rsx-rs/
       stats.rs        Chi-squared, Bonferroni, group bias, Cg formatter
       popmap.rs       Population map (individual -> group)
       marker.rs       Marker struct (sequence + depths + p-values)
-      markers_table.rs  Streaming parser (crossbeam channels)
+      markers_table.rs  Streaming mmap + memchr parser (parallel chunks optional)
       io/
         seq_reader.rs   FASTQ/FASTA reader (needletail)
         table_io.rs     TSV read/write, fast integer parsing
@@ -74,14 +74,18 @@ other commands consume the markers depth table (TSV).
 
 * Streaming parser
 
-The markers table parser uses a producer-consumer pattern:
+The markers table parser memory-maps the TSV and walks it with =memchr=
+(no per-line channel handoff):
 
-- *Producer thread*: reads TSV file in 64KB chunks, parses fields
-  character-by-character (matching C++ approach), sends =Marker= batches
-  through a =crossbeam::channel::bounded= channel
-- *Consumer*: receives batches via =recv()= (blocking, no polling)
+- =MarkersTableStream::open= maps the file, skips =#= / header lines, builds
+  optional group masks from the popmap.
+- Specialized paths (=for_each_fast_d1=, skip-sequence, full) parse depth
+  fields in place and reuse a single =Marker= buffer (bitset presence).
+- With the =parallel= feature, large tables split into line-aligned ~1 MiB
+  chunks and reduce via =par_fold_reduce= / =par_for_each=.
 
-This replaces the C++ =std::queue= + =std::mutex= + =sleep(10us)= pattern.
+An early crossbeam producer-consumer design was removed: inline mmap parsing
+won on cache locality and avoided queue overhead (see benchmarks notes).
 
 * Parallelism
 

@@ -33,7 +33,7 @@ enum Commands {
         /// Minimum depth in at least one individual to retain a marker
         #[arg(short = 'd', long = "min-depth", default_value = "1")]
         min_depth: u16,
-        /// Deduplicate markers by canonical k-mer of this size (optional)
+        /// Optional min-hash k-mer dedup (canonical k-mer LSH; heuristic)
         #[arg(short = 'k', long = "kmer-dedup")]
         kmer_dedup: Option<usize>,
     },
@@ -58,9 +58,18 @@ enum Commands {
         /// P-value significance threshold
         #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
         signif_threshold: f32,
-        /// Disable Bonferroni correction
+        /// Disable Bonferroni correction (legacy; prefer --correction none)
         #[arg(short = 'C', long = "disable-correction")]
         disable_correction: bool,
+        /// Multiple testing correction: bonferroni (default), fdr, none
+        #[arg(long = "correction", default_value = "bonferroni")]
+        correction: String,
+        /// Statistical test: chisq (default), fisher, gtest
+        #[arg(long = "test", default_value = "chisq")]
+        test_method: String,
+        /// Include Bayes Factor and posterior P(sex-linked) per cell
+        #[arg(long = "bayes")]
+        output_bayes: bool,
     },
 
     /// Extract markers significantly associated with a group
@@ -257,12 +266,12 @@ enum Commands {
         output_parquet: bool,
     },
 
-    /// Streaming PCA of the depth matrix (Tucker mode-2 decomposition)
+    /// Streaming PCA of the depth matrix (sample-space / Tucker mode-2 factors)
     Pca {
         /// Path to a marker depths table
         #[arg(short = 't', long = "markers-table")]
         markers_table: String,
-        /// Output directory for eigenvalues, loadings, summary
+        /// Output directory for eigenvalues, sample scores (loadings.tsv), summary
         #[arg(short = 'o', long = "output-dir")]
         output_dir: String,
         /// Minimum depth to consider a marker present
@@ -343,21 +352,27 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ref groups,
             signif_threshold,
             disable_correction,
+            correction,
+            test_method,
+            output_bayes,
         } => {
             let (g1, g2) = extract_groups(groups)?;
+            let mut corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+            if disable_correction {
+                corr = rsx_core::test_method::CorrectionMethod::None;
+            }
+            let test = rsx_core::test_method::TestMethod::parse_str(&test_method)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
             commands::distrib::run(&commands::distrib::DistribParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
                 output_file_path: output_file,
                 min_depth,
                 signif_threshold,
-                correction: if disable_correction {
-                    rsx_core::test_method::CorrectionMethod::None
-                } else {
-                    rsx_core::test_method::CorrectionMethod::Bonferroni
-                },
-                test_method: rsx_core::test_method::TestMethod::ChiSquared,
-                output_bayes: false,
+                correction: corr,
+                test_method: test,
+                output_bayes,
                 group1: g1,
                 group2: g2,
             })
