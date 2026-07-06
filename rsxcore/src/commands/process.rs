@@ -242,9 +242,8 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         "Writing {} retained marker depths to output file",
         retained.len()
     );
-    let mut id: u64 = 0;
 
-    for (packed_seq, depths) in &retained {
+    for (id, (packed_seq, depths)) in (0_u64..).zip(retained.iter()) {
         let unpacked = unpack_2bit(packed_seq.as_slice());
         let seq_str = std::str::from_utf8(&unpacked).unwrap_or("?");
         write!(output, "{}\t{}", id, seq_str)?;
@@ -252,7 +251,6 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             write!(output, "\t{d}")?;
         }
         writeln!(output)?;
-        id += 1;
     }
 
     let elapsed = start.elapsed();
