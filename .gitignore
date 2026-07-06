@@ -28,6 +28,7 @@ pixi.lock
 
 # Re-include the manual parts of docs/source/
 !/docs/source/conf.py
+!/docs/source/references.bib
 !/docs/source/_static/
 !/docs/source/_static/**
 !/docs/source/_templates/
