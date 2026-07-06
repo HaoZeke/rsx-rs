@@ -8,10 +8,11 @@ platforms = ["linux-64", "osx-64", "osx-arm64"]
 rust = ">=1.85"
 
 [feature.dev.tasks]
-check = { cmd = "cargo fmt --check && cargo clippy -- -D warnings && cargo test" }
+check = { cmd = "cargo fmt --check && cargo clippy -- -D warnings && cargo nextest run -p rsxcore --profile ci" }
 build = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo build --release" }
 build-portable = { cmd = "cargo build --release" }
-test = { cmd = "cargo test" }
+test = { cmd = "cargo nextest run -p rsxcore" }
+test-all = { cmd = "cargo nextest run", description = "Workspace nextest (all members)" }
 gen-header = { cmd = "cargo build --manifest-path rsxcore/Cargo.toml --features gen-header" }
 # Build/install the C library + cbindgen header + pkg-config via cargo-c.
 capi-build = { cmd = "cargo cbuild --release --no-default-features --features parallel --manifest-path rsxcore/Cargo.toml" }

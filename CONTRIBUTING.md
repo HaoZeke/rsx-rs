@@ -25,7 +25,7 @@ See `pixi.toml` for all environments and tasks.
 
 - `cargo fmt --check`
 - `cargo clippy -- -D warnings`
-- All tests must pass (`cargo test -p rsxcore`)
+- All tests must pass (`cargo nextest run -p rsxcore`, or `pixi run -e dev test`)
 - New commands or public API surface need docs + a test (unit or integration in `rsxcore/tests/`).
 - CLI changes should update the org docs under `docs/orgmode/` (they are the source of truth; Sphinx + rustdocgen export).
 

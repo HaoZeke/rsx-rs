@@ -125,8 +125,9 @@ pub fn run_with_source<S: MarkerStream>(
         "id\tsequence\tGroup1\tGroup1_Present\tGroup1_Total\tGroup1_Penetrance\tGroup2\tGroup2_Present\tGroup2_Total\tGroup2_Penetrance\tBias_Direction\tBias\tP\tCorrectedP\tBayes_Factor\tPosterior_SexLinked\tStrict_Call\tPosterior_Call\tBayes_Factor_Call\tCandidate_Class"
     )?;
 
+    let mut write_err: Option<std::io::Error> = None;
     source.for_each(|marker| {
-        if marker.n_individuals == 0 {
+        if write_err.is_some() || marker.n_individuals == 0 {
             return;
         }
 
@@ -157,7 +158,7 @@ pub fn run_with_source<S: MarkerStream>(
         let direction =
             bias_direction(&groups.group1, &groups.group2, g1_penetrance, g2_penetrance);
 
-        let _ = writeln!(
+        if let Err(e) = writeln!(
             output,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             marker.id,
@@ -180,8 +181,13 @@ pub fn run_with_source<S: MarkerStream>(
             posterior_call,
             bayes_factor_call,
             class
-        );
+        ) {
+            write_err = Some(e);
+        }
     })?;
+    if let Some(e) = write_err {
+        return Err(e.into());
+    }
 
     Ok(())
 }
@@ -369,7 +375,7 @@ mod tests {
     use std::io::Write;
 
     fn make_triage_fixture() -> (std::path::PathBuf, std::path::PathBuf) {
-        let dir = std::env::temp_dir().join("rsx_arrow_triage_test");
+        let dir = tempfile::tempdir().unwrap().into_path();
         std::fs::create_dir_all(&dir).unwrap();
 
         let table = dir.join("markers.tsv");
@@ -438,7 +444,10 @@ mod tests {
             group2: "F".to_string(),
         };
 
-        let tsv_path = std::env::temp_dir().join("arrow_vs_file_triage.tsv");
+        let tsv_path = table
+            .parent()
+            .expect("fixture table has parent")
+            .join("arrow_vs_file_triage.tsv");
         let mut file_params = params.clone();
         file_params.output_file_path = tsv_path.to_str().unwrap().to_string();
         run(&file_params).unwrap();

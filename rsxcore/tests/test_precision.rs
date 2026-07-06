@@ -5,9 +5,9 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn test_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join("rsx_precision_test");
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+    tempfile::tempdir()
+        .expect("tempdir")
+        .into_path()
 }
 
 fn create_precision_markers(dir: &std::path::Path, n_ind: u16) -> PathBuf {

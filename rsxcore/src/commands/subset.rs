@@ -142,12 +142,11 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let mut write_marker = |marker: &crate::marker::Marker| {
+    let mut write_marker = |marker: &crate::marker::Marker| -> std::io::Result<()> {
         if params.output_fasta {
-            let _ =
-                marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups);
+            marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)
         } else {
-            let _ = marker.write_as_table(&mut output);
+            marker.write_as_table(&mut output)
         }
     };
 
@@ -155,16 +154,27 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     {
         let markers = stream2.par_filter_map_collect(filter_marker)?;
         for marker in markers {
-            write_marker(&marker);
+            write_marker(&marker)?;
         }
     }
 
     #[cfg(not(feature = "parallel"))]
-    stream2.for_each(|marker| {
-        if let Some(marker) = filter_marker(marker) {
-            write_marker(&marker);
+    {
+        let mut write_err: Option<std::io::Error> = None;
+        stream2.for_each(|marker| {
+            if write_err.is_some() {
+                return;
+            }
+            if let Some(marker) = filter_marker(marker) {
+                if let Err(e) = write_marker(&marker) {
+                    write_err = Some(e);
+                }
+            }
+        })?;
+        if let Some(e) = write_err {
+            return Err(e.into());
         }
-    })?;
+    }
 
     Ok(())
 }

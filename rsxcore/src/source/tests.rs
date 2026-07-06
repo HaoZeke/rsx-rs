@@ -114,7 +114,7 @@ fn freq_outputs_match_across_sources() {
     let arrow = ArrowMarkerSource::from_batches(vec![fixture_batch()], Some(&popmap), 1).unwrap();
     let spilled = ParquetMarkerSource::spill_from_arrow(&arrow).unwrap();
 
-    let dir = std::env::temp_dir().join("rsx_source_parity_freq");
+    let dir = tempfile::tempdir().unwrap().into_path();
     std::fs::create_dir_all(&dir).unwrap();
 
     let file_out = dir.join("freq_file.tsv");

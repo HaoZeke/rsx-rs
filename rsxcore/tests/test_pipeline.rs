@@ -5,9 +5,10 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn test_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join("radsex_rs_test");
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+    // Unique per test process/thread so nextest can run in parallel.
+    tempfile::tempdir()
+        .expect("tempdir")
+        .into_path()
 }
 
 fn create_test_markers_table(dir: &std::path::Path) -> PathBuf {
@@ -167,12 +168,51 @@ fn test_distrib_command() {
     assert!(lines.len() > 2);
 }
 
+fn write_sex_linked_panel(dir: &std::path::Path) -> (PathBuf, PathBuf) {
+    use std::io::Write;
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    writeln!(f, "#Number of markers : 2").unwrap();
+    write!(f, "id\tsequence").unwrap();
+    for i in 0..8 {
+        write!(f, "\tm{i}").unwrap();
+    }
+    for i in 0..8 {
+        write!(f, "\tf{i}").unwrap();
+    }
+    writeln!(f).unwrap();
+    write!(f, "0\tMONLYSEQ").unwrap();
+    for _ in 0..8 {
+        write!(f, "\t10").unwrap();
+    }
+    for _ in 0..8 {
+        write!(f, "\t0").unwrap();
+    }
+    writeln!(f).unwrap();
+    write!(f, "1\tFONLYSEQ").unwrap();
+    for _ in 0..8 {
+        write!(f, "\t0").unwrap();
+    }
+    for _ in 0..8 {
+        write!(f, "\t10").unwrap();
+    }
+    writeln!(f).unwrap();
+    let popmap = dir.join("popmap.tsv");
+    let mut p = std::fs::File::create(&popmap).unwrap();
+    for i in 0..8 {
+        writeln!(p, "m{i}\tM").unwrap();
+    }
+    for i in 0..8 {
+        writeln!(p, "f{i}\tF").unwrap();
+    }
+    (table, popmap)
+}
+
 #[test]
 fn test_signif_command() {
     let dir = test_dir().join("signif");
     std::fs::create_dir_all(&dir).unwrap();
-    let table = create_test_markers_table(&dir);
-    let popmap = create_test_popmap(&dir);
+    let (table, popmap) = write_sex_linked_panel(&dir);
     let output = dir.join("signif_output.tsv");
 
     rsx_core::commands::signif::run(&rsx_core::commands::signif::SignifParams {
@@ -183,23 +223,30 @@ fn test_signif_command() {
         signif_threshold: 0.05,
         correction: rsx_core::test_method::CorrectionMethod::None,
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
-        output_bayes: false, // disable correction so small test data can have significant markers
+        output_bayes: false,
         output_fasta: false,
-        group1: String::new(),
-        group2: String::new(),
+        group1: "M".into(),
+        group2: "F".into(),
     })
     .unwrap();
 
     let content = std::fs::read_to_string(&output).unwrap();
     assert!(content.contains("#source:rsx-signif"));
+    assert!(
+        content.contains("MONLYSEQ"),
+        "male-biased marker must pass uncorrected signif: {content}"
+    );
+    assert!(
+        content.contains("FONLYSEQ"),
+        "female-biased marker must pass uncorrected signif: {content}"
+    );
 }
 
 #[test]
 fn test_signif_fasta_output() {
     let dir = test_dir().join("signif_fasta");
     std::fs::create_dir_all(&dir).unwrap();
-    let table = create_test_markers_table(&dir);
-    let popmap = create_test_popmap(&dir);
+    let (table, popmap) = write_sex_linked_panel(&dir);
     let output = dir.join("signif_output.fa");
 
     rsx_core::commands::signif::run(&rsx_core::commands::signif::SignifParams {
@@ -212,13 +259,17 @@ fn test_signif_fasta_output() {
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
         output_fasta: true,
-        group1: String::new(),
-        group2: String::new(),
+        group1: "M".into(),
+        group2: "F".into(),
     })
     .unwrap();
 
-    // FASTA output should exist (may be empty if no markers pass threshold)
+    let fa = std::fs::read_to_string(&output).unwrap();
     assert!(output.exists());
+    assert!(
+        fa.contains("MONLYSEQ") || fa.contains("FONLYSEQ"),
+        "FASTA must include at least one sex-linked sequence: {fa}"
+    );
 }
 
 #[test]

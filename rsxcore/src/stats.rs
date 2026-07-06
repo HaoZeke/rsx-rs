@@ -219,7 +219,11 @@ pub fn bonferroni_correct(p: f64, n_markers: u64) -> f64 {
 
 /// Group bias: difference in marker frequency between two groups.
 /// Ranges from -1.0 (only in group2) to +1.0 (only in group1).
+/// Returns `0.0` if either group has zero individuals (undefined frequency).
 pub fn group_bias(n_group1: u32, total_group1: u32, n_group2: u32, total_group2: u32) -> f64 {
+    if total_group1 == 0 || total_group2 == 0 {
+        return 0.0;
+    }
     (n_group1 as f64 / total_group1 as f64) - (n_group2 as f64 / total_group2 as f64)
 }
 
@@ -248,11 +252,18 @@ pub fn find_median(data: &mut [u16]) -> u16 {
 
 /// G-test (log-likelihood ratio) for 2x2 table.
 /// Better asymptotic properties than chi-squared.
+/// Returns `1.0` if present counts exceed group totals (invalid table).
 pub fn g_test(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
+    let Some(b_u) = total_g1.checked_sub(n_g1) else {
+        return 1.0;
+    };
+    let Some(d_u) = total_g2.checked_sub(n_g2) else {
+        return 1.0;
+    };
     let a = n_g1 as f64;
-    let b = (total_g1 - n_g1) as f64;
+    let b = b_u as f64;
     let c = n_g2 as f64;
-    let d = (total_g2 - n_g2) as f64;
+    let d = d_u as f64;
     let n = (total_g1 + total_g2) as f64;
 
     let mut g = 0.0f64;
@@ -286,13 +297,25 @@ pub fn g_test(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     }
 }
 
-/// Fisher's exact test for 2x2 table (one-sided, more extreme).
-/// Uses hypergeometric probability. Better than chi-squared for small n.
+/// Fisher's exact test for a 2×2 table (**two-sided**, probability method).
+///
+/// Sums hypergeometric probabilities of all tables with probability less than
+/// or equal to the observed table (within a small log-space tolerance). This
+/// matches the common two-sided definition used by R `fisher.test` /
+/// SciPy `fisher_exact(..., alternative="two-sided")` density method — **not**
+/// a one-sided greater/less tail.
+///
+/// Returns `1.0` (clamped floor `1e-16` applied only for tiny tails) when the
+/// input is not a valid contingency table (`n_g* > total_g*`).
 pub fn fisher_exact(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
+    let Some(b) = total_g1.checked_sub(n_g1) else {
+        return 1.0;
+    };
+    let Some(d) = total_g2.checked_sub(n_g2) else {
+        return 1.0;
+    };
     let a = n_g1;
-    let b = total_g1 - n_g1;
     let c = n_g2;
-    let d = total_g2 - n_g2;
     let n = total_g1 + total_g2;
     let row1 = a + c;
     let col1 = a + b;
@@ -783,10 +806,55 @@ mod tests {
     fn test_bh_fdr_monotone() {
         let pvals = vec![0.001, 0.01, 0.05, 0.1, 0.5];
         let q = benjamini_hochberg(&pvals);
-        // Sorted q-values should be non-decreasing
-        let mut sorted_q = q.clone();
-        sorted_q.sort_by(|a, b| a.total_cmp(b));
-        // The adjusted values for sorted p-values should be non-decreasing
+        // On the order of increasing raw p, adjusted q must be non-decreasing
+        // after the standard step-up (reverse cummin) procedure.
+        let mut order: Vec<usize> = (0..pvals.len()).collect();
+        order.sort_by(|&a, &b| pvals[a].total_cmp(&pvals[b]));
+        for w in order.windows(2) {
+            assert!(
+                q[w[0]] <= q[w[1]] + 1e-15,
+                "BH must be non-decreasing on p-sorted order: q[{}]={} > q[{}]={}",
+                w[0],
+                q[w[0]],
+                w[1],
+                q[w[1]]
+            );
+        }
+        // Also q_i >= p_i (after adjustment and cap at 1)
+        for (p, qi) in pvals.iter().zip(q.iter()) {
+            assert!(*qi + 1e-15 >= *p, "q={qi} < p={p}");
+            assert!(*qi <= 1.0);
+        }
+    }
+
+    #[test]
+    fn test_fisher_exact_invalid_table_returns_one() {
+        // present count exceeds group total — must not underflow
+        let p = fisher_exact(5, 0, 3, 3);
+        assert_eq!(p, 1.0);
+        let p = g_test(5, 0, 3, 3);
+        assert_eq!(p, 1.0);
+    }
+
+    #[test]
+    fn test_group_bias_empty_group() {
+        assert_eq!(group_bias(0, 0, 5, 10), 0.0);
+        assert_eq!(group_bias(5, 10, 0, 0), 0.0);
+    }
+
+    #[test]
+    fn test_fisher_exact_two_sided_known_table() {
+        // Classic 2×2: [[1,9],[11,3]] → strong association, two-sided p tiny.
+        // a=1 present g1 of 10; c=11 present g2 of 14 — use counts as n_g, totals.
+        // Table: g1 present=8 of 12, g2 present=1 of 12 (clear association).
+        let p = fisher_exact(8, 1, 12, 12);
+        assert!(
+            p < 0.05,
+            "two-sided Fisher should flag strong imbalance: p={p}"
+        );
+        // Symmetric table should not be significant
+        let p_eq = fisher_exact(6, 6, 12, 12);
+        assert!(p_eq > 0.5, "balanced table two-sided p should be large: {p_eq}");
     }
 
     // === Bayes Factor ===

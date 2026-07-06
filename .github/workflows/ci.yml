@@ -32,11 +32,13 @@ jobs:
       - name: Build
         run: cargo build --release -j4
 
-      - name: Unit tests
-        run: cargo test -p rsxcore --lib
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
 
-      - name: Integration tests
-        run: cargo test -p rsxcore --test test_pipeline
+      - name: Tests (nextest, full rsxcore)
+        run: cargo nextest run -p rsxcore --profile ci
 
       - name: CLI smoke test
         run: |

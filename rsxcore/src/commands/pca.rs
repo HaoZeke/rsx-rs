@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn run_to_arrow_matches_file_based_pca() {
-        let dir = std::env::temp_dir().join("rsx_pca_arrow_test");
+        let dir = tempfile::tempdir().unwrap().into_path();
         std::fs::create_dir_all(&dir).unwrap();
 
         let table = make_pca_test_data(&dir);

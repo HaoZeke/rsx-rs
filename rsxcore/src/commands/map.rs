@@ -155,8 +155,12 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let mut n_aligned = 0u64;
+    let mut write_err: Option<std::io::Error> = None;
 
     let mut write_alignment = |marker: &crate::marker::Marker| {
+        if write_err.is_some() {
+            return;
+        }
         let mappings = aligner
             .map(marker.sequence.as_bytes(), false, false, None, None, None)
             .unwrap_or_default();
@@ -202,7 +206,7 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         let signif = p < signif_threshold;
         let contig_len = contig_lengths.get(&contig).copied().unwrap_or(0);
 
-        let _ = writeln!(
+        if let Err(e) = writeln!(
             output,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             contig,
@@ -213,7 +217,10 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
             Cg(p),
             Cg(p_corrected),
             if signif { "True" } else { "False" }
-        );
+        ) {
+            write_err = Some(e);
+            return;
+        }
 
         n_aligned += 1;
     };
@@ -240,6 +247,9 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         }
     })?;
 
+    if let Some(e) = write_err {
+        return Err(e.into());
+    }
     log::info!("Aligned {} markers to the reference genome", n_aligned);
     Ok(())
 }
