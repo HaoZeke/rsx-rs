@@ -6,12 +6,14 @@ All notable changes to rsx-rs are documented here.
 
 ## [0.2.6] - 2026-07-06
 
-Patch release for BMC-facing correctness and CI quality. Primary association
-paths (Bonferroni `signif` / `distrib`) are unchanged in intent; fixes close
-metadata, FDR edge cases, and robustness gaps. Software Zenodo concept DOI
-unchanged (`10.5281/zenodo.20531538`); cut a new **version** on that record for
-0.2.6. Reproducibility archive (`10.5281/zenodo.20531539`) need not be re-run
-unless paper figures are regenerated.
+Correctness and robustness patch (process table metadata and error handling,
+`signif` thresholds/FDR streaming, C FFI UTF-8 validation, write-error
+propagation, `distrib` flag parity) plus full-suite nextest in CI. Software
+Zenodo concept DOI unchanged (`10.5281/zenodo.20531538`); deposit a new
+**version** of that record for 0.2.6. Whether the reproducibility archive
+(`10.5281/zenodo.20531539`) needs a new version depends on which workflows
+you re-run (see Fixed below — process/`min_depth` and FDR paths can change
+outputs).
 
 ### Fixed
 - **process**: `#Number of markers` header matches rows retained after

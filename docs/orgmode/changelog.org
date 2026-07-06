@@ -14,10 +14,11 @@ the library and CLI are versioned on
 
 * Recent releases
 
-- *0.2.6* -- BMC-facing patch: process header/errors, signif f64+FDR
-  robustness, C UTF-8, write-error propagation, distrib CLI parity, full
-  nextest CI. Software Zenodo concept DOI unchanged; new version cut for
-  0.2.6. Repro archive unchanged unless figures re-run.
+- *0.2.6* -- Correctness patch: process header/errors, signif f64+FDR
+  streaming, C UTF-8, write-error propagation, distrib CLI parity, full
+  nextest CI. Software Zenodo concept DOI unchanged (new version for 0.2.6).
+  Re-run/redeposit the repro archive only for workflows whose outputs
+  actually change under these fixes.
 - *0.2.5* -- Corrective lockstep cut superseding yanked =0.2.4=: CI-clean
   fmt/clippy fixes, =rsx-cli= depending on =rsxcore= =0.2.5=, plus the
   0.2.4 hot-path speedups and Sphinx/Shibuya accessibility work.
