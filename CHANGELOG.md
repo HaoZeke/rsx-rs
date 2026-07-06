@@ -4,6 +4,44 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-07-06
+
+Patch release for BMC-facing correctness and CI quality. Primary association
+paths (Bonferroni `signif` / `distrib`) are unchanged in intent; fixes close
+metadata, FDR edge cases, and robustness gaps. Software Zenodo concept DOI
+unchanged (`10.5281/zenodo.20531538`); cut a new **version** on that record for
+0.2.6. Reproducibility archive (`10.5281/zenodo.20531539`) need not be re-run
+unless paper figures are regenerated.
+
+### Fixed
+- **process**: `#Number of markers` header matches rows retained after
+  `min_depth`; fail the run if any individual input file errors; deterministic
+  row order by packed sequence key.
+- **signif**: compare p-values in `f64` (no `f32` cast); FDR stores p-values
+  only then re-streams (two table passes); reject FASTA+FDR *before* truncating
+  the output path; propagate write errors.
+- **C API**: reject non-UTF-8 C strings with `RSX_INVALID_PARAMETER` (never map
+  to empty path/group).
+- **stats**: Fisher documented and tested as two-sided (density method);
+  `g_test`/`fisher_exact` return `p=1` on invalid tables; `group_bias` safe on
+  empty groups.
+- **triage / subset / map**: propagate output write failures instead of
+  discarding `io::Result`.
+
+### Added
+- **distrib** CLI: `--test`, `--correction`, `--bayes` (parity with Python/R);
+  cell-grid FDR and optional Bayes columns; document that Bonferroni still uses
+  `n_markers` (RADSex-compatible) while FDR uses the cell grid.
+- **pca**: also emit `sample_scores.tsv` (same matrix as legacy `loadings.tsv`).
+- **CI / dev**: `cargo-nextest` wired in pixi and GitHub Actions for the full
+  `rsxcore` suite (lib + pipeline + precision); `.config/nextest.toml`.
+- Docs site: `sphinxcontrib-bibtex` + `docs/source/references.bib`; README
+  memory claims and architecture mmap narrative corrected.
+
+### Changed
+- Integration tests use unique `tempfile` directories (nextest-safe).
+- k-mer dedup wording: min-hash LSH, not “majority”.
+
 ## [0.2.5] - 2026-07-01
 
 Corrective lockstep cut superseding the broken `0.2.4` publish. crates.io

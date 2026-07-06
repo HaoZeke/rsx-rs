@@ -38,7 +38,7 @@ if [ -n "${CORE_DIR}" ]; then
 fi
 
 # Read workspace version from monorepo root when available; else default.
-WS_VERSION="0.2.5"
+WS_VERSION="0.2.6"
 if [ -f "${PKG_ROOT}/../Cargo.toml" ]; then
   v=$(sed -n 's/^version = "\([^"]*\)"/\1/p' "${PKG_ROOT}/../Cargo.toml" | head -1)
   [ -n "$v" ] && WS_VERSION="$v"

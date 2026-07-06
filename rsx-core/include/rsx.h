@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 
-#define RSX_VERSION "0.2.5"
+#define RSX_VERSION "0.2.6"
 #define RSX_VERSION_MAJOR 0
 #define RSX_VERSION_MINOR 2
 #define RSX_VERSION_PATCH 5

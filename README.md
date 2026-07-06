@@ -22,7 +22,7 @@ Pre-built binaries for Linux (x86_64/aarch64), macOS (x86_64/arm64), Windows (wi
 
 ```bash
 # See https://github.com/HaoZeke/rsx-rs/releases for the latest
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.5/rsx-cli-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/HaoZeke/rsx-rs/releases/download/v0.2.6/rsx-cli-installer.sh | sh
 ```
 
 ### From source
@@ -124,7 +124,7 @@ For the benchmark data / figures, also cite the deposited reproducibility archiv
 }
 ```
 
-For the software itself (v0.2.5), prefer the GitHub Cite button, the `CITATION.cff`, or the Zenodo DOI entry (generated from the deposit page). The reproducibility archive has its own Zenodo-generated BibTeX.
+For the software itself (v0.2.6), prefer the GitHub Cite button, the `CITATION.cff`, or the Zenodo DOI entry (generated from the deposit page). The reproducibility archive has its own Zenodo-generated BibTeX.
 
 ## Contributing
 

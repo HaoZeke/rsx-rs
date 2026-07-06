@@ -2,7 +2,7 @@
 name = "rsx-cli"
 # Kept explicit (not workspace.version) so the binary package can move one
 # semver step ahead of the library when crates.io already holds a CLI cut.
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
 rust-version = "1.85"
 license = "GPL-3.0-or-later"
@@ -20,7 +20,7 @@ mpi = ["rsxcore/mpi"]
 parquet-io = ["rsxcore/parquet-io"]
 
 [dependencies]
-rsxcore = { path = "../rsxcore", version = "0.2.5", features = ["parallel"] }
+rsxcore = { path = "../rsxcore", version = "0.2.6", features = ["parallel"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 env_logger = "0.11"
 log = "0.4"

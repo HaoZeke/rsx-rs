@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath("../../subprojects/doxyrest/sphinx"))
 project = "rsx-rs"
 copyright = "2024--present, rsx-rs developers"
 author = "Rohit Goswami, Ruhila Goswami"
-release = "0.2.5"
+release = "0.2.6"
 
 extensions = [
     "doxyrest",

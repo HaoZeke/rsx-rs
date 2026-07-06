@@ -10,11 +10,11 @@
 # (it carries the C API the bindings call). Until then this script reports the
 # gap and exits non-zero.
 #
-# Usage: RSX_CORE_VERSION=0.2.5 tools/vendor.sh
+# Usage: RSX_CORE_VERSION=0.2.6 tools/vendor.sh
 
 set -e
 
-RSX_CORE_VERSION="${RSX_CORE_VERSION:-0.2.5}"
+RSX_CORE_VERSION="${RSX_CORE_VERSION:-0.2.6}"
 PKG_DIR=$(cd "$(dirname "$0")/.." && pwd)
 RUST_DIR="${PKG_DIR}/src/rust"
 
