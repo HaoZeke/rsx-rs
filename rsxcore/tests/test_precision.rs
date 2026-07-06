@@ -5,9 +5,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn test_dir() -> PathBuf {
-    tempfile::tempdir()
-        .expect("tempdir")
-        .into_path()
+    tempfile::tempdir().expect("tempdir").into_path()
 }
 
 fn create_precision_markers(dir: &std::path::Path, n_ind: u16) -> PathBuf {

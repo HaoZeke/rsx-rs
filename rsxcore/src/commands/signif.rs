@@ -105,8 +105,7 @@ pub fn run_with_source<S: MarkerStream>(
         let q_values = stats::benjamini_hochberg(&p_values);
 
         log::info!("signif FDR pass 2: filtering and writing");
-        let mut output =
-            std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
+        let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
         writeln!(
             output,
             "#source:rsx-signif;min_depth:{};signif_threshold:{};correction:{};test:{};n_markers:{}",
@@ -316,7 +315,9 @@ mod tests {
             "strong association must pass f64 gate: {body}"
         );
         assert!(
-            !body.lines().any(|l| l.contains("CCCCCCCC") && !l.starts_with('#')),
+            !body
+                .lines()
+                .any(|l| l.contains("CCCCCCCC") && !l.starts_with('#')),
             "balanced marker must not be emitted: {body}"
         );
     }
@@ -374,7 +375,13 @@ mod tests {
         })
         .unwrap();
         let body = std::fs::read_to_string(&out).unwrap();
-        assert!(body.contains("#source:rsx-signif"), "header present: {body}");
-        assert!(body.contains("AAAAAAAA"), "FDR should keep strong marker: {body}");
+        assert!(
+            body.contains("#source:rsx-signif"),
+            "header present: {body}"
+        );
+        assert!(
+            body.contains("AAAAAAAA"),
+            "FDR should keep strong marker: {body}"
+        );
     }
 }

@@ -854,7 +854,10 @@ mod tests {
         );
         // Symmetric table should not be significant
         let p_eq = fisher_exact(6, 6, 12, 12);
-        assert!(p_eq > 0.5, "balanced table two-sided p should be large: {p_eq}");
+        assert!(
+            p_eq > 0.5,
+            "balanced table two-sided p should be large: {p_eq}"
+        );
     }
 
     // === Bayes Factor ===

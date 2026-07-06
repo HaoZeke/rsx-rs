@@ -203,10 +203,7 @@ mod tests {
     fn test_min_hash_not_majority_label() {
         // Distinct unrelated sequences must not co-group solely by accident of
         // a majority-vote rule (we use min-hash of canonical k-mers).
-        let seqs = vec![
-            b"AAAAAAAAAAAAAAAA".to_vec(),
-            b"CCCCCCCCCCCCCCCC".to_vec(),
-        ];
+        let seqs = vec![b"AAAAAAAAAAAAAAAA".to_vec(), b"CCCCCCCCCCCCCCCC".to_vec()];
         let groups = group_by_kmer(&seqs, 8);
         assert_eq!(groups.len(), 2, "unrelated poly-A/C must not co-group");
     }

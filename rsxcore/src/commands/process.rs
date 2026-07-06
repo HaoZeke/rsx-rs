@@ -85,28 +85,30 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             let err_count = AtomicUsize::new(0);
             let first_err: Mutex<Option<String>> = Mutex::new(None);
 
-            input_files.par_iter().for_each(|f| match count_sequences_packed(&f.path) {
-                Ok(counts) => {
-                    let idx = individual_indices[&f.individual_name];
-                    for (packed_seq, count) in counts {
-                        let mut entry = dm
-                            .entry(packed_seq)
-                            .or_insert_with(|| vec![0u16; n_individuals]);
-                        entry[idx] = count;
+            input_files
+                .par_iter()
+                .for_each(|f| match count_sequences_packed(&f.path) {
+                    Ok(counts) => {
+                        let idx = individual_indices[&f.individual_name];
+                        for (packed_seq, count) in counts {
+                            let mut entry = dm
+                                .entry(packed_seq)
+                                .or_insert_with(|| vec![0u16; n_individuals]);
+                            entry[idx] = count;
+                        }
+                        log::debug!("Finished processing individual {}", f.individual_name);
                     }
-                    log::debug!("Finished processing individual {}", f.individual_name);
-                }
-                Err(e) => {
-                    let msg = format!("Error processing {}: {e}", f.path.display());
-                    log::error!("{msg}");
-                    err_count.fetch_add(1, Ordering::Relaxed);
-                    if let Ok(mut slot) = first_err.lock() {
-                        if slot.is_none() {
-                            *slot = Some(msg);
+                    Err(e) => {
+                        let msg = format!("Error processing {}: {e}", f.path.display());
+                        log::error!("{msg}");
+                        err_count.fetch_add(1, Ordering::Relaxed);
+                        if let Ok(mut slot) = first_err.lock() {
+                            if slot.is_none() {
+                                *slot = Some(msg);
+                            }
                         }
                     }
-                }
-            });
+                });
 
             if err_count.load(Ordering::Relaxed) > 0 {
                 let detail = first_err
@@ -138,9 +140,8 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 
             let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
             for result in per_file {
-                let (name, counts) = result.map_err(|e| {
-                    format!("process failed while reading an input file: {e}")
-                })?;
+                let (name, counts) = result
+                    .map_err(|e| format!("process failed while reading an input file: {e}"))?;
                 let idx = individual_indices[&name];
                 for (packed_seq, count) in counts {
                     let entry = global
@@ -169,11 +170,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                     log::info!("Finished processing individual {}", f.individual_name);
                 }
                 Err(e) => {
-                    return Err(format!(
-                        "Error processing {}: {e}",
-                        f.path.display()
-                    )
-                    .into());
+                    return Err(format!("Error processing {}: {e}", f.path.display()).into());
                 }
             }
         }
