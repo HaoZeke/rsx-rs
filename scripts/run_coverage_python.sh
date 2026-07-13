@@ -43,33 +43,25 @@ fi
 # shellcheck disable=SC1091
 source "$VENV/bin/activate"
 python -m pip install -U pip -q
-# pandas required by tests/test_marker_table_from_arrow.py (collection otherwise aborts
-# the whole suite and leaves PyO3 LCOV near-empty).
+# pandas: test_marker_table_from_arrow; polars: backend-agnostic high-level tests
 python -m pip install maturin pytest pytest-cov coverage \
-  click 'narwhals>=1.0' 'pyarrow>=14' pandas -q
+  click 'narwhals>=1.0' 'pyarrow>=14' pandas polars -q
 
 case " ${RUSTFLAGS:-} " in
   *" -C link-arg=-fuse-ld=bfd "*) ;;
   *) export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=bfd" ;;
 esac
 
-# Develop the extension from the package directory (maturin layout).
 (
   cd "$ROOT/rsx-python"
   maturin develop
 )
 
-set +e
-python -m pytest "$ROOT/rsx-python/tests" -q --tb=line \
+python -m pytest "$ROOT/rsx-python/tests" -q --tb=short \
   --cov=pyrsx \
   --cov-report=xml:"$ROOT/$OUT_XML" \
   --cov-report=term-missing \
   --cov-branch
-PY_RC=$?
-set -e
-if [[ "$PY_RC" -ne 0 ]]; then
-  echo "WARNING: pytest exit $PY_RC; still collecting llvm-cov for pyrsx" >&2
-fi
 
 PROF_GLOB="${CARGO_LLVM_COV_TARGET_DIR:-$ROOT/target}"
 if ! compgen -G "${PROF_GLOB}"/*.profraw > /dev/null 2>&1 \
@@ -95,7 +87,7 @@ for line in open(inp, encoding="utf-8", errors="replace"):
         keep = (
             "/rsx-python/src/" in path
             or path.endswith("rsx-python/src/lib.rs")
-            or "/rsx-python/" in path and path.endswith(".rs")
+            or ("/rsx-python/" in path and path.endswith(".rs"))
         )
     elif line.startswith("end_of_record"):
         buf.append(line)
@@ -124,9 +116,6 @@ print(f"pyrsx rust lcov {100 * hits / tot:.1f}% {hits}/{tot}")
 PY
 rm -f "$TMP_LCOV"
 test -s "$ROOT/$OUT_LCOV"
-if [[ -f "$ROOT/$OUT_XML" ]]; then
-  echo "OK pure-python coverage XML: $ROOT/$OUT_XML"
-else
-  echo "WARNING: missing $ROOT/$OUT_XML (pytest-cov may have failed)" >&2
-fi
+test -s "$ROOT/$OUT_XML"
+echo "OK pure-python coverage XML: $ROOT/$OUT_XML"
 echo "OK wrote $ROOT/$OUT_LCOV"
