@@ -10,6 +10,7 @@
 A Rust framework for RAD-seq marker analysis and sex determination: bounded-memory streaming kernels, a Bayesian marker-evidence layer, and Python and C bindings. Builds on and stays command-compatible with [RADSex](https://github.com/RomainFeron/RADSex), so prior results remain directly comparable.
 
 [![CI](https://github.com/HaoZeke/rsx-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/HaoZeke/rsx-rs/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/HaoZeke/rsx-rs/graph/badge.svg)](https://app.codecov.io/gh/HaoZeke/rsx-rs)
 [![Documentation](https://img.shields.io/badge/docs-rsx.rgoswami.me-blue)](https://rsx.rgoswami.me)
 [![Crates.io](https://img.shields.io/crates/v/rsx-cli?label=crates.io)](https://crates.io/crates/rsx-cli)
 [![PyPI](https://img.shields.io/pypi/v/pyrsx)](https://pypi.org/project/pyrsx/)

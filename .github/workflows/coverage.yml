@@ -1,0 +1,201 @@
+# Multi-language coverage for Codecov (rust / python / r flags).
+#
+# Live dashboard: https://app.codecov.io/gh/HaoZeke/rsx-rs
+#
+# Auth: Codecov GitHub App OIDC (use_oidc: true). Optional CODECOV_TOKEN is
+# also passed for accounts that still use upload tokens. fail_ci_if_error:
+# false soft-fails upload issues so generation still greens the job.
+
+name: Coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  coverage-rust:
+    runs-on: ubuntu-22.04
+    name: rust coverage
+    strategy:
+      matrix:
+        llvm-version: [20]
+    env:
+      CC: clang-${{ matrix.llvm-version }}
+      CXX: clang++-${{ matrix.llvm-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup LLVM
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.llvm-version }}
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y clang-${{ matrix.llvm-version }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Structural Codecov config gate
+        run: bash scripts/check_codecov_config.sh
+
+      - name: Generate rust code coverage
+        env:
+          # parallel + map (default surface) + Arrow/Parquet for high-level paths.
+          # mpi omitted (needs OpenMPI).
+          RSX_COV_FEATURES: parallel,map,arrow-output,arrow-input,parquet-io
+        run: |
+          unset RUSTC_WRAPPER || true
+          bash scripts/run_coverage_rust.sh lcov.info rust_codecov.json
+          test -s lcov.info
+          test -s rust_codecov.json
+
+      - name: Upload rust coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-rust
+          path: |
+            lcov.info
+            rust_codecov.json
+          if-no-files-found: error
+
+      - name: Upload rust coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info,rust_codecov.json
+          flags: rust
+          name: rsx-rs-rust
+          use_oidc: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          verbose: true
+
+  coverage-python:
+    runs-on: ubuntu-22.04
+    name: python coverage
+    strategy:
+      matrix:
+        llvm-version: [20]
+    env:
+      CC: clang-${{ matrix.llvm-version }}
+      CXX: clang++-${{ matrix.llvm-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup LLVM
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.llvm-version }}
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y clang-${{ matrix.llvm-version }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate python binding coverage
+        env:
+          RSX_PY_VENV: ${{ github.workspace }}/.venv-coverage-python
+          RUSTFLAGS: "-C link-arg=-fuse-ld=bfd"
+        run: |
+          unset RUSTC_WRAPPER || true
+          bash scripts/run_coverage_python.sh python_lcov.info python_coverage.xml
+          test -s python_lcov.info
+          # pure-Python XML is best-effort (pytest-cov); LCOV is required
+          ls -la python_lcov.info python_coverage.xml 2>/dev/null || true
+          grep -E '^(SF:|DA:)' python_lcov.info | head -15
+
+      - name: Upload python coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-python
+          path: |
+            python_lcov.info
+            python_coverage.xml
+          if-no-files-found: error
+
+      - name: Upload python coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: python_lcov.info,python_coverage.xml
+          flags: python
+          name: rsx-rs-python
+          use_oidc: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          verbose: true
+
+  coverage-r:
+    runs-on: ubuntu-22.04
+    name: r coverage
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zlib1g-dev libbz2-dev liblzma-dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::covr, any::testthat, any::tibble, any::readr
+          needs: check
+          working-directory: rsx-r
+
+      - name: Generate R package coverage
+        run: |
+          bash scripts/run_coverage_r.sh r_coverage.xml
+          test -s r_coverage.xml
+          head -c 400 r_coverage.xml; echo
+
+      - name: Upload R coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-r
+          path: r_coverage.xml
+          if-no-files-found: error
+
+      - name: Upload R coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: r_coverage.xml
+          flags: r
+          name: rsx-rs-r
+          use_oidc: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          verbose: true

@@ -1,0 +1,75 @@
+# Codecov config for rsx-rs multi-language coverage.
+# Dashboard: https://app.codecov.io/gh/HaoZeke/rsx-rs
+# Uploads use OIDC (Codecov GitHub App) via .github/workflows/coverage.yml.
+
+codecov:
+  require_ci_to_pass: false
+  notify:
+    wait_for_ci: false
+
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+        target: auto
+        threshold: 2%
+    patch:
+      default:
+        informational: true
+        target: auto
+        threshold: 2%
+
+# Carryforward so a partial matrix does not zero other languages.
+flag_management:
+  default_rules:
+    carryforward: true
+    statuses:
+      - type: project
+        target: auto
+        threshold: 2%
+        informational: true
+      - type: patch
+        target: auto
+        threshold: 2%
+        informational: true
+  individual_flags:
+    - name: rust
+      paths:
+        - rsxcore/src/**
+        - rsx-cli/src/**
+      carryforward: true
+    - name: python
+      paths:
+        - rsx-python/src/**
+        - rsx-python/python/**
+      carryforward: true
+    - name: r
+      paths:
+        - rsx-r/R/**
+        - rsx-r/src/**
+      carryforward: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: false
+  show_carryforward_flags: true
+
+ignore:
+  - "**/tests/**"
+  - "**/benches/**"
+  - "benchmarks/**"
+  - "docs/**"
+  - "examples/**"
+  - "proofs/**"
+  - "repro/**"
+  - "subprojects/**"
+  - "scripts/**"
+  - "target/**"
+  - "rsx-python/tests/**"
+  - "rsx-r/tests/**"
+  - "rsx-r/tools/**"
+  - "rsx-r/vignettes/**"
+  # Staged copy of rsxcore inside the R package (not a second source of truth).
+  - "rsx-r/src/rust/**"
