@@ -43,7 +43,10 @@ fi
 # shellcheck disable=SC1091
 source "$VENV/bin/activate"
 python -m pip install -U pip -q
-python -m pip install maturin pytest pytest-cov coverage click 'narwhals>=1.0' 'pyarrow>=14' -q
+# pandas required by tests/test_marker_table_from_arrow.py (collection otherwise aborts
+# the whole suite and leaves PyO3 LCOV near-empty).
+python -m pip install maturin pytest pytest-cov coverage \
+  click 'narwhals>=1.0' 'pyarrow>=14' pandas -q
 
 case " ${RUSTFLAGS:-} " in
   *" -C link-arg=-fuse-ld=bfd "*) ;;

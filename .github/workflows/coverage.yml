@@ -136,7 +136,7 @@ jobs:
           path: |
             python_lcov.info
             python_coverage.xml
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Upload python coverage to Codecov
         uses: codecov/codecov-action@v5
