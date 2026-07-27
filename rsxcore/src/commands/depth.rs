@@ -267,24 +267,28 @@ fn run_streaming_source<S: MarkerStream>(
         }
     }
 
-    let mut medians: Vec<u16> = vec![0; n_individuals];
+    let mut median_values: Vec<[u16; 2]> = vec![[0; 2]; n_individuals];
     let mut nonzero_pos: Vec<u64> = vec![0; n_individuals];
-    let median_targets: Vec<i64> = (0..n_individuals)
+    let median_targets: Vec<[i64; 2]> = (0..n_individuals)
         .map(|i| {
             let n_zeros = ind_total[i] - ind_nonzero[i];
-            let median_pos = ind_total[i] / 2;
-            if median_pos < n_zeros {
-                -1
-            } else {
-                (median_pos - n_zeros) as i64
-            }
+            let ranks = [(ind_total[i] - 1) / 2, ind_total[i] / 2];
+            ranks.map(|rank| {
+                if rank < n_zeros {
+                    -1
+                } else {
+                    (rank - n_zeros) as i64
+                }
+            })
         })
         .collect();
 
     while let Some(top) = heap.pop() {
         let i = top.ind as usize;
-        if median_targets[i] >= 0 && nonzero_pos[i] == median_targets[i] as u64 {
-            medians[i] = top.dep;
+        for (target_index, &target_pos) in median_targets[i].iter().enumerate() {
+            if target_pos >= 0 && nonzero_pos[i] == target_pos as u64 {
+                median_values[i][target_index] = top.dep;
+            }
         }
         nonzero_pos[i] += 1;
 
@@ -296,6 +300,11 @@ fn run_streaming_source<S: MarkerStream>(
             });
         }
     }
+
+    let medians: Vec<f64> = median_values
+        .iter()
+        .map(|values| (f64::from(values[0]) + f64::from(values[1])) / 2.0)
+        .collect();
 
     let header_cols = &source.header().columns;
     let mut output = std::fs::File::create(&params.output_file_path)?;

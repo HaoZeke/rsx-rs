@@ -227,23 +227,29 @@ pub fn group_bias(n_group1: u32, total_group1: u32, n_group2: u32, total_group2:
     (n_group1 as f64 / total_group1 as f64) - (n_group2 as f64 / total_group2 as f64)
 }
 
-/// Find median of a mutable slice (partially reorders in-place).
+/// Find the mathematical median of a mutable slice (partially reorders in-place).
 ///
 /// Uses order-statistic selection (`select_nth_unstable`) at index `len/2`
-/// instead of a full sort. This is the **upper median** for even length:
-/// after zeros, the element at conceptual position `len/2` (0-based), matching
-/// the streaming external-sort path. Selection is O(n) average vs O(n log n)
-/// sort; proven equivalent to sorting then indexing `len/2` (see
-/// `proofs/lean/MedianSelect.lean` and `scripts/sympy/median_select_proof.py`).
-pub fn find_median(data: &mut [u16]) -> u16 {
+/// instead of a full sort. Odd lengths return that middle value. Even lengths
+/// average it with the maximum of the lower partition, which is the adjacent
+/// order statistic. Selection is O(n) average vs O(n log n) sort; the rank
+/// identities are validated in
+/// `proofs/lean/MedianSelect.lean` and `scripts/sympy/median_select_proof.py`.
+pub fn find_median(data: &mut [u16]) -> f64 {
     let len = data.len();
     if len == 0 {
-        return 0;
+        return 0.0;
     }
     let k = len / 2;
     // Partition so data[k] is the element that would sit at index k if fully sorted.
-    let (_left, mid, _right) = data.select_nth_unstable(k);
-    *mid
+    let (left, mid, _right) = data.select_nth_unstable(k);
+    let upper = f64::from(*mid);
+    if len % 2 == 1 {
+        upper
+    } else {
+        let lower = f64::from(*left.iter().max().expect("even slice has a lower half"));
+        (lower + upper) / 2.0
+    }
 }
 
 // ========================================================================
