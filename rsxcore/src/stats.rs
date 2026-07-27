@@ -234,7 +234,8 @@ pub fn group_bias(n_group1: u32, total_group1: u32, n_group2: u32, total_group2:
 /// average it with the maximum of the lower partition, which is the adjacent
 /// order statistic. Selection is O(n) average vs O(n log n) sort; the rank
 /// identities are validated in
-/// `proofs/lean/MedianSelect.lean` and `scripts/sympy/median_select_proof.py`.
+/// `proofs/lean/MedianSelect/MedianSelect.lean` and
+/// `scripts/sympy/median_select_proof.py`.
 pub fn find_median(data: &mut [u16]) -> f64 {
     let len = data.len();
     if len == 0 {
