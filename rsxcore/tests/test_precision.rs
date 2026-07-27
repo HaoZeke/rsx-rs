@@ -629,6 +629,11 @@ fn test_distrib_fdr_uses_marker_multiplicity() {
     let expected = marker_q_values[6];
 
     let content = std::fs::read_to_string(output).unwrap();
+    let metadata = content.lines().next().expect("missing distrib metadata");
+    assert!(
+        metadata.contains(";n_markers:9;n_tests:9"),
+        "distrib FDR must report the nine marker-level tests: {metadata}"
+    );
     let male_only = content
         .lines()
         .find(|line| line.starts_with("4\t0\t2\t"))
