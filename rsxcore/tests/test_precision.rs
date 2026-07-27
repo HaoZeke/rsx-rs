@@ -633,16 +633,15 @@ fn test_distrib_fdr_uses_marker_multiplicity() {
         .lines()
         .find(|line| line.starts_with("4\t0\t2\t"))
         .expect("missing two-marker male-only distribution cell");
-    let observed: f64 = male_only
+    let observed = male_only
         .split('\t')
         .nth(4)
-        .expect("missing corrected p-value")
-        .parse()
-        .unwrap();
+        .expect("missing corrected p-value");
+    let expected = format!("{}", rsx_core::stats::Cg(expected));
 
-    assert!(
-        (observed - expected).abs() < 1e-12,
-        "distrib FDR must match BH over all nine marker tests: observed={observed}, expected={expected}"
+    assert_eq!(
+        observed, expected,
+        "distrib FDR must match BH over all nine marker tests"
     );
 }
 
