@@ -100,8 +100,8 @@ pub fn run_with_source<S: MarkerStream>(
         }
     })?;
 
-    // Build the ordered list of non-empty cells once so Bonferroni and BH FDR
-    // share the same grid iteration.
+    // Build the ordered cell list once. Each cell stores the multiplicity of
+    // its marker-level p-value so compressed BH matches an expanded marker list.
     let mut cells: Vec<(u32, u32, u64, f64)> = Vec::new();
     for g in 0..=total_g1 {
         for h in 0..=total_g2 {
@@ -114,7 +114,7 @@ pub fn run_with_source<S: MarkerStream>(
         }
     }
 
-    let n_tests = cells.len().max(1) as u64;
+    let n_tests = n_markers;
     let (p_corrected_vals, signif_flags, corr_label, threshold_note): (
         Vec<f64>,
         Vec<bool>,
