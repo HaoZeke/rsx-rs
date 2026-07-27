@@ -580,6 +580,73 @@ fn test_distrib_exact_output() {
 }
 
 #[test]
+fn test_distrib_fdr_uses_marker_multiplicity() {
+    let dir = test_dir().join("distrib_fdr_marker_multiplicity");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    writeln!(f, "#Number of markers : 9").unwrap();
+    writeln!(f, "id\tsequence\tm1\tm2\tm3\tm4\tf1\tf2\tf3\tf4").unwrap();
+    for marker in 0..6 {
+        writeln!(f, "{marker}\tACGTACGT\t10\t10\t10\t10\t10\t10\t10\t10").unwrap();
+    }
+    writeln!(f, "6\tAAAACCCC\t10\t10\t10\t10\t0\t0\t0\t0").unwrap();
+    writeln!(f, "7\tCCCCAAAA\t10\t10\t10\t10\t0\t0\t0\t0").unwrap();
+    writeln!(f, "8\tGGGGTTTT\t10\t10\t10\t0\t0\t0\t0\t0").unwrap();
+
+    let popmap = dir.join("popmap.tsv");
+    let mut f = std::fs::File::create(&popmap).unwrap();
+    for sample in ["m1", "m2", "m3", "m4"] {
+        writeln!(f, "{sample}\tM").unwrap();
+    }
+    for sample in ["f1", "f2", "f3", "f4"] {
+        writeln!(f, "{sample}\tF").unwrap();
+    }
+
+    let output = dir.join("distrib.tsv");
+    rsx_core::commands::distrib::run(&rsx_core::commands::distrib::DistribParams {
+        markers_table_path: table.to_str().unwrap().to_string(),
+        popmap_file_path: popmap.to_str().unwrap().to_string(),
+        output_file_path: output.to_str().unwrap().to_string(),
+        min_depth: 1,
+        signif_threshold: 0.05,
+        correction: rsx_core::test_method::CorrectionMethod::Fdr,
+        test_method: rsx_core::test_method::TestMethod::ChiSquared,
+        output_bayes: false,
+        group1: "M".to_string(),
+        group2: "F".to_string(),
+    })
+    .unwrap();
+
+    let p_balanced = rsx_core::stats::p_association(4, 4, 4, 4);
+    let p_male_only = rsx_core::stats::p_association(4, 0, 4, 4);
+    let p_three_males = rsx_core::stats::p_association(3, 0, 4, 4);
+    let mut marker_p_values = vec![p_balanced; 6];
+    marker_p_values.extend([p_male_only; 2]);
+    marker_p_values.push(p_three_males);
+    let marker_q_values = rsx_core::stats::benjamini_hochberg(&marker_p_values);
+    let expected = marker_q_values[6];
+
+    let content = std::fs::read_to_string(output).unwrap();
+    let male_only = content
+        .lines()
+        .find(|line| line.starts_with("4\t0\t2\t"))
+        .expect("missing two-marker male-only distribution cell");
+    let observed: f64 = male_only
+        .split('\t')
+        .nth(4)
+        .expect("missing corrected p-value")
+        .parse()
+        .unwrap();
+
+    assert!(
+        (observed - expected).abs() < 1e-12,
+        "distrib FDR must match BH over all nine marker tests: observed={observed}, expected={expected}"
+    );
+}
+
+#[test]
 fn test_freq_exact_output() {
     let dir = test_dir().join("freq_exact");
     std::fs::create_dir_all(&dir).unwrap();
