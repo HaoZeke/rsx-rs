@@ -12,8 +12,9 @@ perf goal run (and are summarised in-repo after deltas).
 
 =commands/depth.rs= (exact mode) accumulates per-individual depth vectors then
 calls =stats::find_median=. The previous implementation fully sorted each
-vector (=O(n log n)= comparisons and moves) only to read index =len/2= (upper
-median). That is an order-statistic problem: selection at =k = n/2= is enough.
+vector (=O(n log n)= comparisons and moves) only to read the middle order
+statistics. Selection at =k_upper = n/2= partitions the vector; the lower
+middle value for even lengths is the maximum of the left partition.
 
 ** Evidence
 
@@ -21,15 +22,17 @@ median). That is an order-statistic problem: selection at =k = n/2= is enough.
 - Cachegrind: depth leg of =scripts/perf/run_cachegrind_workload.sh= on
   =benchmarks/data/medium= (before/after Ir totals under scratch
   =cachegrind-baseline.txt= / =cachegrind-after.txt=).
-- Accuracy: =test_find_median_*= and =test_find_median_matches_sorted_index=
-  (selection ≡ sorted[=n/2=]).
+- Accuracy: =test_find_median_*= and
+  =test_find_median_matches_sorted_definition= (selection matches the average
+  of sorted[=(n-1)/2=] and sorted[=n/2=]).
 
 ** Fix
 
-=slice::select_nth_unstable(k)= with =k = len/2=. Same upper-median value as
-full sort. Also remove the redundant full =sort_unstable= in =depth= exact
-mode that only existed to read first/last as min/max (now linear min/max
-scans). Lean: =proofs/lean/MedianSelect= (index theorems). SymPy/Python
+=slice::select_nth_unstable(k_upper)= with =k_upper = len/2=, followed by a
+maximum scan of the left partition for even lengths. Averaging the lower and
+upper middle values yields the mathematical median without a full sort. The
+redundant full =sort_unstable= in =depth= exact mode is also absent; min/max
+use linear scans. Lean: =proofs/lean/MedianSelect= (index theorems). SymPy/Python
 PEP 723: =scripts/sympy/median_select_proof.py=.
 
 ** Cachegrind (rg.terra, medium data)

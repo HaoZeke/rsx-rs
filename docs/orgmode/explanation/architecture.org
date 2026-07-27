@@ -137,7 +137,7 @@ sort when the input exceeds 2GB:
 1. Stream markers, emit =(individual_idx, depth)= pairs to buffer
 2. When buffer full: sort by =(individual_idx, depth)=, write lz4 temp
 3. K-way merge: depths per individual are contiguous and sorted
-4. Pick middle element for exact median
+4. Read the two middle ranks and average them for the exact median
 
 Memory: O(buffer_size), default 200MB. Auto-detected by file size.
 

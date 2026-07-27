@@ -4,6 +4,11 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- **depth**: exact and streaming modes report the mathematical median for even
+  sample counts by averaging the two middle depths; half-integer medians are
+  preserved in TSV output.
+
 ## [0.2.6] - 2026-07-06
 
 Correctness and robustness patch (process table metadata and error handling,

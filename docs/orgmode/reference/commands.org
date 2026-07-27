@@ -136,8 +136,9 @@ rsx depth -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-f 0.75]
 | =-f= | 0.75    | Min fraction of individuals for a marker to count |
 
 Auto-detects large files (> 2GB) and switches to streaming mode with
-external sort for exact median. Sparse optimization: only non-zero
-depths are sorted (3.3x reduction for typical RAD-seq data). See
+external sort for the exact mathematical median. Even sample counts preserve
+half-integer medians by averaging the two middle depths. Sparse optimization:
+only non-zero depths are sorted (3.3x reduction for typical RAD-seq data). See
 =scripts/sympy/sparse_median_proof.py= for the mathematical proof.
 
 * map
