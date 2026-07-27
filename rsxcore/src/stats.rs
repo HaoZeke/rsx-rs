@@ -708,14 +708,17 @@ mod tests {
     #[test]
     fn test_find_median_even() {
         let mut data = vec![4, 1, 3, 2];
-        // Upper median for even length (data[len/2] after sort): unifies with
-        // streaming external-sort median in depth command (no fractional depths).
-        assert_eq!(find_median(&mut data), 3); // sorted [1,2,3,4], position 2 -> 3
+        assert_eq!(f64::from(find_median(&mut data)), 2.5);
     }
 
-    /// Selection at k=len/2 must match full sort then index k (upper median).
     #[test]
-    fn test_find_median_matches_sorted_index() {
+    fn test_find_median_avoids_overflow_at_maximum_depth() {
+        let mut data = vec![u16::MAX - 1, u16::MAX];
+        assert_eq!(f64::from(find_median(&mut data)), 65_534.5);
+    }
+
+    #[test]
+    fn test_find_median_matches_sorted_definition() {
         for seed in 0u64..40 {
             let mut rng = seed;
             let n = 1 + (rng % 64) as usize;
@@ -727,8 +730,14 @@ mod tests {
                 .collect();
             let mut sorted = data.clone();
             sorted.sort_unstable();
-            let expected = sorted[n / 2];
-            assert_eq!(find_median(&mut data), expected, "seed={seed} n={n}");
+            let lower = f64::from(sorted[(n - 1) / 2]);
+            let upper = f64::from(sorted[n / 2]);
+            let expected = (lower + upper) / 2.0;
+            assert_eq!(
+                f64::from(find_median(&mut data)),
+                expected,
+                "seed={seed} n={n}"
+            );
         }
     }
 

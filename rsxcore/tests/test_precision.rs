@@ -419,6 +419,48 @@ fn test_marker_table_parallel_filter_map_collect_preserves_serial_order() {
     assert_eq!(parallel, serial);
 }
 
+#[test]
+fn test_depth_exact_and_streaming_report_mathematical_medians() {
+    let dir = test_dir().join("depth_mathematical_median");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let table = dir.join("markers.tsv");
+    let mut f = std::fs::File::create(&table).unwrap();
+    writeln!(f, "#Number of markers : 4").unwrap();
+    writeln!(f, "id\tsequence\tind0\tind1\tind2").unwrap();
+    writeln!(f, "m0\tACGT\t1\t0\t0").unwrap();
+    writeln!(f, "m1\tCGTA\t2\t0\t0").unwrap();
+    writeln!(f, "m2\tGTAC\t3\t1\t0").unwrap();
+    writeln!(f, "m3\tTACG\t4\t2\t1").unwrap();
+
+    let popmap = create_precision_popmap(&dir, 3);
+    let exact_output = dir.join("depth_exact.tsv");
+    let streaming_output = dir.join("depth_streaming.tsv");
+
+    for (output, streaming) in [(&exact_output, false), (&streaming_output, true)] {
+        rsx_core::commands::depth::run(&rsx_core::commands::depth::DepthParams {
+            markers_table_path: table.to_str().unwrap().to_string(),
+            popmap_file_path: popmap.to_str().unwrap().to_string(),
+            output_file_path: output.to_str().unwrap().to_string(),
+            min_frequency: 0.0,
+            streaming,
+        })
+        .unwrap();
+    }
+
+    let expected = concat!(
+        "Sample\tGroup\tReads\tMarkers\tRetained\tMin_depth\tMax_depth\tMedian_depth\tAverage_depth\n",
+        "ind0\tM\t10\t4\t4\t1\t4\t2.5\t2\n",
+        "ind1\tF\t3\t2\t4\t0\t2\t0.5\t0\n",
+        "ind2\tF\t1\t1\t4\t0\t1\t0\t0\n",
+    );
+    assert_eq!(std::fs::read_to_string(&exact_output).unwrap(), expected);
+    assert_eq!(
+        std::fs::read_to_string(&streaming_output).unwrap(),
+        expected
+    );
+}
+
 #[cfg(feature = "parallel")]
 #[test]
 fn test_depth_exact_parallel_matches_streaming_large_table() {
