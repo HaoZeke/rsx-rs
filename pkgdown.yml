@@ -1,9 +1,9 @@
 pandoc: 3.8.3
-pkgdown: 2.2.0
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   rsxr: rsxr.html
-last_built: 2026-07-06T21:55Z
+last_built: 2026-07-27T09:56Z
 urls:
   reference: https://haozeke.github.io/rsx-rs/rsxr/reference
   article: https://haozeke.github.io/rsx-rs/rsxr/articles
