@@ -6,8 +6,9 @@
 # ///
 """SymPy + independent order-statistic validation for rsx `find_median`.
 
-The engine returns the **upper median**: the element at index k = n // 2
-(0-based) in nondecreasing order, realised via `slice::select_nth_unstable(k)`.
+The engine returns the mathematical median: the mean of the elements at
+0-based indices `(n - 1) // 2` and `n // 2` in nondecreasing order. The two
+indices coincide for odd lengths and select adjacent values for even lengths.
 
 This script is intentionally non-tautological:
 1. SymPy proves combinatorial index identities for odd/even n.
@@ -21,14 +22,15 @@ Exit 0 and print VALIDATED on success.
 from __future__ import annotations
 
 import random
+from fractions import Fraction
 
-from sympy import Integer, Eq, simplify, floor, symbols
+from sympy import Eq, Integer, floor, simplify, symbols
 
 
-def upper_median_index(n: int) -> int:
-    """Same rule as Rust: k = n // 2 for n > 0."""
+def median_indices(n: int) -> tuple[int, int]:
+    """Return the lower and upper middle indices for a non-empty sequence."""
     assert n > 0
-    return n // 2
+    return (n - 1) // 2, n // 2
 
 
 def independent_select_nth(xs: list[int], k: int) -> int:
@@ -70,80 +72,79 @@ def independent_select_nth(xs: list[int], k: int) -> int:
             lo = pivot_idx + 1
 
 
-def order_stat_via_sort(xs: list[int], k: int) -> int:
-    return sorted(xs)[k]
+def mathematical_median_via_sort(xs: list[int]) -> Fraction:
+    lower, upper = median_indices(len(xs))
+    ordered = sorted(xs)
+    return Fraction(ordered[lower] + ordered[upper], 2)
+
+
+def mathematical_median_via_select(xs: list[int]) -> Fraction:
+    lower, upper = median_indices(len(xs))
+    return Fraction(
+        independent_select_nth(xs, lower) + independent_select_nth(xs, upper),
+        2,
+    )
 
 
 def sympy_index_identities() -> None:
-    """Prove with SymPy that floor(n/2) matches the upper-median index rule."""
-    n, k = symbols("n k", integer=True, nonnegative=True)
+    """Prove the lower and upper middle-index identities."""
+    k = symbols("k", integer=True, nonnegative=True)
 
-    # odd: n = 2k+1 => floor(n/2) = k
     odd_n = 2 * k + 1
+    assert simplify(floor((odd_n - 1) / 2) - k) == 0
     assert simplify(floor(odd_n / 2) - k) == 0
-    print("sympy: floor((2k+1)/2) - k == 0  OK")
+    print("sympy: odd lower and upper indices both equal k  OK")
 
-    # even: n = 2k => floor(n/2) = k
-    even_n = 2 * k
-    assert simplify(floor(even_n / 2) - k) == 0
-    print("sympy: floor((2k)/2) - k == 0  OK")
+    positive_k = symbols("positive_k", integer=True, positive=True)
+    even_n = 2 * positive_k
+    assert simplify(floor((even_n - 1) / 2) - (positive_k - 1)) == 0
+    assert simplify(floor(even_n / 2) - positive_k) == 0
+    print("sympy: even lower index is k-1 and upper index is k  OK")
 
-    # for positive even/odd concrete integers, index < n
     for n_val in range(1, 64):
-        k_val = int(floor(Integer(n_val) / 2))
-        assert 0 <= k_val < n_val
-        assert k_val == upper_median_index(n_val)
-        # sympy Mod check: k == floor(n/2)
-        assert Eq(Integer(k_val), floor(Integer(n_val) / 2))
-    print("sympy: floor(n/2) in [0,n) and matches Python // for n=1..63  OK")
-
-    # Mod identity: for even n=2m, floor(n/2)=n/2; for odd n=2m+1, floor=(n-1)/2
-    m = symbols("m", integer=True, nonnegative=True)
-    assert simplify(floor((2 * m) / 2) - m) == 0
-    assert simplify(floor((2 * m + 1) / 2) - m) == 0
-    print("sympy: even/odd closed forms via Mod-free floor  OK")
+        lower, upper = median_indices(n_val)
+        assert 0 <= lower <= upper < n_val
+        assert Eq(Integer(lower), floor(Integer(n_val - 1) / 2))
+        assert Eq(Integer(upper), floor(Integer(n_val) / 2))
+    print("sympy: both indices are ordered and in range for n=1..63  OK")
 
 
 def validate_select_vs_sort() -> None:
-    """Independent quickselect vs full sort at k=n//2."""
+    """Independent two-rank quickselect vs the mathematical median."""
     from itertools import product
 
     alphabet = [0, 1, 2, 3]
     checked = 0
     for n in range(1, 7):
-        k = upper_median_index(n)
         for tup in product(alphabet, repeat=n):
             xs = list(tup)
-            via_sort = order_stat_via_sort(xs, k)
-            via_select = independent_select_nth(xs, k)
-            assert via_select == via_sort, (xs, k, via_select, via_sort)
-            # Also: value is a multiset member with correct rank bounds
-            assert via_select in xs
+            via_sort = mathematical_median_via_sort(xs)
+            via_select = mathematical_median_via_select(xs)
+            assert via_select == via_sort, (xs, via_select, via_sort)
             checked += 1
-    print(f"independent quickselect vs sort, exhaustive n=1..6 |A|=4: {checked} OK")
+    print(f"two-rank quickselect vs median, exhaustive n=1..6 |A|=4: {checked} OK")
 
     rng = random.Random(42)
     for trial in range(3000):
         n = rng.randint(1, 200)
         xs = [rng.randint(0, 50_000) for _ in range(n)]
-        k = upper_median_index(n)
-        via_sort = order_stat_via_sort(xs, k)
-        via_select = independent_select_nth(xs, k)
-        assert via_select == via_sort, (trial, n, k, via_select, via_sort)
-    print("independent quickselect vs sort, random n<=200: 3000 OK")
+        via_sort = mathematical_median_via_sort(xs)
+        via_select = mathematical_median_via_select(xs)
+        assert via_select == via_sort, (trial, n, via_select, via_sort)
+    print("two-rank quickselect vs median, random n<=200: 3000 OK")
 
 
 def main() -> int:
     print("=" * 60)
-    print("SYMPY + INDEPENDENT SELECT: upper median k = n//2")
+    print("SYMPY + INDEPENDENT SELECT: mathematical median")
     print("=" * 60)
     print()
     sympy_index_identities()
     print()
     validate_select_vs_sort()
     print()
-    print("VALIDATED: sympy index identities + independent quickselect ≡ sorted[k]")
-    print("Rust find_median uses the same k with select_nth_unstable(k).")
+    print("VALIDATED: middle-index identities + two-rank quickselect median")
+    print("Rust find_median selects the same lower and upper order statistics.")
     return 0
 
 
