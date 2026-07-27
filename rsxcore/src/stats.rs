@@ -880,6 +880,28 @@ mod tests {
     }
 
     #[test]
+    fn test_weighted_bh_matches_expanded_marker_values() {
+        let grouped = vec![(0.20, 3), (0.01, 2), (0.50, 1)];
+        let weighted = benjamini_hochberg_weighted(&grouped);
+        let expanded = benjamini_hochberg(&[0.20, 0.20, 0.20, 0.01, 0.01, 0.50]);
+
+        assert!((weighted[0] - expanded[0]).abs() < 1e-15);
+        assert!((weighted[1] - expanded[3]).abs() < 1e-15);
+        assert!((weighted[2] - expanded[5]).abs() < 1e-15);
+    }
+
+    #[test]
+    fn test_weighted_bh_excludes_zero_weight_cells() {
+        let grouped = vec![(1e-9, 0), (0.01, 2), (0.20, 3)];
+        let weighted = benjamini_hochberg_weighted(&grouped);
+        let expanded = benjamini_hochberg(&[0.01, 0.01, 0.20, 0.20, 0.20]);
+
+        assert_eq!(weighted[0], 1.0);
+        assert!((weighted[1] - expanded[0]).abs() < 1e-15);
+        assert!((weighted[2] - expanded[2]).abs() < 1e-15);
+    }
+
+    #[test]
     fn test_fisher_exact_invalid_table_returns_one() {
         // present count exceeds group total — must not underflow
         let p = fisher_exact(5, 0, 3, 3);
