@@ -708,7 +708,7 @@ mod tests {
     #[test]
     fn test_find_median_odd() {
         let mut data = vec![3, 1, 2];
-        assert_eq!(find_median(&mut data), 2);
+        assert_eq!(find_median(&mut data), 2.0);
     }
 
     #[test]
