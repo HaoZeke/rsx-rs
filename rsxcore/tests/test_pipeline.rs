@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 fn test_dir() -> PathBuf {
     // Unique per test process/thread so nextest can run in parallel.
-    tempfile::tempdir().expect("tempdir").into_path()
+    tempfile::tempdir().expect("tempdir").keep()
 }
 
 fn create_test_markers_table(dir: &std::path::Path) -> PathBuf {

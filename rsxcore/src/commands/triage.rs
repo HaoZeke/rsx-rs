@@ -12,7 +12,7 @@ use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
 use crate::stats::Cg;
-use crate::test_method::{TestMethod, compute_p};
+use crate::test_method::{compute_p, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -375,7 +375,7 @@ mod tests {
     use std::io::Write;
 
     fn make_triage_fixture() -> (std::path::PathBuf, std::path::PathBuf) {
-        let dir = tempfile::tempdir().unwrap().into_path();
+        let dir = tempfile::tempdir().unwrap().keep();
         std::fs::create_dir_all(&dir).unwrap();
 
         let table = dir.join("markers.tsv");
