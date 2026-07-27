@@ -414,6 +414,42 @@ pub fn benjamini_hochberg(p_values: &[f64]) -> Vec<f64> {
     q_values
 }
 
+/// Apply Benjamini-Hochberg FDR correction to compressed p-value groups.
+///
+/// Each tuple contains a p-value and the number of marker tests represented by
+/// that value. Entries with zero weight do not belong to the testing universe
+/// and receive an adjusted p-value of one.
+pub fn benjamini_hochberg_weighted(p_values: &[(f64, u64)]) -> Vec<f64> {
+    let total_weight: u64 = p_values.iter().map(|(_, weight)| weight).sum();
+    if total_weight == 0 {
+        return vec![1.0; p_values.len()];
+    }
+
+    let mut indices: Vec<usize> = p_values
+        .iter()
+        .enumerate()
+        .filter_map(|(index, (_, weight))| (*weight > 0).then_some(index))
+        .collect();
+    indices.sort_by(|&a, &b| p_values[a].0.total_cmp(&p_values[b].0));
+
+    let mut rank_end = vec![0u64; p_values.len()];
+    let mut cumulative_weight = 0u64;
+    for &index in &indices {
+        cumulative_weight += p_values[index].1;
+        rank_end[index] = cumulative_weight;
+    }
+
+    let mut q_values = vec![1.0; p_values.len()];
+    let mut cummin = f64::INFINITY;
+    for &index in indices.iter().rev() {
+        let adjusted = p_values[index].0 * total_weight as f64 / rank_end[index] as f64;
+        cummin = cummin.min(adjusted);
+        q_values[index] = cummin.min(1.0);
+    }
+
+    q_values
+}
+
 // ========================================================================
 // Bayesian methods
 // ========================================================================

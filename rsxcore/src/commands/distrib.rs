@@ -9,7 +9,7 @@ use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
 use crate::stats::Cg;
-use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
+use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -138,8 +138,8 @@ pub fn run_with_source<S: MarkerStream>(
         }
         CorrectionMethod::Fdr => {
             let thr = params.signif_threshold as f64;
-            let raw: Vec<f64> = cells.iter().map(|c| c.3).collect();
-            let q = stats::benjamini_hochberg(&raw);
+            let weighted: Vec<(f64, u64)> = cells.iter().map(|c| (c.3, c.2)).collect();
+            let q = stats::benjamini_hochberg_weighted(&weighted);
             let flags: Vec<bool> = q.iter().map(|&qi| qi < thr).collect();
             (q, flags, "fdr", thr)
         }
