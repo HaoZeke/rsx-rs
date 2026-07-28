@@ -23,8 +23,8 @@
 
 pub mod bitset;
 pub mod c_api;
-pub mod compute_backend;
 pub mod commands;
+pub mod compute_backend;
 pub mod io;
 pub mod kmer;
 pub mod marker;
