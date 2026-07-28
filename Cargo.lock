@@ -734,6 +734,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cudarc"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3aa12038120eb13347a6ae2ffab1d34efe78150125108627fd85044dd4d6ff1e"
+dependencies = [
+ "libloading",
+]
+
+[[package]]
 name = "custom_derive"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1761,6 +1770,7 @@ dependencies = [
  "arrow",
  "cbindgen",
  "criterion",
+ "cudarc",
  "dashmap",
  "env_logger",
  "flate2",
