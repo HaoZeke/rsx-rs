@@ -134,24 +134,22 @@ fn compute_cuda(
     use cudarc::nvrtc::compile_ptx;
 
     const KERNEL: &str = r#"
-        #include <math.h>
-        #include <stdint.h>
-
         extern "C" __global__ void chi_squared_p_values(
-            const uint32_t *group1,
-            const uint32_t *group2,
-            uint32_t total_group1,
-            uint32_t total_group2,
+            const unsigned int *group1,
+            const unsigned int *group2,
+            unsigned int total_group1,
+            unsigned int total_group2,
             double *p_values,
-            uint64_t length
+            unsigned long long length
         ) {
-            uint64_t index = (uint64_t)blockIdx.x * blockDim.x + threadIdx.x;
+            unsigned long long index =
+                (unsigned long long)blockIdx.x * blockDim.x + threadIdx.x;
             if (index >= length) return;
 
-            uint64_t n1 = group1[index];
-            uint64_t n2 = group2[index];
-            uint64_t t1 = total_group1;
-            uint64_t t2 = total_group2;
+            unsigned long long n1 = group1[index];
+            unsigned long long n2 = group2[index];
+            unsigned long long t1 = total_group1;
+            unsigned long long t2 = total_group2;
             double n = (double)(t1 + t2);
             double present = (double)(n1 + n2);
             double absent = n - present;
@@ -161,8 +159,8 @@ fn compute_cuda(
                 return;
             }
 
-            uint64_t ad = n1 * t2;
-            uint64_t bc = n2 * t1;
+            unsigned long long ad = n1 * t2;
+            unsigned long long bc = n2 * t1;
             double difference = (double)(ad > bc ? ad - bc : bc - ad);
             double yates = fmax(difference - n / 2.0, 0.0);
             double chi_squared = n * yates * yates /
