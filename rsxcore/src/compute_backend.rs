@@ -96,10 +96,12 @@ impl PooledPinnedResult {
         ))
     }
 
-    fn values_mut(&mut self) -> &mut cudarc::driver::PinnedHostSlice<f64> {
-        self.values
+    fn try_as_mut_slice(&mut self) -> Result<&mut [f64], cudarc::driver::DriverError> {
+        let values = self
+            .values
             .as_mut()
-            .expect("pooled CUDA result must own its allocation")
+            .expect("pooled CUDA result must own its allocation");
+        Ok(&mut values.as_mut_slice()?[..self.len])
     }
 
     fn try_as_slice(&self) -> Result<&[f64], cudarc::driver::DriverError> {
@@ -369,7 +371,7 @@ fn compute_cuda(
 
     let return_started = Instant::now();
     let (mut p_values, output_buffer_reused) = PooledPinnedResult::acquire(context, counts.len())?;
-    stream.memcpy_dtoh(&device_p_values, p_values.values_mut())?;
+    stream.memcpy_dtoh(&device_p_values, p_values.try_as_mut_slice()?)?;
     stream.synchronize()?;
     let device_to_host_seconds = return_started.elapsed().as_secs_f64();
     let total_seconds = total_started.elapsed().as_secs_f64();
