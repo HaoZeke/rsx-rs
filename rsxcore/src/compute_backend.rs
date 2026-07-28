@@ -3,9 +3,9 @@
 
 //! Batched chi-square p-value evaluation on CPU or CUDA.
 
-use std::time::Instant;
 #[cfg(feature = "cuda")]
 use std::sync::OnceLock;
+use std::time::Instant;
 
 #[cfg(feature = "cuda")]
 const CUDA_CHI_SQUARED_KERNEL: &str = r#"
