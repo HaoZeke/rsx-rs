@@ -384,4 +384,42 @@ mod tests {
             "FDR should keep strong marker: {body}"
         );
     }
+
+    #[cfg(feature = "cuda")]
+    #[test]
+    fn signif_cuda_matches_cpu_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let (table, pop) = write_fixture(dir.path());
+        let cpu_out = dir.path().join("signif_cpu.tsv");
+        let cuda_out = dir.path().join("signif_cuda.tsv");
+        let params = |output: &std::path::Path| SignifParams {
+            markers_table_path: table.to_str().unwrap().to_string(),
+            popmap_file_path: pop.to_str().unwrap().to_string(),
+            output_file_path: output.to_str().unwrap().to_string(),
+            min_depth: 1,
+            signif_threshold: 0.05,
+            correction: CorrectionMethod::Fdr,
+            test_method: TestMethod::ChiSquared,
+            output_fasta: false,
+            output_bayes: false,
+            group1: "M".into(),
+            group2: "F".into(),
+        };
+
+        run_with_backend(
+            &params(&cpu_out),
+            crate::compute_backend::PValueBackend::Cpu,
+        )
+        .unwrap();
+        run_with_backend(
+            &params(&cuda_out),
+            crate::compute_backend::PValueBackend::Cuda,
+        )
+        .unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(cpu_out).unwrap(),
+            std::fs::read_to_string(cuda_out).unwrap()
+        );
+    }
 }
