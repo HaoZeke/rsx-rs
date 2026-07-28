@@ -241,7 +241,10 @@ fn serialize_counts(counts: &ahash::AHashMap<PackedDnaKey, Vec<(String, u16)>>) 
 }
 
 #[cfg(feature = "mpi")]
-fn deserialize_counts(data: &[u8]) -> Vec<(Vec<u8>, Vec<(String, u16)>)> {
+type DeserializedCounts = Vec<(Vec<u8>, Vec<(String, u16)>)>;
+
+#[cfg(feature = "mpi")]
+fn deserialize_counts(data: &[u8]) -> DeserializedCounts {
     let mut result = Vec::new();
     let mut pos = 0;
     while pos + 4 <= data.len() {

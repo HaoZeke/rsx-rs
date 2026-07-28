@@ -751,13 +751,13 @@ mod tests {
     #[test]
     fn test_find_median_even() {
         let mut data = vec![4, 1, 3, 2];
-        assert_eq!(f64::from(find_median(&mut data)), 2.5);
+        assert_eq!(find_median(&mut data), 2.5);
     }
 
     #[test]
     fn test_find_median_avoids_overflow_at_maximum_depth() {
         let mut data = vec![u16::MAX - 1, u16::MAX];
-        assert_eq!(f64::from(find_median(&mut data)), 65_534.5);
+        assert_eq!(find_median(&mut data), 65_534.5);
     }
 
     #[test]
@@ -776,11 +776,7 @@ mod tests {
             let lower = f64::from(sorted[(n - 1) / 2]);
             let upper = f64::from(sorted[n / 2]);
             let expected = (lower + upper) / 2.0;
-            assert_eq!(
-                f64::from(find_median(&mut data)),
-                expected,
-                "seed={seed} n={n}"
-            );
+            assert_eq!(find_median(&mut data), expected, "seed={seed} n={n}");
         }
     }
 

@@ -299,7 +299,7 @@ fn run_cuda<S: MarkerStream>(
     let p_values = cuda_result.p_values.try_as_slice()?;
 
     let corrected: Option<Vec<f64>> = match params.correction {
-        CorrectionMethod::Fdr => Some(stats::benjamini_hochberg(&p_values)),
+        CorrectionMethod::Fdr => Some(stats::benjamini_hochberg(p_values)),
         CorrectionMethod::Bonferroni | CorrectionMethod::None => None,
     };
     let corrected_threshold = match params.correction {
@@ -406,7 +406,7 @@ mod tests {
         let table = dir.join("markers.tsv");
         let mut f = std::fs::File::create(&table).unwrap();
         // 8M + 8F so Yates χ² has power after Bonferroni (n_markers small).
-        write!(f, "#Number of markers : 2\n").unwrap();
+        writeln!(f, "#Number of markers : 2").unwrap();
         write!(f, "id\tsequence").unwrap();
         for i in 0..8 {
             write!(f, "\tm{i}").unwrap();
