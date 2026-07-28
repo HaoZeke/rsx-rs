@@ -1,7 +1,10 @@
 // GPL-3.0-or-later
 // Copyright 2024--present rsx-rs developers
 
-use rsx_core::compute_backend::{AssociationCounts, PValueBackend, compute_chi_squared_batch};
+use rsx_core::compute_backend::{
+    AssociationCounts, PValueBackend, compute_chi_squared_batch,
+    compute_chi_squared_batch_with_metrics,
+};
 
 #[test]
 fn backend_names_are_explicit() {
@@ -62,4 +65,18 @@ fn cuda_batch_matches_cpu_reference() {
             "marker {index}: CPU={expected:.17e}, CUDA={observed:.17e}, abs_error={error:.3e}"
         );
     }
+}
+
+#[cfg(feature = "cuda")]
+#[test]
+fn cuda_reuses_compiled_kernel() {
+    let counts = [AssociationCounts {
+        group1: 8,
+        group2: 2,
+    }];
+    compute_chi_squared_batch_with_metrics(PValueBackend::Cuda, &counts, 10, 10).unwrap();
+    let repeated =
+        compute_chi_squared_batch_with_metrics(PValueBackend::Cuda, &counts, 10, 10).unwrap();
+
+    assert_eq!(repeated.metrics.setup_seconds, 0.0);
 }
