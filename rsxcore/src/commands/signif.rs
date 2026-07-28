@@ -294,12 +294,8 @@ fn run_cuda<S: MarkerStream>(
         }
     })?;
     let n_markers = counts.len() as u64;
-    let cuda_result = compute_chi_squared_batch_with_metrics(
-        PValueBackend::Cuda,
-        &counts,
-        total_g1,
-        total_g2,
-    )?;
+    let cuda_result =
+        compute_chi_squared_batch_with_metrics(PValueBackend::Cuda, &counts, total_g1, total_g2)?;
     let p_values = cuda_result.p_values.try_as_slice()?;
 
     let corrected: Option<Vec<f64>> = match params.correction {
