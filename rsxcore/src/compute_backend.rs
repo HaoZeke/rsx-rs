@@ -4,7 +4,7 @@
 //! Batched chi-square p-value evaluation on CPU or CUDA.
 
 #[cfg(feature = "cuda")]
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
 #[cfg(feature = "cuda")]
@@ -53,6 +53,79 @@ struct CachedCudaKernel {
 
 #[cfg(feature = "cuda")]
 static CUDA_KERNEL: OnceLock<CachedCudaKernel> = OnceLock::new();
+
+#[cfg(feature = "cuda")]
+static CUDA_PINNED_RESULTS: Mutex<Vec<cudarc::driver::PinnedHostSlice<f64>>> =
+    Mutex::new(Vec::new());
+
+#[cfg(feature = "cuda")]
+#[derive(Debug)]
+pub struct PooledPinnedResult {
+    values: Option<cudarc::driver::PinnedHostSlice<f64>>,
+    len: usize,
+}
+
+#[cfg(feature = "cuda")]
+impl PooledPinnedResult {
+    fn acquire(
+        context: &std::sync::Arc<cudarc::driver::CudaContext>,
+        len: usize,
+    ) -> Result<(Self, bool), Box<dyn std::error::Error>> {
+        let mut pool = CUDA_PINNED_RESULTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(index) = pool.iter().position(|values| values.len() >= len) {
+            let values = pool.swap_remove(index);
+            return Ok((
+                Self {
+                    values: Some(values),
+                    len,
+                },
+                true,
+            ));
+        }
+        drop(pool);
+
+        let values = unsafe { context.alloc_pinned::<f64>(len)? };
+        Ok((
+            Self {
+                values: Some(values),
+                len,
+            },
+            false,
+        ))
+    }
+
+    fn values_mut(&mut self) -> &mut cudarc::driver::PinnedHostSlice<f64> {
+        self.values
+            .as_mut()
+            .expect("pooled CUDA result must own its allocation")
+    }
+
+    fn try_as_slice(&self) -> Result<&[f64], cudarc::driver::DriverError> {
+        Ok(&self
+            .values
+            .as_ref()
+            .expect("pooled CUDA result must own its allocation")
+            .as_slice()?[..self.len])
+    }
+}
+
+#[cfg(feature = "cuda")]
+impl Drop for PooledPinnedResult {
+    fn drop(&mut self) {
+        let Some(values) = self.values.take() else {
+            return;
+        };
+        let mut pool = CUDA_PINNED_RESULTS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if pool.iter().all(|cached| cached.len() < values.len()) {
+            pool.clear();
+            pool.push(values);
+        }
+    }
+}
 
 #[cfg(feature = "cuda")]
 fn cuda_kernel() -> Result<(&'static CachedCudaKernel, f64), Box<dyn std::error::Error>> {
@@ -125,6 +198,7 @@ pub struct BatchMetrics {
     pub kernel_seconds: f64,
     pub device_to_host_seconds: f64,
     pub total_seconds: f64,
+    pub output_buffer_reused: bool,
 }
 
 /// Host storage for computed p-values.
@@ -132,7 +206,7 @@ pub struct BatchMetrics {
 pub enum PValueBuffer {
     Owned(Vec<f64>),
     #[cfg(feature = "cuda")]
-    PageLocked(cudarc::driver::PinnedHostSlice<f64>),
+    PageLocked(PooledPinnedResult),
 }
 
 impl PValueBuffer {
@@ -140,7 +214,7 @@ impl PValueBuffer {
         match self {
             Self::Owned(values) => Ok(values),
             #[cfg(feature = "cuda")]
-            Self::PageLocked(values) => Ok(values.as_slice()?),
+            Self::PageLocked(values) => Ok(values.try_as_slice()?),
         }
     }
 
@@ -156,7 +230,7 @@ impl PValueBuffer {
         match self {
             Self::Owned(values) => Ok(values),
             #[cfg(feature = "cuda")]
-            Self::PageLocked(values) => Ok(values.as_slice()?.to_vec()),
+            Self::PageLocked(values) => Ok(values.try_as_slice()?.to_vec()),
         }
     }
 }
@@ -213,6 +287,7 @@ fn compute_cpu(counts: &[AssociationCounts], total_group1: u32, total_group2: u3
             kernel_seconds: total_seconds,
             device_to_host_seconds: 0.0,
             total_seconds,
+            output_buffer_reused: false,
         },
     }
 }
@@ -258,6 +333,7 @@ fn compute_cuda(
                 kernel_seconds: 0.0,
                 device_to_host_seconds: 0.0,
                 total_seconds: total_started.elapsed().as_secs_f64(),
+                output_buffer_reused: false,
             },
         });
     }
@@ -292,8 +368,9 @@ fn compute_cuda(
     let kernel_seconds = kernel_started.elapsed().as_secs_f64();
 
     let return_started = Instant::now();
-    let mut p_values = unsafe { context.alloc_pinned::<f64>(counts.len())? };
-    stream.memcpy_dtoh(&device_p_values, &mut p_values)?;
+    let (mut p_values, output_buffer_reused) =
+        PooledPinnedResult::acquire(context, counts.len())?;
+    stream.memcpy_dtoh(&device_p_values, p_values.values_mut())?;
     stream.synchronize()?;
     let device_to_host_seconds = return_started.elapsed().as_secs_f64();
     let total_seconds = total_started.elapsed().as_secs_f64();
@@ -318,6 +395,7 @@ fn compute_cuda(
             kernel_seconds,
             device_to_host_seconds,
             total_seconds,
+            output_buffer_reused,
         },
     })
 }

@@ -15,14 +15,24 @@ fn parse_sizes() -> Result<Vec<usize>, Box<dyn std::error::Error>> {
         .collect()
 }
 
+fn parse_repetitions() -> Result<usize, Box<dyn std::error::Error>> {
+    Ok(std::env::args()
+        .nth(2)
+        .unwrap_or_else(|| "1".to_string())
+        .parse()?)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let total_group1 = 24;
     let total_group2 = 24;
-    println!(
-        "markers,cpu_total_s,cuda_setup_s,cuda_h2d_s,cuda_kernel_s,cuda_d2h_s,cuda_total_s,h2d_bytes,d2h_bytes,h2d_gb_s,d2h_gb_s,kernel_speedup,total_speedup,max_abs_error,device"
-    );
+    let sizes = parse_sizes()?;
 
-    for markers in parse_sizes()? {
+    for repetition in 1..=parse_repetitions()? {
+        println!("# repetition={repetition}");
+        println!(
+            "markers,cpu_total_s,cuda_setup_s,cuda_h2d_s,cuda_kernel_s,cuda_d2h_s,cuda_total_s,h2d_bytes,d2h_bytes,h2d_gb_s,d2h_gb_s,kernel_speedup,total_speedup,output_buffer_reused,max_abs_error,device"
+        );
+        for &markers in &sizes {
         let counts: Vec<_> = (0..markers)
             .map(|index| AssociationCounts {
                 group1: (index as u32).wrapping_mul(17) % (total_group1 + 1),
@@ -63,8 +73,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             cuda_metrics.device_to_host_bytes as f64 / cuda_metrics.device_to_host_seconds / 1.0e9;
         let kernel_speedup = cpu_metrics.kernel_seconds / cuda_metrics.kernel_seconds;
         let total_speedup = cpu_metrics.total_seconds / cuda_metrics.total_seconds;
-        println!(
-            "{},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{},{},{:.6},{:.6},{:.6},{:.6},{:.3e},{}",
+            println!(
+            "{},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{},{},{:.6},{:.6},{:.6},{:.6},{},{:.3e},{}",
             markers,
             cpu_metrics.total_seconds,
             cuda_metrics.setup_seconds,
@@ -78,9 +88,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             d2h_gb_s,
             kernel_speedup,
             total_speedup,
+            u8::from(cuda_metrics.output_buffer_reused),
             max_abs_error,
             cuda_metrics.device.replace(',', " "),
         );
+        }
     }
     Ok(())
 }
