@@ -23,6 +23,7 @@
 
 pub mod bitset;
 pub mod c_api;
+pub mod compute_backend;
 pub mod commands;
 pub mod io;
 pub mod kmer;

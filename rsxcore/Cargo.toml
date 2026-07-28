@@ -42,12 +42,14 @@ parquet-io = ["dep:arrow", "dep:parquet"]
 arrow-output = ["dep:arrow"]
 # Enable Arrow IPC ingestion through MarkerTableSource (in-memory or Parquet spill).
 arrow-input = ["dep:arrow", "dep:parquet"]
+cuda = ["dep:cudarc"]
 
 [dependencies]
 needletail = "0.6"
 flate2 = "1"
 hexf = "0.2"
 libm = "0.2"
+cudarc = { version = "0.18", optional = true, default-features = false, features = ["std", "driver", "nvrtc", "fallback-dynamic-loading", "cuda-13000"] }
 # crossbeam removed -- inline parsing is faster than channel-based
 indexmap = "2"
 memchr = "2"
