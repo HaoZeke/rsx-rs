@@ -368,8 +368,7 @@ fn compute_cuda(
     let kernel_seconds = kernel_started.elapsed().as_secs_f64();
 
     let return_started = Instant::now();
-    let (mut p_values, output_buffer_reused) =
-        PooledPinnedResult::acquire(context, counts.len())?;
+    let (mut p_values, output_buffer_reused) = PooledPinnedResult::acquire(context, counts.len())?;
     stream.memcpy_dtoh(&device_p_values, p_values.values_mut())?;
     stream.synchronize()?;
     let device_to_host_seconds = return_started.elapsed().as_secs_f64();
