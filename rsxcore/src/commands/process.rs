@@ -23,11 +23,15 @@ pub struct ProcessParams {
     pub kmer_dedup: Option<usize>,
 }
 
+#[cfg(feature = "parallel")]
 const PARALLEL_MERGE_MIN_CAPACITY: usize = 1_024;
+#[cfg(feature = "parallel")]
 const PARALLEL_MERGE_MAX_CAPACITY: usize = 4_000_000;
 // Tuned for typical RAD tag length plus the packed key and table-entry overhead.
+#[cfg(feature = "parallel")]
 const ESTIMATED_BYTES_PER_MARKER: u64 = 64;
 
+#[cfg(feature = "parallel")]
 fn parallel_merge_capacity_from_bytes(input_bytes: u64) -> usize {
     let estimated = input_bytes / ESTIMATED_BYTES_PER_MARKER;
     estimated.clamp(
@@ -36,6 +40,7 @@ fn parallel_merge_capacity_from_bytes(input_bytes: u64) -> usize {
     ) as usize
 }
 
+#[cfg(feature = "parallel")]
 fn estimate_parallel_merge_capacity(input_files: &[crate::io::seq_reader::InputFile]) -> usize {
     let input_bytes = input_files
         .iter()
@@ -269,6 +274,7 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "parallel")]
     #[test]
     fn parallel_merge_capacity_scales_with_input_size() {
         assert_eq!(parallel_merge_capacity_from_bytes(0), 1_024);
@@ -283,6 +289,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "parallel")]
     #[test]
     fn parallel_merge_capacity_uses_input_metadata() {
         let dir = tempfile::tempdir().unwrap();
