@@ -43,8 +43,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
         let max_abs_error = cpu
             .p_values
+            .try_as_slice()?
             .iter()
-            .zip(&cuda.p_values)
+            .zip(cuda.p_values.try_as_slice()?)
             .map(|(expected, observed)| (expected - observed).abs())
             .fold(0.0f64, f64::max);
         if max_abs_error > 2.0e-15 {

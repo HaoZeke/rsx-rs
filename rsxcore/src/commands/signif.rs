@@ -4,7 +4,9 @@
 //! `signif` command: extract markers significantly associated with a group.
 
 use crate::bitset::GroupMask;
-use crate::compute_backend::{AssociationCounts, PValueBackend, compute_chi_squared_batch};
+use crate::compute_backend::{
+    AssociationCounts, PValueBackend, compute_chi_squared_batch_with_metrics,
+};
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
@@ -292,7 +294,13 @@ fn run_cuda<S: MarkerStream>(
         }
     })?;
     let n_markers = counts.len() as u64;
-    let p_values = compute_chi_squared_batch(PValueBackend::Cuda, &counts, total_g1, total_g2)?;
+    let cuda_result = compute_chi_squared_batch_with_metrics(
+        PValueBackend::Cuda,
+        &counts,
+        total_g1,
+        total_g2,
+    )?;
+    let p_values = cuda_result.p_values.try_as_slice()?;
 
     let corrected: Option<Vec<f64>> = match params.correction {
         CorrectionMethod::Fdr => Some(stats::benjamini_hochberg(&p_values)),

@@ -127,10 +127,44 @@ pub struct BatchMetrics {
     pub total_seconds: f64,
 }
 
+/// Host storage for computed p-values.
+#[derive(Debug)]
+pub enum PValueBuffer {
+    Owned(Vec<f64>),
+    #[cfg(feature = "cuda")]
+    PageLocked(cudarc::driver::PinnedHostSlice<f64>),
+}
+
+impl PValueBuffer {
+    pub fn try_as_slice(&self) -> Result<&[f64], Box<dyn std::error::Error>> {
+        match self {
+            Self::Owned(values) => Ok(values),
+            #[cfg(feature = "cuda")]
+            Self::PageLocked(values) => Ok(values.as_slice()?),
+        }
+    }
+
+    pub fn is_page_locked(&self) -> bool {
+        match self {
+            Self::Owned(_) => false,
+            #[cfg(feature = "cuda")]
+            Self::PageLocked(_) => true,
+        }
+    }
+
+    fn into_vec(self) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+        match self {
+            Self::Owned(values) => Ok(values),
+            #[cfg(feature = "cuda")]
+            Self::PageLocked(values) => Ok(values.as_slice()?.to_vec()),
+        }
+    }
+}
+
 /// P-values and backend measurements for one batch.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct BatchResult {
-    pub p_values: Vec<f64>,
+    pub p_values: PValueBuffer,
     pub metrics: BatchMetrics,
 }
 
@@ -140,10 +174,9 @@ pub fn compute_chi_squared_batch(
     total_group1: u32,
     total_group2: u32,
 ) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
-    Ok(
-        compute_chi_squared_batch_with_metrics(backend, counts, total_group1, total_group2)?
-            .p_values,
-    )
+    compute_chi_squared_batch_with_metrics(backend, counts, total_group1, total_group2)?
+        .p_values
+        .into_vec()
 }
 
 pub fn compute_chi_squared_batch_with_metrics(
@@ -168,7 +201,7 @@ fn compute_cpu(counts: &[AssociationCounts], total_group1: u32, total_group2: u3
         .collect();
     let total_seconds = started.elapsed().as_secs_f64();
     BatchResult {
-        p_values,
+        p_values: PValueBuffer::Owned(p_values),
         metrics: BatchMetrics {
             backend: PValueBackend::Cpu,
             device: "host".to_string(),
@@ -213,7 +246,7 @@ fn compute_cuda(
 
     if counts.is_empty() {
         return Ok(BatchResult {
-            p_values: Vec::new(),
+            p_values: PValueBuffer::Owned(Vec::new()),
             metrics: BatchMetrics {
                 backend: PValueBackend::Cuda,
                 device,
@@ -259,7 +292,8 @@ fn compute_cuda(
     let kernel_seconds = kernel_started.elapsed().as_secs_f64();
 
     let return_started = Instant::now();
-    let p_values = stream.clone_dtoh(&device_p_values)?;
+    let mut p_values = unsafe { context.alloc_pinned::<f64>(counts.len())? };
+    stream.memcpy_dtoh(&device_p_values, &mut p_values)?;
     stream.synchronize()?;
     let device_to_host_seconds = return_started.elapsed().as_secs_f64();
     let total_seconds = total_started.elapsed().as_secs_f64();
@@ -272,7 +306,7 @@ fn compute_cuda(
     );
 
     Ok(BatchResult {
-        p_values,
+        p_values: PValueBuffer::PageLocked(p_values),
         metrics: BatchMetrics {
             backend: PValueBackend::Cuda,
             device,
