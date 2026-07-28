@@ -169,56 +169,6 @@ pub fn rank1_upper_update_sparse(gram: &mut [f64], mean: &mut [f64], depths: &[u
     }
 }
 
-#[cfg(test)]
-mod gram_tests {
-    use super::rank1_upper_update_sparse;
-
-    #[test]
-    fn sparse_rank1_matches_naive_and_beats_dense_on_sparse_rows() {
-        let n = 64;
-        let mut depths = vec![0u16; n];
-        depths[1] = 3;
-        depths[17] = 5;
-        depths[40] = 2;
-        depths[63] = 9;
-        let mut g_s = vec![0.0; n * n];
-        let mut m_s = vec![0.0; n];
-        rank1_upper_update_sparse(&mut g_s, &mut m_s, &depths, n);
-        let mut g_ref = vec![0.0; n * n];
-        let mut m_ref = vec![0.0; n];
-        for i in 0..n {
-            let xi = depths[i] as f64;
-            m_ref[i] += xi;
-            for j in i..n {
-                g_ref[i * n + j] += xi * (depths[j] as f64);
-            }
-        }
-        for i in 0..n * n {
-            assert!((g_s[i] - g_ref[i]).abs() < 1e-12);
-        }
-        let t0 = std::time::Instant::now();
-        for _ in 0..30_000 {
-            rank1_upper_update_sparse(&mut g_s, &mut m_s, &depths, n);
-        }
-        let sparse_ns = t0.elapsed().as_nanos();
-        let mut g_d = vec![0.0; n * n];
-        let mut m_d = vec![0.0; n];
-        let t1 = std::time::Instant::now();
-        for _ in 0..30_000 {
-            for i in 0..n {
-                let xi = depths[i] as f64;
-                m_d[i] += xi;
-                for j in i..n {
-                    g_d[i * n + j] += xi * (depths[j] as f64);
-                }
-            }
-        }
-        let dense_ns = t1.elapsed().as_nanos();
-        eprintln!("sparse_ns={sparse_ns} dense_ns={dense_ns}");
-        assert!(sparse_ns < dense_ns, "sparse={sparse_ns} dense={dense_ns}");
-    }
-}
-
 pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
     let c = compute_pca(
         &params.markers_table_path,
@@ -562,5 +512,55 @@ mod tests {
         assert_eq!(arrow.loadings.num_rows(), 5);
         assert!(arrow.total_variance > 0.0);
         assert_eq!(arrow.n_components, 3);
+    }
+}
+
+#[cfg(test)]
+mod gram_tests {
+    use super::rank1_upper_update_sparse;
+
+    #[test]
+    fn sparse_rank1_matches_naive_and_beats_dense_on_sparse_rows() {
+        let n = 64;
+        let mut depths = vec![0u16; n];
+        depths[1] = 3;
+        depths[17] = 5;
+        depths[40] = 2;
+        depths[63] = 9;
+        let mut g_s = vec![0.0; n * n];
+        let mut m_s = vec![0.0; n];
+        rank1_upper_update_sparse(&mut g_s, &mut m_s, &depths, n);
+        let mut g_ref = vec![0.0; n * n];
+        let mut m_ref = vec![0.0; n];
+        for i in 0..n {
+            let xi = depths[i] as f64;
+            m_ref[i] += xi;
+            for j in i..n {
+                g_ref[i * n + j] += xi * (depths[j] as f64);
+            }
+        }
+        for i in 0..n * n {
+            assert!((g_s[i] - g_ref[i]).abs() < 1e-12);
+        }
+        let t0 = std::time::Instant::now();
+        for _ in 0..30_000 {
+            rank1_upper_update_sparse(&mut g_s, &mut m_s, &depths, n);
+        }
+        let sparse_ns = t0.elapsed().as_nanos();
+        let mut g_d = vec![0.0; n * n];
+        let mut m_d = vec![0.0; n];
+        let t1 = std::time::Instant::now();
+        for _ in 0..30_000 {
+            for i in 0..n {
+                let xi = depths[i] as f64;
+                m_d[i] += xi;
+                for j in i..n {
+                    g_d[i * n + j] += xi * (depths[j] as f64);
+                }
+            }
+        }
+        let dense_ns = t1.elapsed().as_nanos();
+        eprintln!("sparse_ns={sparse_ns} dense_ns={dense_ns}");
+        assert!(sparse_ns < dense_ns, "sparse={sparse_ns} dense={dense_ns}");
     }
 }
