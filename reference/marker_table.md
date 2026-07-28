@@ -27,5 +27,5 @@ writeLines(c("#Number of markers: 0", "id\tsequence"), tmp)
 mt <- marker_table(tmp)
 print(mt)
 #> <marker_table>
-#>   path: /tmp/RtmpxWypoo/file244317421c36.tsv 
+#>   path: /tmp/RtmpUx1n9F/file24666cd6ddbc.tsv 
 ```
