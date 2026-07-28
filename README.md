@@ -59,6 +59,11 @@ rsx distrib -t markers.tsv -p popmap.tsv -o distrib.tsv -G M,F
 rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv -G M,F --bayes
 rsx map -t markers.tsv -p popmap.tsv -g genome.fa -o aligned.tsv -G M,F
 
+# Optional NVIDIA CUDA path for chi-square significance testing
+cargo build -p rsx-cli --release --features cuda
+target/release/rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv \
+  -G M,F --test chisq --backend cuda
+
 # Python (high-level)
 import pyrsx
 pyrsx.process("reads/", "markers.tsv", threads=8, min_depth=5)
@@ -75,7 +80,9 @@ Full pipeline, memory guarantees, and all 10 commands (including new `merge`, `p
 - Bounded-memory streaming for the default analysis paths (Bonferroni `signif`, `distrib`, `freq`, `triage`, streaming `pca` / `merge`). Exceptions: FDR `signif` stores O(n_markers) p-values for BH correction then re-streams; non-streaming `depth` on tables under 2 GB can hold per-individual depth vectors. See the [quickstart memory table](https://rsx.rgoswami.me/tutorials/quickstart.html).
 - 2-6x+ faster than C++ RADSex on literature panels (byte-identical output when groups specified).
 - Python (`pyrsx`), R (`rsxr`), and C (`rsx.h` / cargo-c) bindings over the shared core.
-- Optional: parquet I/O, MPI, minimap2 mapping (feature-gated for Windows).
+- Optional: NVIDIA CUDA chi-square batches for `signif`, parquet I/O, MPI,
+  and minimap2 mapping (feature-gated for Windows). CUDA selection is explicit;
+  unsupported tests and builds without the `cuda` feature return an error.
 - Reproducible: pixi environments, ASV + literature benchmark harness, SymPy/Sollya proofs for the math.
 
 ## Documentation

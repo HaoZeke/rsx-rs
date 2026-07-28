@@ -4,6 +4,11 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+### Added
+- **CUDA / signif**: optional `cuda` feature and explicit
+  `signif --backend cuda` path for batched `f64` Yates chi-square p-values;
+  record setup, transfer, kernel, and return timings without silent fallback.
+
 ### Fixed
 - **depth**: exact and streaming modes report the mathematical median for even
   sample counts by averaging the two middle depths; half-integer medians are

@@ -72,13 +72,15 @@ Extract markers significantly associated with a group.
 
 #+begin_src bash
 rsx signif -t <table.tsv> -p <popmap.tsv> -o <output.tsv> [-d 5] [-G M,F] [-S 0.05] \
-  [--correction bonferroni|fdr|none] [--test chisq|fisher|gtest] [--bayes] [-a]
+  [--correction bonferroni|fdr|none] [--test chisq|fisher|gtest] \
+  [--backend cpu|cuda] [--bayes] [-a]
 #+end_src
 
 | Flag           | Default    | Description                                      |
 |----------------+------------+--------------------------------------------------|
 | =--correction= | bonferroni | Multiple testing: bonferroni, fdr, none          |
 | =--test=       | chisq      | Statistical test: chisq, fisher, gtest           |
+| =--backend=    | cpu        | P-value backend: cpu or cuda                     |
 | =--bayes=      |            | Add Bayes Factor + posterior P(sex-linked) cols  |
 | =-a=           |            | Output FASTA instead of table                    |
 
@@ -96,6 +98,13 @@ Bonferroni/none for FASTA).
 =Posterior_SexLinked= columns, where the posterior treats either compared
 group as the enriched sex-linked group. FASTA output with =-a= emits marker
 sequences and does not include table-only Bayesian columns.
+
+The CUDA backend is available in builds made with =--features cuda= and is
+restricted to =--test chisq=. It sends two =u32= counts per marker to the
+device and returns one =f64= p-value (8 bytes in each direction per marker).
+Backend selection never falls back silently. The host holds the count and
+p-value vectors (16 bytes per marker); FDR additionally holds the q-value
+vector. An NVIDIA driver and NVRTC are required at runtime.
 
 * triage
 
