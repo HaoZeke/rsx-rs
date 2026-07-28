@@ -58,10 +58,8 @@ dashmap = { version = "6", optional = true }
 rayon = { version = "1.10", optional = true }
 memmap2 = "0.9"
 ryu = "1"
-# Local/CI builds use rsmpi git main (fixes OpenMPI struct layout issues not
-# yet in the 0.8.1 crates.io release); crates.io publish falls back to 0.8.1
-# (the optional `mpi` feature is off by default).
-mpi = { version = "0.8.1", git = "https://github.com/rsmpi/rsmpi.git", optional = true }
+# mpi 0.8.2 uses bindgen 0.72, which exposes OpenMPI 5 status fields.
+mpi = { version = "0.8.2", optional = true }
 lz4_flex = "0.11"
 minimap2 = { version = "0.1", optional = true }
 arrow = { version = "55", optional = true }
