@@ -6,7 +6,10 @@ use rsx_core::compute_backend::{AssociationCounts, PValueBackend, compute_chi_sq
 #[test]
 fn backend_names_are_explicit() {
     assert_eq!(PValueBackend::parse_str("cpu").unwrap(), PValueBackend::Cpu);
-    assert_eq!(PValueBackend::parse_str("cuda").unwrap(), PValueBackend::Cuda);
+    assert_eq!(
+        PValueBackend::parse_str("cuda").unwrap(),
+        PValueBackend::Cuda
+    );
     assert!(PValueBackend::parse_str("auto").is_err());
 }
 
@@ -20,13 +23,8 @@ fn cpu_batch_matches_scalar_reference() {
         })
         .collect();
 
-    let batch = compute_chi_squared_batch(
-        PValueBackend::Cpu,
-        &counts,
-        total_group1,
-        total_group2,
-    )
-    .unwrap();
+    let batch =
+        compute_chi_squared_batch(PValueBackend::Cpu, &counts, total_group1, total_group2).unwrap();
 
     for (counts, observed) in counts.iter().zip(batch) {
         let expected = rsx_core::stats::p_association(
@@ -52,20 +50,10 @@ fn cuda_batch_matches_cpu_reference() {
         .take(65_537)
         .collect();
 
-    let cpu = compute_chi_squared_batch(
-        PValueBackend::Cpu,
-        &counts,
-        total_group1,
-        total_group2,
-    )
-    .unwrap();
-    let cuda = compute_chi_squared_batch(
-        PValueBackend::Cuda,
-        &counts,
-        total_group1,
-        total_group2,
-    )
-    .unwrap();
+    let cpu =
+        compute_chi_squared_batch(PValueBackend::Cpu, &counts, total_group1, total_group2).unwrap();
+    let cuda = compute_chi_squared_batch(PValueBackend::Cuda, &counts, total_group1, total_group2)
+        .unwrap();
 
     for (index, (expected, observed)) in cpu.iter().zip(cuda).enumerate() {
         let error = (expected - observed).abs();
