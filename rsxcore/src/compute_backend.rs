@@ -130,7 +130,7 @@ fn compute_cuda(
     total_group1: u32,
     total_group2: u32,
 ) -> Result<BatchResult, Box<dyn std::error::Error>> {
-    use cudarc::driver::{CudaContext, LaunchArgs, LaunchConfig};
+    use cudarc::driver::{CudaContext, LaunchConfig, PushKernelArg};
     use cudarc::nvrtc::compile_ptx;
 
     const KERNEL: &str = r#"
