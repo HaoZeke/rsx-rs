@@ -64,6 +64,10 @@ cargo build -p rsx-cli --release --features cuda
 target/release/rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv \
   -G M,F --test chisq --backend cuda
 
+# Five measured repetitions across the GPU crossover range
+cargo run -p rsxcore --release --example benchmark_compute_backends \
+  --features cuda -- 1000,10000,100000,1000000,10000000 5
+
 # Python (high-level)
 import pyrsx
 pyrsx.process("reads/", "markers.tsv", threads=8, min_depth=5)
@@ -82,7 +86,10 @@ Full pipeline, memory guarantees, and all 10 commands (including new `merge`, `p
 - Python (`pyrsx`), R (`rsxr`), and C (`rsx.h` / cargo-c) bindings over the shared core.
 - Optional: NVIDIA CUDA chi-square batches for `signif`, parquet I/O, MPI,
   and minimap2 mapping (feature-gated for Windows). CUDA selection is explicit;
-  unsupported tests and builds without the `cuda` feature return an error.
+  unsupported tests and builds without the `cuda` feature return an error. The
+  CUDA path transfers count pairs directly, retains the compiled kernel, and
+  reuses the largest page-locked result buffer within a process. Metrics keep
+  first-batch setup separate from transfers and kernel execution.
 - Reproducible: pixi environments, ASV + literature benchmark harness, SymPy/Sollya proofs for the math.
 
 ## Documentation

@@ -154,5 +154,9 @@ are inherently streaming.
 - CUDA =signif= batches evaluate the same formula in =f64= on the device and
   return one p-value per marker; =fast_erfc_poly= remains a tested polynomial
   implementation for kernels without a device =erfc= implementation
+- The CUDA count-pair struct has an explicit C layout and moves to the device
+  without host staging arrays. The process retains the compiled kernel and its
+  largest page-locked result allocation, so repeated batches avoid compilation
+  and host-allocation costs while reporting first-batch setup separately.
 - Bonferroni correction: =p_corrected = min(1.0, p * n_markers)=
 - Float formatting via =Cg= struct: matches C++ =%g= (6 significant digits)
