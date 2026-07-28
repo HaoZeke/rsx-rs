@@ -98,6 +98,9 @@ enum Commands {
         /// Statistical test: chisq (default), fisher, gtest
         #[arg(long = "test", default_value = "chisq")]
         test_method: String,
+        /// P-value execution backend: cpu (default) or cuda
+        #[arg(long = "backend", default_value = "cpu")]
+        backend: String,
         /// Output in FASTA format instead of table format
         #[arg(short = 'a', long = "output-fasta")]
         output_fasta: bool,
@@ -387,6 +390,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             signif_threshold,
             correction,
             test_method,
+            backend,
             output_fasta,
             output_bayes,
         } => {
@@ -401,19 +405,27 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     log::error!("{e}");
                     std::process::exit(1);
                 });
-            commands::signif::run(&commands::signif::SignifParams {
-                markers_table_path: markers_table,
-                popmap_file_path: popmap,
-                output_file_path: output_file,
-                min_depth,
-                signif_threshold,
-                correction: corr,
-                test_method: test,
-                output_fasta,
-                output_bayes,
-                group1: g1,
-                group2: g2,
-            })
+            let backend = rsx_core::compute_backend::PValueBackend::parse_str(&backend)
+                .unwrap_or_else(|e| {
+                    log::error!("{e}");
+                    std::process::exit(1);
+                });
+            commands::signif::run_with_backend(
+                &commands::signif::SignifParams {
+                    markers_table_path: markers_table,
+                    popmap_file_path: popmap,
+                    output_file_path: output_file,
+                    min_depth,
+                    signif_threshold,
+                    correction: corr,
+                    test_method: test,
+                    output_fasta,
+                    output_bayes,
+                    group1: g1,
+                    group2: g2,
+                },
+                backend,
+            )
         }
 
         Commands::Triage {

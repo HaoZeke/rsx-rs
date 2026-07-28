@@ -18,6 +18,7 @@ default = ["map"]
 map = ["rsxcore/map"]
 mpi = ["rsxcore/mpi"]
 parquet-io = ["rsxcore/parquet-io"]
+cuda = ["rsxcore/cuda"]
 
 [dependencies]
 rsxcore = { path = "../rsxcore", version = "0.2.6", features = ["parallel"] }
