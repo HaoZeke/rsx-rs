@@ -80,4 +80,5 @@ fn cuda_reuses_compiled_kernel() {
 
     assert_eq!(repeated.metrics.setup_seconds, 0.0);
     assert!(repeated.p_values.is_page_locked());
+    assert!(repeated.metrics.output_buffer_reused);
 }
