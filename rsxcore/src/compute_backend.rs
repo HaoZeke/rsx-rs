@@ -9,9 +9,13 @@ use std::time::Instant;
 
 #[cfg(feature = "cuda")]
 const CUDA_CHI_SQUARED_KERNEL: &str = r#"
+    struct AssociationCounts {
+        unsigned int group1;
+        unsigned int group2;
+    };
+
     extern "C" __global__ void chi_squared_p_values(
-        const unsigned int *group1,
-        const unsigned int *group2,
+        const AssociationCounts *counts,
         unsigned int total_group1,
         unsigned int total_group2,
         double *p_values,
@@ -21,8 +25,8 @@ const CUDA_CHI_SQUARED_KERNEL: &str = r#"
             (unsigned long long)blockIdx.x * blockDim.x + threadIdx.x;
         if (index >= length) return;
 
-        unsigned long long n1 = group1[index];
-        unsigned long long n2 = group2[index];
+        unsigned long long n1 = counts[index].group1;
+        unsigned long long n2 = counts[index].group2;
         unsigned long long t1 = total_group1;
         unsigned long long t2 = total_group2;
         double n = (double)(t1 + t2);
@@ -154,11 +158,15 @@ fn cuda_kernel() -> Result<(&'static CachedCudaKernel, f64), Box<dyn std::error:
 }
 
 /// Marker-presence counts for the two groups under comparison.
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AssociationCounts {
     pub group1: u32,
     pub group2: u32,
 }
+
+#[cfg(feature = "cuda")]
+unsafe impl cudarc::driver::DeviceRepr for AssociationCounts {}
 
 /// Execution backend for batched chi-square p-values.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -201,6 +209,7 @@ pub struct BatchMetrics {
     pub device_to_host_seconds: f64,
     pub total_seconds: f64,
     pub output_buffer_reused: bool,
+    pub host_staging_bytes: usize,
 }
 
 /// Host storage for computed p-values.
@@ -290,6 +299,7 @@ fn compute_cpu(counts: &[AssociationCounts], total_group1: u32, total_group2: u3
             device_to_host_seconds: 0.0,
             total_seconds,
             output_buffer_reused: false,
+            host_staging_bytes: 0,
         },
     }
 }
@@ -336,18 +346,16 @@ fn compute_cuda(
                 device_to_host_seconds: 0.0,
                 total_seconds: total_started.elapsed().as_secs_f64(),
                 output_buffer_reused: false,
+                host_staging_bytes: 0,
             },
         });
     }
 
-    let group1: Vec<u32> = counts.iter().map(|counts| counts.group1).collect();
-    let group2: Vec<u32> = counts.iter().map(|counts| counts.group2).collect();
-    let host_to_device_bytes = counts.len() * 2 * std::mem::size_of::<u32>();
+    let host_to_device_bytes = std::mem::size_of_val(counts);
     let device_to_host_bytes = counts.len() * std::mem::size_of::<f64>();
 
     let transfer_started = Instant::now();
-    let device_group1 = stream.clone_htod(&group1)?;
-    let device_group2 = stream.clone_htod(&group2)?;
+    let device_counts = stream.clone_htod(counts)?;
     let mut device_p_values = stream.alloc_zeros::<f64>(counts.len())?;
     stream.synchronize()?;
     let host_to_device_seconds = transfer_started.elapsed().as_secs_f64();
@@ -358,8 +366,7 @@ fn compute_cuda(
     unsafe {
         stream
             .launch_builder(&kernel.function)
-            .arg(&device_group1)
-            .arg(&device_group2)
+            .arg(&device_counts)
             .arg(&total_group1)
             .arg(&total_group2)
             .arg(&mut device_p_values)
@@ -397,6 +404,7 @@ fn compute_cuda(
             device_to_host_seconds,
             total_seconds,
             output_buffer_reused,
+            host_staging_bytes: 0,
         },
     })
 }
