@@ -4,6 +4,79 @@
 //! Batched chi-square p-value evaluation on CPU or CUDA.
 
 use std::time::Instant;
+#[cfg(feature = "cuda")]
+use std::sync::OnceLock;
+
+#[cfg(feature = "cuda")]
+const CUDA_CHI_SQUARED_KERNEL: &str = r#"
+    extern "C" __global__ void chi_squared_p_values(
+        const unsigned int *group1,
+        const unsigned int *group2,
+        unsigned int total_group1,
+        unsigned int total_group2,
+        double *p_values,
+        unsigned long long length
+    ) {
+        unsigned long long index =
+            (unsigned long long)blockIdx.x * blockDim.x + threadIdx.x;
+        if (index >= length) return;
+
+        unsigned long long n1 = group1[index];
+        unsigned long long n2 = group2[index];
+        unsigned long long t1 = total_group1;
+        unsigned long long t2 = total_group2;
+        double n = (double)(t1 + t2);
+        double present = (double)(n1 + n2);
+        double absent = n - present;
+
+        if (t1 == 0 || t2 == 0 || present == 0.0 || absent == 0.0) {
+            p_values[index] = 1.0;
+            return;
+        }
+
+        unsigned long long ad = n1 * t2;
+        unsigned long long bc = n2 * t1;
+        double difference = (double)(ad > bc ? ad - bc : bc - ad);
+        double yates = fmax(difference - n / 2.0, 0.0);
+        double chi_squared = n * yates * yates /
+            ((double)t1 * (double)t2 * present * absent);
+        double p = chi_squared > 0.0 ? erfc(sqrt(chi_squared / 2.0)) : 1.0;
+        p_values[index] = fmax(fmin(p, 1.0), 1.0e-16);
+    }
+"#;
+
+#[cfg(feature = "cuda")]
+struct CachedCudaKernel {
+    context: std::sync::Arc<cudarc::driver::CudaContext>,
+    function: cudarc::driver::CudaFunction,
+}
+
+#[cfg(feature = "cuda")]
+static CUDA_KERNEL: OnceLock<CachedCudaKernel> = OnceLock::new();
+
+#[cfg(feature = "cuda")]
+fn cuda_kernel() -> Result<(&'static CachedCudaKernel, f64), Box<dyn std::error::Error>> {
+    use cudarc::driver::CudaContext;
+    use cudarc::nvrtc::compile_ptx;
+
+    if let Some(kernel) = CUDA_KERNEL.get() {
+        return Ok((kernel, 0.0));
+    }
+
+    let started = Instant::now();
+    let context = CudaContext::new(0)?;
+    let ptx = compile_ptx(CUDA_CHI_SQUARED_KERNEL)?;
+    let module = context.load_module(ptx)?;
+    let function = module.load_function("chi_squared_p_values")?;
+    let _ = CUDA_KERNEL.set(CachedCudaKernel { context, function });
+
+    Ok((
+        CUDA_KERNEL
+            .get()
+            .expect("CUDA kernel cache must be initialized"),
+        started.elapsed().as_secs_f64(),
+    ))
+}
 
 /// Marker-presence counts for the two groups under comparison.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,55 +203,13 @@ fn compute_cuda(
     total_group1: u32,
     total_group2: u32,
 ) -> Result<BatchResult, Box<dyn std::error::Error>> {
-    use cudarc::driver::{CudaContext, LaunchConfig, PushKernelArg};
-    use cudarc::nvrtc::compile_ptx;
-
-    const KERNEL: &str = r#"
-        extern "C" __global__ void chi_squared_p_values(
-            const unsigned int *group1,
-            const unsigned int *group2,
-            unsigned int total_group1,
-            unsigned int total_group2,
-            double *p_values,
-            unsigned long long length
-        ) {
-            unsigned long long index =
-                (unsigned long long)blockIdx.x * blockDim.x + threadIdx.x;
-            if (index >= length) return;
-
-            unsigned long long n1 = group1[index];
-            unsigned long long n2 = group2[index];
-            unsigned long long t1 = total_group1;
-            unsigned long long t2 = total_group2;
-            double n = (double)(t1 + t2);
-            double present = (double)(n1 + n2);
-            double absent = n - present;
-
-            if (t1 == 0 || t2 == 0 || present == 0.0 || absent == 0.0) {
-                p_values[index] = 1.0;
-                return;
-            }
-
-            unsigned long long ad = n1 * t2;
-            unsigned long long bc = n2 * t1;
-            double difference = (double)(ad > bc ? ad - bc : bc - ad);
-            double yates = fmax(difference - n / 2.0, 0.0);
-            double chi_squared = n * yates * yates /
-                ((double)t1 * (double)t2 * present * absent);
-            double p = chi_squared > 0.0 ? erfc(sqrt(chi_squared / 2.0)) : 1.0;
-            p_values[index] = fmax(fmin(p, 1.0), 1.0e-16);
-        }
-    "#;
+    use cudarc::driver::{LaunchConfig, PushKernelArg};
 
     let total_started = Instant::now();
-    let setup_started = Instant::now();
-    let context = CudaContext::new(0)?;
+    let (kernel, setup_seconds) = cuda_kernel()?;
+    let context = &kernel.context;
     let device = context.name()?;
     let stream = context.default_stream();
-    let ptx = compile_ptx(KERNEL)?;
-    let module = context.load_module(ptx)?;
-    let function = module.load_function("chi_squared_p_values")?;
-    let setup_seconds = setup_started.elapsed().as_secs_f64();
 
     if counts.is_empty() {
         return Ok(BatchResult {
@@ -215,7 +246,7 @@ fn compute_cuda(
     let config = LaunchConfig::for_num_elems(counts.len() as u32);
     unsafe {
         stream
-            .launch_builder(&function)
+            .launch_builder(&kernel.function)
             .arg(&device_group1)
             .arg(&device_group2)
             .arg(&total_group1)
