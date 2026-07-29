@@ -79,3 +79,51 @@ min_depth = 1
     assert!(manifest.contains("status = \"failed\""));
     assert!(manifest.contains("created_before_execution = true"));
 }
+
+#[test]
+fn invalid_profile_syntax_still_creates_a_resolution_failure_archive() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile_path = directory.path().join("invalid.toml");
+    let archive_path = directory.path().join("resolution-failure.zip");
+    let invalid_profile = "schema_version = 1\nprofile_name = [\n";
+    fs::write(&profile_path, invalid_profile).unwrap();
+
+    let status = Command::new(env!("CARGO_BIN_EXE_rsx"))
+        .arg("--profile")
+        .arg(&profile_path)
+        .arg("--reproducibility-archive")
+        .arg(&archive_path)
+        .status()
+        .unwrap();
+    assert!(!status.success());
+
+    let mut archive = zip::ZipArchive::new(fs::File::open(&archive_path).unwrap()).unwrap();
+    for member in [
+        "profile.input.toml",
+        "build-manifest.toml",
+        "run-manifest.toml",
+        "sbom.cdx.json",
+        "bin/rsx",
+        "SHA256SUMS",
+    ] {
+        assert!(archive.by_name(member).is_ok(), "missing {member}");
+    }
+    assert!(archive.by_name("profile.hydrated.toml").is_err());
+
+    let mut stored_profile = String::new();
+    archive
+        .by_name("profile.input.toml")
+        .unwrap()
+        .read_to_string(&mut stored_profile)
+        .unwrap();
+    assert_eq!(stored_profile, invalid_profile);
+
+    let mut manifest = String::new();
+    archive
+        .by_name("run-manifest.toml")
+        .unwrap()
+        .read_to_string(&mut manifest)
+        .unwrap();
+    assert!(manifest.contains("status = \"resolution-failed\""));
+    assert!(manifest.contains("error_category = \"configuration\""));
+}
