@@ -24,7 +24,13 @@ rsx_distrib(
   bf_group2_alpha = 1,
   bf_group2_beta = 1,
   bf_null_alpha = 1,
-  bf_null_beta = 1
+  bf_null_beta = 1,
+  posterior_linked_family = "fixed",
+  posterior_linked_alpha = 1,
+  posterior_linked_beta = 1,
+  posterior_null_family = "fixed",
+  posterior_null_alpha = 1,
+  posterior_null_beta = 1
 )
 }
 \arguments{
@@ -62,6 +68,16 @@ marker prevalence under the group-2-linked alternative.}
 
 \item{bf_null_alpha, bf_null_beta}{Beta-prior shape parameters for marker
 prevalence under the null model.}
+
+\item{posterior_linked_family, posterior_null_family}{Posterior prevalence
+family: \code{"fixed"} uses \code{linked_probability} or \code{null_prevalence}; \code{"beta"}
+integrates over the corresponding Beta shape parameters.}
+
+\item{posterior_linked_alpha, posterior_linked_beta}{Beta-prior shape
+parameters for linked-marker prevalence.}
+
+\item{posterior_null_alpha, posterior_null_beta}{Beta-prior shape parameters
+for null-marker prevalence.}
 }
 \value{
 The output path, invisibly.
