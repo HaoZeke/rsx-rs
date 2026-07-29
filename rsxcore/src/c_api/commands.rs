@@ -426,18 +426,24 @@ pub unsafe extern "C" fn rsx_triage(
             signif_threshold,
             posterior_threshold,
             bayes_factor_threshold,
-            bayes_model: match directional_model(
-                prior_probability,
-                linked_probability,
+            bayes_model: match directional_model(DirectionalModelArgs {
+                linkage_prior: prior_probability,
+                linked_prevalence: linked_probability,
                 null_prevalence,
                 group1_linked_weight,
-                bf_group1_alpha,
-                bf_group1_beta,
-                bf_group2_alpha,
-                bf_group2_beta,
-                bf_null_alpha,
-                bf_null_beta,
-            ) {
+                bf_group1: crate::bayes_profile::BetaPriorProfile {
+                    alpha: bf_group1_alpha,
+                    beta: bf_group1_beta,
+                },
+                bf_group2: crate::bayes_profile::BetaPriorProfile {
+                    alpha: bf_group2_alpha,
+                    beta: bf_group2_beta,
+                },
+                bf_null: crate::bayes_profile::BetaPriorProfile {
+                    alpha: bf_null_alpha,
+                    beta: bf_null_beta,
+                },
+            }) {
                 Ok(model) => model,
                 Err(error) => return error,
             },

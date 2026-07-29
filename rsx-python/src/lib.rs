@@ -49,75 +49,63 @@ use rsx_core::popmap::Popmap;
 use rsx_core::source::MarkerTableSource;
 use tempfile::NamedTempFile;
 
-fn directional_model(
+/// One posterior prevalence prior as it crosses the Python boundary.
+struct PrevalenceArgs<'a> {
+    family: &'a str,
+    alpha: f64,
+    beta: f64,
+}
+
+/// Bayesian model inputs regrouped from the flat scalar list PyO3 passes in.
+///
+/// Named fields keep the three Beta priors and the two prevalence priors
+/// distinguishable at each call site; they all arrive as bare `f64` and `&str`.
+struct DirectionalModelArgs<'a> {
     linkage_prior: f64,
     linked_prevalence: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
-    bf_group1_alpha: f64,
-    bf_group1_beta: f64,
-    bf_group2_alpha: f64,
-    bf_group2_beta: f64,
-    bf_null_alpha: f64,
-    bf_null_beta: f64,
-    posterior_linked_family: &str,
-    posterior_linked_alpha: f64,
-    posterior_linked_beta: f64,
-    posterior_null_family: &str,
-    posterior_null_alpha: f64,
-    posterior_null_beta: f64,
+    bf_group1: rsx_core::bayes_profile::BetaPriorProfile,
+    bf_group2: rsx_core::bayes_profile::BetaPriorProfile,
+    bf_null: rsx_core::bayes_profile::BetaPriorProfile,
+    posterior_linked: PrevalenceArgs<'a>,
+    posterior_null: PrevalenceArgs<'a>,
+}
+
+fn directional_model(
+    args: DirectionalModelArgs<'_>,
 ) -> PyResult<rsx_core::stats::DirectionalModel> {
     use rsx_core::bayes_profile::{
-        BayesFactorProfile, BetaPriorProfile, ModelProfile, PosteriorProfile,
-        PrevalencePriorProfile,
+        BayesFactorProfile, ModelProfile, PosteriorProfile, PrevalencePriorProfile,
     };
 
-    let prevalence_prior = |family: &str,
-                            probability: f64,
-                            alpha: f64,
-                            beta: f64|
-     -> PyResult<PrevalencePriorProfile> {
-        match family {
-            "fixed" => Ok(PrevalencePriorProfile::Fixed { probability }),
-            "beta" => Ok(PrevalencePriorProfile::Beta { alpha, beta }),
-            _ => Err(PyrsxError::new_err(format!(
-                "posterior prevalence family must be 'fixed' or 'beta', got {family:?}"
-            ))),
-        }
-    };
+    let prevalence_prior =
+        |prior: PrevalenceArgs<'_>, probability: f64| -> PyResult<PrevalencePriorProfile> {
+            match prior.family {
+                "fixed" => Ok(PrevalencePriorProfile::Fixed { probability }),
+                "beta" => Ok(PrevalencePriorProfile::Beta {
+                    alpha: prior.alpha,
+                    beta: prior.beta,
+                }),
+                other => Err(PyrsxError::new_err(format!(
+                    "posterior prevalence family must be 'fixed' or 'beta', got {other:?}"
+                ))),
+            }
+        };
 
     ModelProfile {
-        linkage_prior,
-        linked_prevalence,
-        null_prevalence,
-        group1_linked_weight,
+        linkage_prior: args.linkage_prior,
+        linked_prevalence: args.linked_prevalence,
+        null_prevalence: args.null_prevalence,
+        group1_linked_weight: args.group1_linked_weight,
         posterior: Some(PosteriorProfile {
-            linked: prevalence_prior(
-                posterior_linked_family,
-                linked_prevalence,
-                posterior_linked_alpha,
-                posterior_linked_beta,
-            )?,
-            null: prevalence_prior(
-                posterior_null_family,
-                null_prevalence,
-                posterior_null_alpha,
-                posterior_null_beta,
-            )?,
+            linked: prevalence_prior(args.posterior_linked, args.linked_prevalence)?,
+            null: prevalence_prior(args.posterior_null, args.null_prevalence)?,
         }),
         bayes_factor: BayesFactorProfile {
-            alternative_group1: BetaPriorProfile {
-                alpha: bf_group1_alpha,
-                beta: bf_group1_beta,
-            },
-            alternative_group2: BetaPriorProfile {
-                alpha: bf_group2_alpha,
-                beta: bf_group2_beta,
-            },
-            null: BetaPriorProfile {
-                alpha: bf_null_alpha,
-                beta: bf_null_beta,
-            },
+            alternative_group1: args.bf_group1,
+            alternative_group2: args.bf_group2,
+            null: args.bf_null,
         },
     }
     .to_runtime()
@@ -196,24 +184,34 @@ fn distrib(
         correction: corr,
         test_method: tm,
         output_bayes: bayes,
-        bayes_model: directional_model(
-            prior_probability,
-            linked_probability,
+        bayes_model: directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-            posterior_linked_family,
-            posterior_linked_alpha,
-            posterior_linked_beta,
-            posterior_null_family,
-            posterior_null_alpha,
-            posterior_null_beta,
-        )?,
+            bf_group1: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+            posterior_linked: PrevalenceArgs {
+                family: posterior_linked_family,
+                alpha: posterior_linked_alpha,
+                beta: posterior_linked_beta,
+            },
+            posterior_null: PrevalenceArgs {
+                family: posterior_null_family,
+                alpha: posterior_null_alpha,
+                beta: posterior_null_beta,
+            },
+        })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
@@ -268,24 +266,34 @@ fn signif(
                 test_method: tm,
                 output_fasta,
                 output_bayes: bayes,
-                bayes_model: directional_model(
-                    prior_probability,
-                    linked_probability,
+                bayes_model: directional_model(DirectionalModelArgs {
+                    linkage_prior: prior_probability,
+                    linked_prevalence: linked_probability,
                     null_prevalence,
                     group1_linked_weight,
-                    bf_group1_alpha,
-                    bf_group1_beta,
-                    bf_group2_alpha,
-                    bf_group2_beta,
-                    bf_null_alpha,
-                    bf_null_beta,
-                    posterior_linked_family,
-                    posterior_linked_alpha,
-                    posterior_linked_beta,
-                    posterior_null_family,
-                    posterior_null_alpha,
-                    posterior_null_beta,
-                )?,
+                    bf_group1: rsx_core::bayes_profile::BetaPriorProfile {
+                        alpha: bf_group1_alpha,
+                        beta: bf_group1_beta,
+                    },
+                    bf_group2: rsx_core::bayes_profile::BetaPriorProfile {
+                        alpha: bf_group2_alpha,
+                        beta: bf_group2_beta,
+                    },
+                    bf_null: rsx_core::bayes_profile::BetaPriorProfile {
+                        alpha: bf_null_alpha,
+                        beta: bf_null_beta,
+                    },
+                    posterior_linked: PrevalenceArgs {
+                        family: posterior_linked_family,
+                        alpha: posterior_linked_alpha,
+                        beta: posterior_linked_beta,
+                    },
+                    posterior_null: PrevalenceArgs {
+                        family: posterior_null_family,
+                        alpha: posterior_null_alpha,
+                        beta: posterior_null_beta,
+                    },
+                })?,
                 group1: group1.to_string(),
                 group2: group2.to_string(),
             })
@@ -332,24 +340,34 @@ fn triage(
         signif_threshold,
         posterior_threshold,
         bayes_factor_threshold,
-        bayes_model: directional_model(
-            prior_probability,
-            linked_probability,
+        bayes_model: directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-            posterior_linked_family,
-            posterior_linked_alpha,
-            posterior_linked_beta,
-            posterior_null_family,
-            posterior_null_alpha,
-            posterior_null_beta,
-        )?,
+            bf_group1: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+            posterior_linked: PrevalenceArgs {
+                family: posterior_linked_family,
+                alpha: posterior_linked_alpha,
+                beta: posterior_linked_beta,
+            },
+            posterior_null: PrevalenceArgs {
+                family: posterior_null_family,
+                alpha: posterior_null_alpha,
+                beta: posterior_null_beta,
+            },
+        })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
@@ -690,24 +708,34 @@ fn triage_to_arrow(
         signif_threshold,
         posterior_threshold,
         bayes_factor_threshold,
-        bayes_model: directional_model(
-            prior_probability,
-            linked_probability,
+        bayes_model: directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-            posterior_linked_family,
-            posterior_linked_alpha,
-            posterior_linked_beta,
-            posterior_null_family,
-            posterior_null_alpha,
-            posterior_null_beta,
-        )?,
+            bf_group1: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+            posterior_linked: PrevalenceArgs {
+                family: posterior_linked_family,
+                alpha: posterior_linked_alpha,
+                beta: posterior_linked_beta,
+            },
+            posterior_null: PrevalenceArgs {
+                family: posterior_null_family,
+                alpha: posterior_null_alpha,
+                beta: posterior_null_beta,
+            },
+        })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -816,24 +844,34 @@ fn triage_to_arrow_from_arrow(
         signif_threshold,
         posterior_threshold,
         bayes_factor_threshold,
-        bayes_model: directional_model(
-            prior_probability,
-            linked_probability,
+        bayes_model: directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-            posterior_linked_family,
-            posterior_linked_alpha,
-            posterior_linked_beta,
-            posterior_null_family,
-            posterior_null_alpha,
-            posterior_null_beta,
-        )?,
+            bf_group1: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+            posterior_linked: PrevalenceArgs {
+                family: posterior_linked_family,
+                alpha: posterior_linked_alpha,
+                beta: posterior_linked_beta,
+            },
+            posterior_null: PrevalenceArgs {
+                family: posterior_null_family,
+                alpha: posterior_null_alpha,
+                beta: posterior_null_beta,
+            },
+        })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -1011,24 +1049,34 @@ fn distrib_from_arrow(
         correction: corr,
         test_method: tm,
         output_bayes: bayes,
-        bayes_model: directional_model(
-            prior_probability,
-            linked_probability,
+        bayes_model: directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-            posterior_linked_family,
-            posterior_linked_alpha,
-            posterior_linked_beta,
-            posterior_null_family,
-            posterior_null_alpha,
-            posterior_null_beta,
-        )?,
+            bf_group1: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+            posterior_linked: PrevalenceArgs {
+                family: posterior_linked_family,
+                alpha: posterior_linked_alpha,
+                beta: posterior_linked_beta,
+            },
+            posterior_null: PrevalenceArgs {
+                family: posterior_null_family,
+                alpha: posterior_null_alpha,
+                beta: posterior_null_beta,
+            },
+        })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -1099,24 +1147,34 @@ fn signif_from_arrow(
         test_method: tm,
         output_fasta,
         output_bayes: bayes,
-        bayes_model: directional_model(
-            prior_probability,
-            linked_probability,
+        bayes_model: directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-            posterior_linked_family,
-            posterior_linked_alpha,
-            posterior_linked_beta,
-            posterior_null_family,
-            posterior_null_alpha,
-            posterior_null_beta,
-        )?,
+            bf_group1: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: rsx_core::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+            posterior_linked: PrevalenceArgs {
+                family: posterior_linked_family,
+                alpha: posterior_linked_alpha,
+                beta: posterior_linked_beta,
+            },
+            posterior_null: PrevalenceArgs {
+                family: posterior_null_family,
+                alpha: posterior_null_alpha,
+                beta: posterior_null_beta,
+            },
+        })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
