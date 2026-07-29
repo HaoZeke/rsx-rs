@@ -1,7 +1,7 @@
 // GPL-3.0-or-later
 
 use rsx_core::bayes_profile::{BayesProfileInput, ParameterSource, ProfileOverrides};
-use rsx_core::stats::{posterior_sex_linked_with_model, DirectionalModel};
+use rsx_core::stats::{DirectionalModel, posterior_sex_linked_with_model};
 
 const COMPLETE_PROFILE: &str = r#"
 schema_version = 1
@@ -79,4 +79,51 @@ fn directional_posterior_uses_null_prevalence_and_direction_weight() {
 
     assert!(group1_posterior > group2_posterior);
     assert!(group1_posterior > 0.9);
+}
+
+#[test]
+fn posterior_prevalence_families_hydrate_and_change_the_calculation() {
+    let profile_toml = COMPLETE_PROFILE.replace(
+        "[estimation]",
+        r#"
+[model.posterior.linked]
+family = "beta"
+alpha = 9.0
+beta = 1.0
+
+[model.posterior.null]
+family = "beta"
+alpha = 5.0
+beta = 5.0
+
+[estimation]"#,
+    );
+    let hydrated = BayesProfileInput::parse_toml(&profile_toml)
+        .unwrap()
+        .hydrate(&ProfileOverrides::default())
+        .unwrap();
+    assert_eq!(
+        hydrated.source_for("model.posterior.linked.alpha"),
+        Some(ParameterSource::InputProfile)
+    );
+
+    let beta_model = hydrated.profile.model.to_runtime().unwrap();
+    let beta_posterior = posterior_sex_linked_with_model(8, 2, 10, 10, &beta_model);
+    let fixed_posterior = posterior_sex_linked_with_model(
+        8,
+        2,
+        10,
+        10,
+        &DirectionalModel {
+            linkage_prior: beta_model.linkage_prior,
+            linked_prevalence: beta_model.linked_prevalence,
+            null_prevalence: beta_model.null_prevalence,
+            group1_linked_weight: beta_model.group1_linked_weight,
+            ..DirectionalModel::directional_screening_v1()
+        },
+    );
+
+    assert_ne!(beta_posterior, fixed_posterior);
+    let encoded = hydrated.to_toml().unwrap();
+    assert!(encoded.contains("family = \"beta\""));
 }

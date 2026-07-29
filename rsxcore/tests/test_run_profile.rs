@@ -261,6 +261,45 @@ beta = 10.0
 }
 
 #[test]
+fn run_profile_hydrates_beta_posterior_prevalence_families() {
+    let input = format!(
+        r#"{PROFILE_HEADER}
+[run]
+command = "triage"
+markers_table = "markers.tsv"
+popmap = "popmap.tsv"
+output_file = "triage.tsv"
+min_depth = 1
+groups = ["M", "F"]
+signif_threshold = 0.05
+posterior_threshold = 0.9
+bayes_factor_threshold = 10.0
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
+
+[run.bayes_model.posterior.linked]
+family = "beta"
+alpha = 9.0
+beta = 1.0
+
+[run.bayes_model.posterior.null]
+family = "beta"
+alpha = 5.0
+beta = 5.0
+"#
+    );
+    let hydrated = RunProfile::parse_toml(&input).unwrap().to_toml().unwrap();
+
+    assert!(hydrated.contains("[run.bayes_model.posterior.linked]"));
+    assert!(hydrated.contains("family = \"beta\""));
+    assert!(hydrated.contains("alpha = 9.0"));
+}
+
+#[test]
 fn legacy_directional_profile_serializes_its_uniform_prior_defaults() {
     let body = r#"
 [run]
