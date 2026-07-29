@@ -152,9 +152,11 @@ class TriageParams:
     bf_null_alpha: float = 1.0
     bf_null_beta: float = 1.0
     posterior_linked_family: Literal["fixed", "beta"] = "fixed"
+    posterior_linked_probability: float | None = None
     posterior_linked_alpha: float = 1.0
     posterior_linked_beta: float = 1.0
     posterior_null_family: Literal["fixed", "beta"] = "fixed"
+    posterior_null_probability: float | None = None
     posterior_null_alpha: float = 1.0
     posterior_null_beta: float = 1.0
     correction: Literal["bonferroni", "fdr", "none"] = "bonferroni"
@@ -207,9 +209,11 @@ def distrib(
     bf_null_alpha: float = 1.0,
     bf_null_beta: float = 1.0,
     posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_probability: float | None = None,
     posterior_linked_alpha: float = 1.0,
     posterior_linked_beta: float = 1.0,
     posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_probability: float | None = None,
     posterior_null_alpha: float = 1.0,
     posterior_null_beta: float = 1.0,
 ) -> None:
@@ -262,9 +266,11 @@ def signif(
     bf_null_alpha: float = 1.0,
     bf_null_beta: float = 1.0,
     posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_probability: float | None = None,
     posterior_linked_alpha: float = 1.0,
     posterior_linked_beta: float = 1.0,
     posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_probability: float | None = None,
     posterior_null_alpha: float = 1.0,
     posterior_null_beta: float = 1.0,
 ) -> None:
@@ -316,9 +322,11 @@ def triage(
     group1: str = "",
     group2: str = "",
     posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_probability: float | None = None,
     posterior_linked_alpha: float = 1.0,
     posterior_linked_beta: float = 1.0,
     posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_probability: float | None = None,
     posterior_null_alpha: float = 1.0,
     posterior_null_beta: float = 1.0,
 ) -> None:
@@ -367,9 +375,11 @@ def triage_to_arrow(
     signif_threshold: float = 0.05,
     bayes_factor_threshold: float = 10.0,
     posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_probability: float | None = None,
     posterior_linked_alpha: float = 1.0,
     posterior_linked_beta: float = 1.0,
     posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_probability: float | None = None,
     posterior_null_alpha: float = 1.0,
     posterior_null_beta: float = 1.0,
 ) -> Any: ...
@@ -393,9 +403,11 @@ def triage_to_arrow_from_arrow(
     signif_threshold: float = 0.05,
     bayes_factor_threshold: float = 10.0,
     posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_probability: float | None = None,
     posterior_linked_alpha: float = 1.0,
     posterior_linked_beta: float = 1.0,
     posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_probability: float | None = None,
     posterior_null_alpha: float = 1.0,
     posterior_null_beta: float = 1.0,
 ) -> Any: ...
@@ -420,9 +432,11 @@ def distrib_from_arrow(
     bf_null_alpha: float = 1.0,
     bf_null_beta: float = 1.0,
     posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_probability: float | None = None,
     posterior_linked_alpha: float = 1.0,
     posterior_linked_beta: float = 1.0,
     posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_probability: float | None = None,
     posterior_null_alpha: float = 1.0,
     posterior_null_beta: float = 1.0,
 ) -> Any: ...
@@ -448,9 +462,11 @@ def signif_from_arrow(
     bf_null_alpha: float = 1.0,
     bf_null_beta: float = 1.0,
     posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_probability: float | None = None,
     posterior_linked_alpha: float = 1.0,
     posterior_linked_beta: float = 1.0,
     posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_probability: float | None = None,
     posterior_null_alpha: float = 1.0,
     posterior_null_beta: float = 1.0,
 ) -> Any: ...

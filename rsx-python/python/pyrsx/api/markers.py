@@ -347,9 +347,11 @@ class MarkerTable:
                 bf_null_alpha=p.bf_null_alpha,
                 bf_null_beta=p.bf_null_beta,
                 posterior_linked_family=p.posterior_linked_family,
+                posterior_linked_probability=p.posterior_linked_probability,
                 posterior_linked_alpha=p.posterior_linked_alpha,
                 posterior_linked_beta=p.posterior_linked_beta,
                 posterior_null_family=p.posterior_null_family,
+                posterior_null_probability=p.posterior_null_probability,
                 posterior_null_alpha=p.posterior_null_alpha,
                 posterior_null_beta=p.posterior_null_beta,
                 group1=p.group1,
@@ -382,9 +384,11 @@ class MarkerTable:
                 bf_null_alpha=p.bf_null_alpha,
                 bf_null_beta=p.bf_null_beta,
                 posterior_linked_family=p.posterior_linked_family,
+                posterior_linked_probability=p.posterior_linked_probability,
                 posterior_linked_alpha=p.posterior_linked_alpha,
                 posterior_linked_beta=p.posterior_linked_beta,
                 posterior_null_family=p.posterior_null_family,
+                posterior_null_probability=p.posterior_null_probability,
                 posterior_null_alpha=p.posterior_null_alpha,
                 posterior_null_beta=p.posterior_null_beta,
                 group1=p.group1,
@@ -543,6 +547,7 @@ class MarkerTable:
                 group2=group2,
                 correction=correction,
                 test=test,
+                **kwargs,
             )
             res_df = to_narwhals(raw)
         else:
@@ -561,6 +566,7 @@ class MarkerTable:
                     group2=group2,
                     correction=correction,
                     test=test,
+                    **kwargs,
                 )
                 res_df = _read_core_tsv(out.name)
             finally:
@@ -613,6 +619,7 @@ class MarkerTable:
                 test=test,
                 output_fasta=output_fasta,
                 bayes=bayes,
+                **kwargs,
             )
             res_df = to_narwhals(raw)
         else:
@@ -633,6 +640,7 @@ class MarkerTable:
                     test=test,
                     output_fasta=output_fasta,
                     bayes=bayes,
+                    **kwargs,
                 )
                 res_df = _read_core_tsv(out.name)
             finally:

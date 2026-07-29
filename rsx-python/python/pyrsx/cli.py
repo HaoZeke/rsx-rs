@@ -36,6 +36,9 @@ def bayes_model_options(function):
         show_default=True,
     )(function)
     function = click.option(
+        "--posterior-linked-probability", type=float, default=None
+    )(function)
+    function = click.option(
         "--posterior-linked-alpha", default=1.0, show_default=True
     )(function)
     function = click.option(
@@ -46,6 +49,9 @@ def bayes_model_options(function):
         type=click.Choice(["fixed", "beta"]),
         default="fixed",
         show_default=True,
+    )(function)
+    function = click.option(
+        "--posterior-null-probability", type=float, default=None
     )(function)
     function = click.option(
         "--posterior-null-alpha", default=1.0, show_default=True
@@ -143,9 +149,11 @@ def distrib(
     bf_null_alpha,
     bf_null_beta,
     posterior_linked_family,
+    posterior_linked_probability,
     posterior_linked_alpha,
     posterior_linked_beta,
     posterior_null_family,
+    posterior_null_probability,
     posterior_null_alpha,
     posterior_null_beta,
 ):
@@ -173,9 +181,11 @@ def distrib(
         bf_null_alpha=bf_null_alpha,
         bf_null_beta=bf_null_beta,
         posterior_linked_family=posterior_linked_family,
+        posterior_linked_probability=posterior_linked_probability,
         posterior_linked_alpha=posterior_linked_alpha,
         posterior_linked_beta=posterior_linked_beta,
         posterior_null_family=posterior_null_family,
+        posterior_null_probability=posterior_null_probability,
         posterior_null_alpha=posterior_null_alpha,
         posterior_null_beta=posterior_null_beta,
     )
@@ -229,9 +239,11 @@ def signif(
     bf_null_alpha,
     bf_null_beta,
     posterior_linked_family,
+    posterior_linked_probability,
     posterior_linked_alpha,
     posterior_linked_beta,
     posterior_null_family,
+    posterior_null_probability,
     posterior_null_alpha,
     posterior_null_beta,
 ):
@@ -260,9 +272,11 @@ def signif(
         bf_null_alpha=bf_null_alpha,
         bf_null_beta=bf_null_beta,
         posterior_linked_family=posterior_linked_family,
+        posterior_linked_probability=posterior_linked_probability,
         posterior_linked_alpha=posterior_linked_alpha,
         posterior_linked_beta=posterior_linked_beta,
         posterior_null_family=posterior_null_family,
+        posterior_null_probability=posterior_null_probability,
         posterior_null_alpha=posterior_null_alpha,
         posterior_null_beta=posterior_null_beta,
     )
@@ -298,9 +312,11 @@ def triage(
     bf_null_alpha,
     bf_null_beta,
     posterior_linked_family,
+    posterior_linked_probability,
     posterior_linked_alpha,
     posterior_linked_beta,
     posterior_null_family,
+    posterior_null_probability,
     posterior_null_alpha,
     posterior_null_beta,
     groups,
@@ -326,9 +342,11 @@ def triage(
         bf_null_alpha=bf_null_alpha,
         bf_null_beta=bf_null_beta,
         posterior_linked_family=posterior_linked_family,
+        posterior_linked_probability=posterior_linked_probability,
         posterior_linked_alpha=posterior_linked_alpha,
         posterior_linked_beta=posterior_linked_beta,
         posterior_null_family=posterior_null_family,
+        posterior_null_probability=posterior_null_probability,
         posterior_null_alpha=posterior_null_alpha,
         posterior_null_beta=posterior_null_beta,
         group1=g1,
