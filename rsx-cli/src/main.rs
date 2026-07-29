@@ -869,12 +869,29 @@ fn archive_path_from_loose_profile(input_profile: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Clap reports `--help` and `--version` as errors. They are requests for
+/// output rather than failures, so they must not take the failure path, which
+/// writes to the error log and would also archive a configuration failure.
+fn is_display_request(kind: clap::error::ErrorKind) -> bool {
+    matches!(
+        kind,
+        clap::error::ErrorKind::DisplayHelp
+            | clap::error::ErrorKind::DisplayVersion
+            | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+    )
+}
+
 fn parse_cli_from<I>(arguments: I) -> Result<Cli, Box<dyn std::error::Error>>
 where
     I: IntoIterator<Item = OsString>,
 {
     let expanded = profile_args::expand_profile_args(arguments)?;
-    Ok(Cli::try_parse_from(expanded)?)
+    match Cli::try_parse_from(expanded) {
+        Ok(cli) => Ok(cli),
+        // `exit` writes help and version to stdout and exits 0.
+        Err(error) if is_display_request(error.kind()) => error.exit(),
+        Err(error) => Err(error.into()),
+    }
 }
 
 fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Error>> {
@@ -1117,7 +1134,37 @@ fn main() {
 mod tests {
     use std::fs;
 
-    use super::{Commands, extract_groups, parse_cli_from};
+    use super::{Commands, extract_groups, is_display_request, parse_cli_from};
+    use clap::Parser;
+
+    #[test]
+    fn help_and_version_are_display_requests_not_failures() {
+        for arguments in [
+            vec!["rsx", "--help"],
+            vec!["rsx", "-h"],
+            vec!["rsx", "freq", "--help"],
+            vec!["rsx", "--version"],
+        ] {
+            let error = match super::Cli::try_parse_from(&arguments) {
+                Ok(_) => panic!("{arguments:?} should be reported as a clap error"),
+                Err(error) => error,
+            };
+            assert!(
+                is_display_request(error.kind()),
+                "{arguments:?} produced {:?}, which would exit non-zero",
+                error.kind()
+            );
+        }
+    }
+
+    #[test]
+    fn a_genuine_parse_error_is_not_a_display_request() {
+        let error = match super::Cli::try_parse_from(["rsx", "no-such-command"]) {
+            Ok(_) => panic!("an unknown subcommand must fail"),
+            Err(error) => error,
+        };
+        assert!(!is_display_request(error.kind()));
+    }
 
     #[test]
     fn missing_groups_uses_popmap_resolution() {
