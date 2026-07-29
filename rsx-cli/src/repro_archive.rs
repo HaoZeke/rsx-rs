@@ -318,3 +318,26 @@ fn enabled_features() -> Vec<&'static str> {
 fn readme() -> String {
     "rsx software reproducibility archive\n\nVerify SHA256SUMS, inspect run-manifest.toml, and replay profile.hydrated.toml with the bundled executable. Input datasets and result tables are identified by the profile but are not stored in this archive.\n".to_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn atomic_writer_rejects_a_member_checksum_mismatch() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("invalid.zip");
+        let mut members = BTreeMap::new();
+        members.insert("payload.txt".to_owned(), b"payload".to_vec());
+        members.insert(
+            "SHA256SUMS".to_owned(),
+            format!("{}  payload.txt\n", "0".repeat(64)).into_bytes(),
+        );
+
+        let error = write_zip_atomic(&destination, &members).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("checksum mismatch for payload.txt"));
+        assert!(!destination.exists());
+    }
+}
