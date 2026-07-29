@@ -15,7 +15,10 @@ pixi.lock
 !/pixi.lock
 
 # Build artifacts
-/rsxcore/include/rsx.h
+# rsxcore/include/rsx.h stays in git: cbindgen only writes it under the
+# non-default gen-header feature, and test_header_sync includes it at compile
+# time, so a clean clone cannot build the test suite without it. Regenerate
+# with `cargo build -p rsxcore --features gen-header` and commit the result.
 
 # Generated documentation
 # orgmode/ (in docs/orgmode/) is the source of truth.
