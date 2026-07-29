@@ -175,12 +175,21 @@ def main() -> None:
         type=Path,
         default=Path("benchmarks/results/cuda_benchmark_summary.csv"),
     )
+    parser.add_argument(
+        "--normalized",
+        type=Path,
+        help="Optional path for the parsed per-repetition measurements",
+    )
     parser.add_argument("--output", type=Path, default=Path("docs/figures"))
     args = parser.parse_args()
 
-    summary = summarize_benchmark(load_benchmark(args.input))
+    measurements = load_benchmark(args.input)
+    summary = summarize_benchmark(measurements)
     args.summary.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(args.summary, index=False)
+    if args.normalized is not None:
+        args.normalized.parent.mkdir(parents=True, exist_ok=True)
+        measurements.to_csv(args.normalized, index=False)
     render_plots(summary, args.output)
     print(f"Wrote {args.summary} and CUDA figures under {args.output}")
 
