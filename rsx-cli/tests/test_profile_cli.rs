@@ -310,11 +310,24 @@ min_depth = 1
         "Cargo.lock",
         "CITATION.cff",
         "LICENSE",
-        "bin/rsx",
         "SHA256SUMS",
     ] {
         assert!(archive.by_name(member).is_ok(), "missing {member}");
     }
+    assert!(
+        archive.by_name("bin/rsx").is_err(),
+        "the executable is identified by hash, not stored"
+    );
+    let mut build_manifest = String::new();
+    archive
+        .by_name("build-manifest.toml")
+        .unwrap()
+        .read_to_string(&mut build_manifest)
+        .unwrap();
+    assert!(
+        build_manifest.contains("executable_sha256"),
+        "build manifest must identify the executable: {build_manifest}"
+    );
     let mut manifest = String::new();
     archive
         .by_name("run-manifest.toml")
@@ -348,7 +361,6 @@ fn invalid_profile_syntax_still_creates_a_resolution_failure_archive() {
         "build-manifest.toml",
         "run-manifest.toml",
         "sbom.cdx.json",
-        "bin/rsx",
         "SHA256SUMS",
     ] {
         assert!(archive.by_name(member).is_ok(), "missing {member}");

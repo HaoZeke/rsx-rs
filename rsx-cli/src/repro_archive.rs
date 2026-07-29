@@ -131,6 +131,9 @@ pub fn write_resolution_failure(
 }
 
 fn common_members() -> Result<BTreeMap<String, Vec<u8>>, Box<dyn Error>> {
+    // The executable is hashed, not stored. Embedding it pushed every archive
+    // past twenty megabytes and made each run pay a deflate of the whole
+    // binary, while `executable_sha256` already identifies the build.
     let executable = fs::read(std::env::current_exe()?)?;
     let build_manifest = BuildManifest {
         manifest_version: 1,
@@ -149,7 +152,6 @@ fn common_members() -> Result<BTreeMap<String, Vec<u8>>, Box<dyn Error>> {
     members.insert("CITATION.cff".into(), CITATION.to_vec());
     members.insert("LICENSE".into(), LICENSE.to_vec());
     members.insert("README.txt".into(), readme().into_bytes());
-    members.insert("bin/rsx".into(), executable);
     members.insert(
         "build-manifest.toml".into(),
         toml::to_string_pretty(&build_manifest)?.into_bytes(),
@@ -343,7 +345,7 @@ fn enabled_features() -> Vec<&'static str> {
 }
 
 fn readme() -> String {
-    "rsx software reproducibility archive\n\nVerify SHA256SUMS, inspect run-manifest.toml, and replay profile.hydrated.toml with the bundled executable. Input datasets and result tables are identified by the profile but are not stored in this archive.\n".to_owned()
+    "rsx software reproducibility archive\n\nVerify SHA256SUMS, inspect run-manifest.toml, and replay profile.hydrated.toml with an rsx build whose SHA256 matches executable_sha256 in build-manifest.toml. The executable, input datasets, and result tables are identified by this archive but are not stored in it.\n".to_owned()
 }
 
 #[cfg(test)]
