@@ -310,6 +310,9 @@ enum Commands {
         /// Posterior P(sex-linked) threshold
         #[arg(long = "posterior-threshold", default_value = "0.9")]
         posterior_threshold: f64,
+        /// Evidence execution backend: cpu (default) or cuda
+        #[arg(long = "backend", default_value = "cpu")]
+        backend: String,
         /// Bayes factor threshold
         #[arg(long = "bayes-factor-threshold", default_value = "10.0")]
         bayes_factor_threshold: f64,
@@ -648,8 +651,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             posterior_threshold,
             bayes_factor_threshold,
             bayes_model,
+            backend,
         } => {
             let (g1, g2) = extract_groups(groups)?;
+            let backend = rsx_core::compute_backend::PValueBackend::parse_str(&backend)
+                .unwrap_or_else(|e| {
+                    log::error!("{e}");
+                    std::process::exit(1);
+                });
             commands::triage::run(&commands::triage::TriageParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
@@ -661,6 +670,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 bayes_model: bayes_model.to_runtime()?,
                 group1: g1,
                 group2: g2,
+                backend,
             })
         }
 
@@ -975,6 +985,7 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             posterior_threshold,
             bayes_factor_threshold,
             bayes_model,
+            backend: _,
         } => CommandProfile::Triage(run_profile::TriageProfile {
             markers_table: markers_table.clone(),
             popmap: popmap.clone(),

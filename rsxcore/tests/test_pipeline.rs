@@ -378,6 +378,7 @@ fn test_triage_command_outputs_biological_candidate_classes() {
         bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: "M".to_string(),
         group2: "F".to_string(),
+        backend: rsx_core::compute_backend::PValueBackend::Cpu,
     })
     .unwrap();
 

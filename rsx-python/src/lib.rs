@@ -384,6 +384,7 @@ fn triage(
         })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
+        backend: rsx_core::compute_backend::PValueBackend::Cpu,
     })
     .map_err(|e| PyrsxError::new_err(e.to_string()))
 }
@@ -756,6 +757,7 @@ fn triage_to_arrow(
         })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
+        backend: rsx_core::compute_backend::PValueBackend::Cpu,
     };
     let batches = rsx_core::commands::triage::run_to_arrow(&params)
         .map_err(|e| PyrsxError::new_err(e.to_string()))?;
@@ -896,6 +898,7 @@ fn triage_to_arrow_from_arrow(
         })?,
         group1: group1.to_string(),
         group2: group2.to_string(),
+        backend: rsx_core::compute_backend::PValueBackend::Cpu,
     };
 
     let batches = rsx_core::commands::triage::run_to_arrow_with_source(&source, &popmap, &params)

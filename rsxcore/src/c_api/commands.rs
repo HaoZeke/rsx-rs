@@ -583,6 +583,7 @@ pub unsafe extern "C" fn rsx_triage(
             },
             group1,
             group2,
+            backend: crate::compute_backend::PValueBackend::Cpu,
         };
 
         match crate::commands::triage::run(&params) {

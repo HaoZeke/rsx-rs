@@ -775,8 +775,8 @@ fn bayes_evidence_cuda(
     let kernel_seconds = kernel_started.elapsed().as_secs_f64();
 
     let return_started = Instant::now();
-    let bayes_factors = stream.memcpy_dtov(&device_bayes_factors)?;
-    let posteriors = stream.memcpy_dtov(&device_posteriors)?;
+    let bayes_factors = stream.clone_dtoh(&device_bayes_factors)?;
+    let posteriors = stream.clone_dtoh(&device_posteriors)?;
     stream.synchronize()?;
     let device_to_host_seconds = return_started.elapsed().as_secs_f64();
     let total_seconds = total_started.elapsed().as_secs_f64();

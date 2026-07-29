@@ -5,8 +5,15 @@
 //!
 //! The command keeps RADSex-style strict testing and Bayesian marker evidence
 //! in one bounded-memory pass over the marker table.
+//!
+//! Every marker needs a p-value, a Bayes factor, and a posterior, so the
+//! device backend evaluates all three for the whole table before the writing
+//! pass. Counts cost eight bytes per marker; marker text is never retained.
 
 use crate::bitset::GroupMask;
+use crate::compute_backend::{
+    AssociationCounts, PValueBackend, compute_bayes_evidence_batch, compute_chi_squared_batch,
+};
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
@@ -31,6 +38,54 @@ pub struct TriageParams {
     pub bayes_model: stats::DirectionalModel,
     pub group1: String,
     pub group2: String,
+    /// Where the per-marker p-value and Bayesian evidence are evaluated.
+    pub backend: PValueBackend,
+}
+
+/// Evidence for every marker, in table order, when a device evaluates it.
+struct BatchedEvidence {
+    p_values: Vec<f64>,
+    bayes_factors: Vec<f64>,
+    posteriors: Vec<f64>,
+}
+
+impl BatchedEvidence {
+    fn collect<S: MarkerStream>(
+        source: &S,
+        mask_g1: &GroupMask,
+        mask_g2: &GroupMask,
+        total_g1: u32,
+        total_g2: u32,
+        params: &TriageParams,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        log::info!(
+            "triage {} pass 1: collecting marker counts",
+            params.backend.name()
+        );
+        let mut counts = Vec::new();
+        source.for_each(|marker| {
+            if marker.n_individuals > 0 {
+                counts.push(AssociationCounts {
+                    group1: marker.presence.count_masked(mask_g1),
+                    group2: marker.presence.count_masked(mask_g2),
+                });
+            }
+        })?;
+
+        let p_values = compute_chi_squared_batch(params.backend, &counts, total_g1, total_g2)?;
+        let (bayes_factors, posteriors) = compute_bayes_evidence_batch(
+            params.backend,
+            &counts,
+            total_g1,
+            total_g2,
+            &params.bayes_model,
+        )?;
+        Ok(Self {
+            p_values,
+            bayes_factors,
+            posteriors,
+        })
+    }
 }
 
 fn penetrance(present: u32, total: u32) -> f64 {
@@ -186,9 +241,23 @@ pub fn run_with_source<S: MarkerStream>(
         "id\tsequence\tGroup1\tGroup1_Present\tGroup1_Total\tGroup1_Penetrance\tGroup2\tGroup2_Present\tGroup2_Total\tGroup2_Penetrance\tBias_Direction\tBias\tP\tCorrectedP\tBayes_Factor\tPosterior_SexLinked\tStrict_Call\tPosterior_Call\tBayes_Factor_Call\tCandidate_Class"
     )?;
 
+    let batched = match params.backend {
+        PValueBackend::Cpu => None,
+        PValueBackend::Cuda => Some(BatchedEvidence::collect(
+            source, &mask_g1, &mask_g2, total_g1, total_g2, params,
+        )?),
+    };
+    if batched.is_some() {
+        log::info!(
+            "triage {} pass 2: ranking and writing",
+            params.backend.name()
+        );
+    }
+
     let mut write_err: Option<std::io::Error> = None;
     let mut called_rows = 0_u64;
     let mut best_exploratory: Option<TriageRow> = None;
+    let mut evidence_index = 0usize;
     source.for_each(|marker| {
         if write_err.is_some() || marker.n_individuals == 0 {
             return;
@@ -196,18 +265,36 @@ pub fn run_with_source<S: MarkerStream>(
 
         let g1 = marker.presence.count_masked(&mask_g1);
         let g2 = marker.presence.count_masked(&mask_g2);
-        let p = compute_p(TestMethod::ChiSquared, g1, g2, total_g1, total_g2);
+        let (p, bf, posterior) = match &batched {
+            Some(evidence) => {
+                let index = evidence_index;
+                evidence_index += 1;
+                (
+                    evidence.p_values[index],
+                    evidence.bayes_factors[index],
+                    evidence.posteriors[index],
+                )
+            }
+            None => (
+                compute_p(TestMethod::ChiSquared, g1, g2, total_g1, total_g2),
+                stats::bayes_factor_2x2_with_validated_model(
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    &params.bayes_model.bayes_factor,
+                ),
+                stats::posterior_sex_linked_with_model(
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    &params.bayes_model,
+                ),
+            ),
+        };
         let p_corrected = stats::bonferroni_correct(p, n_markers);
         let strict_call = p < strict_threshold;
-        let bf = stats::bayes_factor_2x2_with_validated_model(
-            g1,
-            g2,
-            total_g1,
-            total_g2,
-            &params.bayes_model.bayes_factor,
-        );
-        let posterior =
-            stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &params.bayes_model);
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
         let g1_penetrance = penetrance(g1, total_g1);
@@ -489,7 +576,7 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
     Ok(vec![batch])
 }
 
-#[cfg(all(test, feature = "arrow-output"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Write;
@@ -546,6 +633,40 @@ mod tests {
         (table, pop)
     }
 
+    #[cfg(feature = "cuda")]
+    #[test]
+    fn triage_cuda_matches_cpu_output() {
+        let (table, pop) = make_triage_fixture();
+        let directory = table.parent().expect("fixture table has parent");
+        let cpu_out = directory.join("triage_cpu.tsv");
+        let cuda_out = directory.join("triage_cuda.tsv");
+
+        let params = |output: &std::path::Path, backend| TriageParams {
+            markers_table_path: table.to_str().unwrap().to_string(),
+            popmap_file_path: pop.to_str().unwrap().to_string(),
+            output_file_path: output.to_str().unwrap().to_string(),
+            min_depth: 1,
+            signif_threshold: 0.05,
+            posterior_threshold: 0.9,
+            bayes_factor_threshold: 10.0,
+            bayes_model: stats::DirectionalModel::directional_screening_v1(),
+            group1: "M".to_string(),
+            group2: "F".to_string(),
+            backend,
+        };
+
+        run(&params(&cpu_out, PValueBackend::Cpu)).unwrap();
+        run(&params(&cuda_out, PValueBackend::Cuda)).unwrap();
+
+        let cpu = std::fs::read_to_string(&cpu_out).unwrap();
+        assert!(
+            cpu.lines().filter(|line| !line.starts_with('#')).count() > 1,
+            "fixture must emit at least one ranked row"
+        );
+        assert_eq!(cpu, std::fs::read_to_string(&cuda_out).unwrap());
+    }
+
+    #[cfg(feature = "arrow-output")]
     #[test]
     fn run_to_arrow_matches_file_based_triage() {
         let (table, pop) = make_triage_fixture();
@@ -561,6 +682,7 @@ mod tests {
             bayes_model: stats::DirectionalModel::directional_screening_v1(),
             group1: "M".to_string(),
             group2: "F".to_string(),
+            backend: PValueBackend::Cpu,
         };
 
         let tsv_path = table
