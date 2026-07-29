@@ -15,7 +15,8 @@ class CudaBenchmarkPlotTests(unittest.TestCase):
                 "total_speedup,output_buffer_reused,max_abs_error,device\n"
             )
             path.write_text(
-                "# repetition=1\n"
+                " WARN cache was redirected for this run\n"
+                + "# repetition=1\n"
                 + header
                 + "100000,0.10,0.01,0.002,0.005,0.002,0.02,800000,800000,1,1,20,5,1,1e-16,A100\n"
                 + "# repetition=2\n"
