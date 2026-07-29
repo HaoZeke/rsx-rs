@@ -120,7 +120,9 @@ The output joins RADSex-style Bonferroni evidence and Bayesian evidence in
 one marker-level table. Columns include group penetrance, bias direction,
 p-value, Bonferroni-corrected p-value, Bayes factor, posterior
 P(sex-linked), and =Candidate_Class=. Classes are =strict+posterior=,
-=strict_only=, =posterior_only=, and =bayes_factor_only=.
+=strict_only=, =posterior_only=, and =bayes_factor_only=. If no marker meets
+any configured call threshold, the table retains the highest-posterior marker
+as =exploratory=. This row is a ranked lead, not a sex-linked marker call.
 
 Interpretation is directional. A male-biased high-evidence marker is a
 putative Y-linked RAD marker; a female-biased high-evidence marker is a

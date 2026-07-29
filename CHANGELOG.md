@@ -13,6 +13,9 @@ All notable changes to rsx-rs are documented here.
 - **depth**: exact and streaming modes report the mathematical median for even
   sample counts by averaging the two middle depths; half-integer medians are
   preserved in TSV output.
+- **triage**: preserve the strongest marker as an explicitly non-call
+  `exploratory` row when every marker falls below the configured strict,
+  posterior, and Bayes-factor thresholds.
 
 ## [0.2.6] - 2026-07-06
 
