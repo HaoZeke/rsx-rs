@@ -236,9 +236,11 @@ pub unsafe extern "C" fn rsx_distrib(
     bf_null_alpha: f64,
     bf_null_beta: f64,
     posterior_linked_family: *const c_char,
+    posterior_linked_probability: f64,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: *const c_char,
+    posterior_null_probability: f64,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> rsx_status_t {
@@ -275,13 +277,13 @@ pub unsafe extern "C" fn rsx_distrib(
             parse_posterior_priors(
                 PrevalencePriorArgs {
                     family: posterior_linked_family,
-                    probability: linked_probability,
+                    probability: posterior_linked_probability,
                     alpha: posterior_linked_alpha,
                     beta: posterior_linked_beta,
                 },
                 PrevalencePriorArgs {
                     family: posterior_null_family,
-                    probability: null_prevalence,
+                    probability: posterior_null_probability,
                     alpha: posterior_null_alpha,
                     beta: posterior_null_beta,
                 },
@@ -367,9 +369,11 @@ pub unsafe extern "C" fn rsx_signif(
     bf_null_alpha: f64,
     bf_null_beta: f64,
     posterior_linked_family: *const c_char,
+    posterior_linked_probability: f64,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: *const c_char,
+    posterior_null_probability: f64,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> rsx_status_t {
@@ -406,13 +410,13 @@ pub unsafe extern "C" fn rsx_signif(
             parse_posterior_priors(
                 PrevalencePriorArgs {
                     family: posterior_linked_family,
-                    probability: linked_probability,
+                    probability: posterior_linked_probability,
                     alpha: posterior_linked_alpha,
                     beta: posterior_linked_beta,
                 },
                 PrevalencePriorArgs {
                     family: posterior_null_family,
-                    probability: null_prevalence,
+                    probability: posterior_null_probability,
                     alpha: posterior_null_alpha,
                     beta: posterior_null_beta,
                 },
@@ -497,9 +501,11 @@ pub unsafe extern "C" fn rsx_triage(
     group1: *const c_char,
     group2: *const c_char,
     posterior_linked_family: *const c_char,
+    posterior_linked_probability: f64,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: *const c_char,
+    posterior_null_probability: f64,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> rsx_status_t {
@@ -528,13 +534,13 @@ pub unsafe extern "C" fn rsx_triage(
             parse_posterior_priors(
                 PrevalencePriorArgs {
                     family: posterior_linked_family,
-                    probability: linked_probability,
+                    probability: posterior_linked_probability,
                     alpha: posterior_linked_alpha,
                     beta: posterior_linked_beta,
                 },
                 PrevalencePriorArgs {
                     family: posterior_null_family,
-                    probability: null_prevalence,
+                    probability: posterior_null_probability,
                     alpha: posterior_null_alpha,
                     beta: posterior_null_beta,
                 },

@@ -52,6 +52,7 @@ use tempfile::NamedTempFile;
 /// One posterior prevalence prior as it crosses the Python boundary.
 struct PrevalenceArgs<'a> {
     family: &'a str,
+    probability: f64,
     alpha: f64,
     beta: f64,
 }
@@ -79,19 +80,20 @@ fn directional_model(
         BayesFactorProfile, ModelProfile, PosteriorProfile, PrevalencePriorProfile,
     };
 
-    let prevalence_prior =
-        |prior: PrevalenceArgs<'_>, probability: f64| -> PyResult<PrevalencePriorProfile> {
-            match prior.family {
-                "fixed" => Ok(PrevalencePriorProfile::Fixed { probability }),
-                "beta" => Ok(PrevalencePriorProfile::Beta {
-                    alpha: prior.alpha,
-                    beta: prior.beta,
-                }),
-                other => Err(PyrsxError::new_err(format!(
-                    "posterior prevalence family must be 'fixed' or 'beta', got {other:?}"
-                ))),
-            }
-        };
+    let prevalence_prior = |prior: PrevalenceArgs<'_>| -> PyResult<PrevalencePriorProfile> {
+        match prior.family {
+            "fixed" => Ok(PrevalencePriorProfile::Fixed {
+                probability: prior.probability,
+            }),
+            "beta" => Ok(PrevalencePriorProfile::Beta {
+                alpha: prior.alpha,
+                beta: prior.beta,
+            }),
+            other => Err(PyrsxError::new_err(format!(
+                "posterior prevalence family must be 'fixed' or 'beta', got {other:?}"
+            ))),
+        }
+    };
 
     ModelProfile {
         linkage_prior: args.linkage_prior,
@@ -99,8 +101,8 @@ fn directional_model(
         null_prevalence: args.null_prevalence,
         group1_linked_weight: args.group1_linked_weight,
         posterior: Some(PosteriorProfile {
-            linked: prevalence_prior(args.posterior_linked, args.linked_prevalence)?,
-            null: prevalence_prior(args.posterior_null, args.null_prevalence)?,
+            linked: prevalence_prior(args.posterior_linked)?,
+            null: prevalence_prior(args.posterior_null)?,
         }),
         bayes_factor: BayesFactorProfile {
             alternative_group1: args.bf_group1,
@@ -141,7 +143,7 @@ fn process(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_alpha=1.0, posterior_null_beta=1.0))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_probability=None, posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_probability=None, posterior_null_alpha=1.0, posterior_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn distrib(
     table_path: &str,
@@ -165,9 +167,11 @@ fn distrib(
     bf_null_alpha: f64,
     bf_null_beta: f64,
     posterior_linked_family: &str,
+    posterior_linked_probability: Option<f64>,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: &str,
+    posterior_null_probability: Option<f64>,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> PyResult<()> {
@@ -203,11 +207,13 @@ fn distrib(
             },
             posterior_linked: PrevalenceArgs {
                 family: posterior_linked_family,
+                probability: posterior_linked_probability.unwrap_or(linked_probability),
                 alpha: posterior_linked_alpha,
                 beta: posterior_linked_beta,
             },
             posterior_null: PrevalenceArgs {
                 family: posterior_null_family,
+                probability: posterior_null_probability.unwrap_or(null_prevalence),
                 alpha: posterior_null_alpha,
                 beta: posterior_null_beta,
             },
@@ -219,7 +225,7 @@ fn distrib(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_alpha=1.0, posterior_null_beta=1.0))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_probability=None, posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_probability=None, posterior_null_alpha=1.0, posterior_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn signif(
     table_path: &str,
@@ -244,9 +250,11 @@ fn signif(
     bf_null_alpha: f64,
     bf_null_beta: f64,
     posterior_linked_family: &str,
+    posterior_linked_probability: Option<f64>,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: &str,
+    posterior_null_probability: Option<f64>,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> PyResult<()> {
@@ -285,11 +293,13 @@ fn signif(
                     },
                     posterior_linked: PrevalenceArgs {
                         family: posterior_linked_family,
+                        probability: posterior_linked_probability.unwrap_or(linked_probability),
                         alpha: posterior_linked_alpha,
                         beta: posterior_linked_beta,
                     },
                     posterior_null: PrevalenceArgs {
                         family: posterior_null_family,
+                        probability: posterior_null_probability.unwrap_or(null_prevalence),
                         alpha: posterior_null_alpha,
                         beta: posterior_null_beta,
                     },
@@ -303,7 +313,7 @@ fn signif(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, posterior_threshold=0.9, bayes_factor_threshold=10.0, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", posterior_linked_family="fixed", posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_alpha=1.0, posterior_null_beta=1.0))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, posterior_threshold=0.9, bayes_factor_threshold=10.0, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", posterior_linked_family="fixed", posterior_linked_probability=None, posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_probability=None, posterior_null_alpha=1.0, posterior_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn triage(
     table_path: &str,
@@ -326,9 +336,11 @@ fn triage(
     group1: &str,
     group2: &str,
     posterior_linked_family: &str,
+    posterior_linked_probability: Option<f64>,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: &str,
+    posterior_null_probability: Option<f64>,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> PyResult<()> {
@@ -359,11 +371,13 @@ fn triage(
             },
             posterior_linked: PrevalenceArgs {
                 family: posterior_linked_family,
+                probability: posterior_linked_probability.unwrap_or(linked_probability),
                 alpha: posterior_linked_alpha,
                 beta: posterior_linked_beta,
             },
             posterior_null: PrevalenceArgs {
                 family: posterior_null_family,
+                probability: posterior_null_probability.unwrap_or(null_prevalence),
                 alpha: posterior_null_alpha,
                 beta: posterior_null_beta,
             },
@@ -671,7 +685,7 @@ fn ipc_bytes_to_pyarrow_tables(py: Python<'_>, bytes: &[u8]) -> PyResult<Vec<PyO
 // --------------------------------------------------------------------------- //
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", signif_threshold=0.05, bayes_factor_threshold=10.0, posterior_linked_family="fixed", posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_alpha=1.0, posterior_null_beta=1.0))]
+#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", signif_threshold=0.05, bayes_factor_threshold=10.0, posterior_linked_family="fixed", posterior_linked_probability=None, posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_probability=None, posterior_null_alpha=1.0, posterior_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow(
     py: Python<'_>,
@@ -694,9 +708,11 @@ fn triage_to_arrow(
     signif_threshold: f32,
     bayes_factor_threshold: f64,
     posterior_linked_family: &str,
+    posterior_linked_probability: Option<f64>,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: &str,
+    posterior_null_probability: Option<f64>,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> PyResult<PyObject> {
@@ -727,11 +743,13 @@ fn triage_to_arrow(
             },
             posterior_linked: PrevalenceArgs {
                 family: posterior_linked_family,
+                probability: posterior_linked_probability.unwrap_or(linked_probability),
                 alpha: posterior_linked_alpha,
                 beta: posterior_linked_beta,
             },
             posterior_null: PrevalenceArgs {
                 family: posterior_null_family,
+                probability: posterior_null_probability.unwrap_or(null_prevalence),
                 alpha: posterior_null_alpha,
                 beta: posterior_null_beta,
             },
@@ -798,7 +816,7 @@ mod cmd_overhead {
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", signif_threshold=0.05, bayes_factor_threshold=10.0, posterior_linked_family="fixed", posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_alpha=1.0, posterior_null_beta=1.0))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", signif_threshold=0.05, bayes_factor_threshold=10.0, posterior_linked_family="fixed", posterior_linked_probability=None, posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_probability=None, posterior_null_alpha=1.0, posterior_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow_from_arrow(
     py: Python<'_>,
@@ -821,9 +839,11 @@ fn triage_to_arrow_from_arrow(
     signif_threshold: f32,
     bayes_factor_threshold: f64,
     posterior_linked_family: &str,
+    posterior_linked_probability: Option<f64>,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: &str,
+    posterior_null_probability: Option<f64>,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> PyResult<PyObject> {
@@ -863,11 +883,13 @@ fn triage_to_arrow_from_arrow(
             },
             posterior_linked: PrevalenceArgs {
                 family: posterior_linked_family,
+                probability: posterior_linked_probability.unwrap_or(linked_probability),
                 alpha: posterior_linked_alpha,
                 beta: posterior_linked_beta,
             },
             posterior_null: PrevalenceArgs {
                 family: posterior_null_family,
+                probability: posterior_null_probability.unwrap_or(null_prevalence),
                 alpha: posterior_null_alpha,
                 beta: posterior_null_beta,
             },
@@ -993,7 +1015,7 @@ fn depth_from_arrow(
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_alpha=1.0, posterior_null_beta=1.0))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_probability=None, posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_probability=None, posterior_null_alpha=1.0, posterior_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn distrib_from_arrow(
     py: Python<'_>,
@@ -1017,9 +1039,11 @@ fn distrib_from_arrow(
     bf_null_alpha: f64,
     bf_null_beta: f64,
     posterior_linked_family: &str,
+    posterior_linked_probability: Option<f64>,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: &str,
+    posterior_null_probability: Option<f64>,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> PyResult<PyObject> {
@@ -1068,11 +1092,13 @@ fn distrib_from_arrow(
             },
             posterior_linked: PrevalenceArgs {
                 family: posterior_linked_family,
+                probability: posterior_linked_probability.unwrap_or(linked_probability),
                 alpha: posterior_linked_alpha,
                 beta: posterior_linked_beta,
             },
             posterior_null: PrevalenceArgs {
                 family: posterior_null_family,
+                probability: posterior_null_probability.unwrap_or(null_prevalence),
                 alpha: posterior_null_alpha,
                 beta: posterior_null_beta,
             },
@@ -1089,7 +1115,7 @@ fn distrib_from_arrow(
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_alpha=1.0, posterior_null_beta=1.0))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, posterior_linked_family="fixed", posterior_linked_probability=None, posterior_linked_alpha=1.0, posterior_linked_beta=1.0, posterior_null_family="fixed", posterior_null_probability=None, posterior_null_alpha=1.0, posterior_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn signif_from_arrow(
     py: Python<'_>,
@@ -1114,9 +1140,11 @@ fn signif_from_arrow(
     bf_null_alpha: f64,
     bf_null_beta: f64,
     posterior_linked_family: &str,
+    posterior_linked_probability: Option<f64>,
     posterior_linked_alpha: f64,
     posterior_linked_beta: f64,
     posterior_null_family: &str,
+    posterior_null_probability: Option<f64>,
     posterior_null_alpha: f64,
     posterior_null_beta: f64,
 ) -> PyResult<PyObject> {
@@ -1166,11 +1194,13 @@ fn signif_from_arrow(
             },
             posterior_linked: PrevalenceArgs {
                 family: posterior_linked_family,
+                probability: posterior_linked_probability.unwrap_or(linked_probability),
                 alpha: posterior_linked_alpha,
                 beta: posterior_linked_beta,
             },
             posterior_null: PrevalenceArgs {
                 family: posterior_null_family,
+                probability: posterior_null_probability.unwrap_or(null_prevalence),
                 alpha: posterior_null_alpha,
                 beta: posterior_null_beta,
             },
