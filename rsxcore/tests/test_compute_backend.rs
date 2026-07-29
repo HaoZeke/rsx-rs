@@ -1,10 +1,9 @@
 // GPL-3.0-or-later
 // Copyright 2024--present rsx-rs developers
 
-use rsx_core::compute_backend::{
-    AssociationCounts, PValueBackend, compute_chi_squared_batch,
-    compute_chi_squared_batch_with_metrics,
-};
+#[cfg(feature = "cuda")]
+use rsx_core::compute_backend::compute_chi_squared_batch_with_metrics;
+use rsx_core::compute_backend::{compute_chi_squared_batch, AssociationCounts, PValueBackend};
 
 #[test]
 fn backend_names_are_explicit() {
