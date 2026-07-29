@@ -20,6 +20,16 @@ linked_prevalence = 0.9
 null_prevalence = 0.5
 group1_linked_weight = 0.5
 
+[run.bayes_model.posterior.linked]
+family = "beta"
+alpha = 9.0
+beta = 1.0
+
+[run.bayes_model.posterior.null]
+family = "beta"
+alpha = 5.0
+beta = 5.0
+
 [run.bayes_model.bayes_factor.alternative_group1]
 alpha = 1.0
 beta = 1.0
