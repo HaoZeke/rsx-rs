@@ -37,6 +37,27 @@ struct Cli {
     command: Commands,
 }
 
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+enum PosteriorFamily {
+    #[default]
+    Fixed,
+    Beta,
+}
+
+impl PosteriorFamily {
+    fn to_profile(
+        self,
+        probability: f64,
+        alpha: f64,
+        beta: f64,
+    ) -> rsx_core::bayes_profile::PrevalencePriorProfile {
+        match self {
+            Self::Fixed => rsx_core::bayes_profile::PrevalencePriorProfile::Fixed { probability },
+            Self::Beta => rsx_core::bayes_profile::PrevalencePriorProfile::Beta { alpha, beta },
+        }
+    }
+}
+
 #[derive(Args, Clone, Debug)]
 struct BayesModelArgs {
     /// Prior probability that a marker is sex-linked
@@ -51,6 +72,30 @@ struct BayesModelArgs {
     /// Mixture weight assigned to the group-1-linked direction
     #[arg(long = "group1-linked-weight", default_value = "0.5")]
     group1_linked_weight: f64,
+    /// Posterior prevalence family for the linked group
+    #[arg(long = "posterior-linked-family", value_enum, default_value = "fixed")]
+    posterior_linked_family: PosteriorFamily,
+    /// Fixed linked-group prevalence used by the posterior model
+    #[arg(long = "posterior-linked-probability")]
+    posterior_linked_probability: Option<f64>,
+    /// Alpha shape for a Beta linked-group posterior prevalence
+    #[arg(long = "posterior-linked-alpha", default_value = "1.0")]
+    posterior_linked_alpha: f64,
+    /// Beta shape for a Beta linked-group posterior prevalence
+    #[arg(long = "posterior-linked-beta", default_value = "1.0")]
+    posterior_linked_beta: f64,
+    /// Posterior prevalence family for the shared null
+    #[arg(long = "posterior-null-family", value_enum, default_value = "fixed")]
+    posterior_null_family: PosteriorFamily,
+    /// Fixed prevalence used by the posterior null model
+    #[arg(long = "posterior-null-probability")]
+    posterior_null_probability: Option<f64>,
+    /// Alpha shape for a Beta posterior null prevalence
+    #[arg(long = "posterior-null-alpha", default_value = "1.0")]
+    posterior_null_alpha: f64,
+    /// Beta shape for a Beta posterior null prevalence
+    #[arg(long = "posterior-null-beta", default_value = "1.0")]
+    posterior_null_beta: f64,
     /// Alpha shape for group 1 under the separate-prevalence hypothesis
     #[arg(long = "bf-group1-alpha", default_value = "1.0")]
     bf_group1_alpha: f64,
@@ -73,13 +118,29 @@ struct BayesModelArgs {
 
 impl BayesModelArgs {
     fn to_profile(&self) -> rsx_core::bayes_profile::ModelProfile {
-        use rsx_core::bayes_profile::{BayesFactorProfile, BetaPriorProfile, ModelProfile};
+        use rsx_core::bayes_profile::{
+            BayesFactorProfile, BetaPriorProfile, ModelProfile, PosteriorProfile,
+        };
 
         ModelProfile {
             linkage_prior: self.linkage_prior,
             linked_prevalence: self.linked_prevalence,
             null_prevalence: self.null_prevalence,
             group1_linked_weight: self.group1_linked_weight,
+            posterior: Some(PosteriorProfile {
+                linked: self.posterior_linked_family.to_profile(
+                    self.posterior_linked_probability
+                        .unwrap_or(self.linked_prevalence),
+                    self.posterior_linked_alpha,
+                    self.posterior_linked_beta,
+                ),
+                null: self.posterior_null_family.to_profile(
+                    self.posterior_null_probability
+                        .unwrap_or(self.null_prevalence),
+                    self.posterior_null_alpha,
+                    self.posterior_null_beta,
+                ),
+            }),
             bayes_factor: BayesFactorProfile {
                 alternative_group1: BetaPriorProfile {
                     alpha: self.bf_group1_alpha,

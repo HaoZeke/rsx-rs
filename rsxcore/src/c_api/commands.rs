@@ -38,13 +38,16 @@ fn directional_model(
     bf_null_alpha: f64,
     bf_null_beta: f64,
 ) -> Result<crate::stats::DirectionalModel, rsx_status_t> {
-    use crate::bayes_profile::{BayesFactorProfile, BetaPriorProfile, ModelProfile};
+    use crate::bayes_profile::{
+        BayesFactorProfile, BetaPriorProfile, ModelProfile, PosteriorProfile,
+    };
 
     ModelProfile {
         linkage_prior,
         linked_prevalence,
         null_prevalence,
         group1_linked_weight,
+        posterior: Some(PosteriorProfile::fixed(linked_prevalence, null_prevalence)),
         bayes_factor: BayesFactorProfile {
             alternative_group1: BetaPriorProfile {
                 alpha: bf_group1_alpha,

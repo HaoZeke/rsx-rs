@@ -9,7 +9,9 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::stats::{BayesFactorModel, BetaPrior, DirectionalModel};
+use crate::stats::{
+    BayesFactorModel, BetaPrior, DirectionalModel, PosteriorModel, PrevalencePrior,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -73,6 +75,8 @@ pub struct ModelProfile {
     pub linked_prevalence: f64,
     pub null_prevalence: f64,
     pub group1_linked_weight: f64,
+    #[serde(default)]
+    pub posterior: Option<PosteriorProfile>,
     #[serde(default = "BayesFactorProfile::uniform_v1")]
     pub bayes_factor: BayesFactorProfile,
 }
@@ -126,12 +130,67 @@ impl BayesFactorProfile {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "family", rename_all = "kebab-case")]
+pub enum PrevalencePriorProfile {
+    Fixed { probability: f64 },
+    Beta { alpha: f64, beta: f64 },
+}
+
+impl PrevalencePriorProfile {
+    const fn to_runtime(self) -> PrevalencePrior {
+        match self {
+            Self::Fixed { probability } => PrevalencePrior::Fixed { probability },
+            Self::Beta { alpha, beta } => PrevalencePrior::Beta(BetaPrior { alpha, beta }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PosteriorProfile {
+    pub linked: PrevalencePriorProfile,
+    pub null: PrevalencePriorProfile,
+}
+
+impl PosteriorProfile {
+    pub const fn fixed(linked_probability: f64, null_probability: f64) -> Self {
+        Self {
+            linked: PrevalencePriorProfile::Fixed {
+                probability: linked_probability,
+            },
+            null: PrevalencePriorProfile::Fixed {
+                probability: null_probability,
+            },
+        }
+    }
+
+    const fn to_runtime(self) -> PosteriorModel {
+        PosteriorModel {
+            linked: self.linked.to_runtime(),
+            null: self.null.to_runtime(),
+        }
+    }
+}
+
 impl ModelProfile {
     pub fn to_runtime(&self) -> Result<DirectionalModel, ProfileError> {
         probability("model.linkage_prior", self.linkage_prior)?;
         probability("model.linked_prevalence", self.linked_prevalence)?;
         probability("model.null_prevalence", self.null_prevalence)?;
         probability("model.group1_linked_weight", self.group1_linked_weight)?;
+        let posterior = self
+            .posterior
+            .unwrap_or_else(|| {
+                PosteriorProfile::fixed(self.linked_prevalence, self.null_prevalence)
+            })
+            .to_runtime();
+        posterior
+            .validate()
+            .map_err(|error| ProfileError::InvalidValue {
+                field: "model.posterior",
+                reason: error.to_string(),
+            })?;
         let bayes_factor = self.bayes_factor.to_runtime();
         bayes_factor
             .validate()
@@ -144,6 +203,7 @@ impl ModelProfile {
             linked_prevalence: self.linked_prevalence,
             null_prevalence: self.null_prevalence,
             group1_linked_weight: self.group1_linked_weight,
+            posterior,
             bayes_factor,
         })
     }
@@ -358,6 +418,14 @@ fn input_sources() -> BTreeMap<String, ParameterSource> {
         "model.linked_prevalence",
         "model.null_prevalence",
         "model.group1_linked_weight",
+        "model.posterior.linked.family",
+        "model.posterior.linked.probability",
+        "model.posterior.linked.alpha",
+        "model.posterior.linked.beta",
+        "model.posterior.null.family",
+        "model.posterior.null.probability",
+        "model.posterior.null.alpha",
+        "model.posterior.null.beta",
         "model.bayes_factor.alternative_group1.alpha",
         "model.bayes_factor.alternative_group1.beta",
         "model.bayes_factor.alternative_group2.alpha",

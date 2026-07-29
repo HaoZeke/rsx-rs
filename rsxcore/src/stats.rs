@@ -495,6 +495,47 @@ impl BayesFactorModel {
     }
 }
 
+/// Prior for a marker prevalence used in posterior model evidence.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PrevalencePrior {
+    Fixed { probability: f64 },
+    Beta(BetaPrior),
+}
+
+impl PrevalencePrior {
+    fn validate(&self, prefix: &str) -> Result<(), BayesianModelError> {
+        match *self {
+            Self::Fixed { probability } => validate_probability(prefix, probability),
+            Self::Beta(prior) => validate_beta_prior(prefix, prior),
+        }
+    }
+}
+
+/// Prevalence priors for the directional alternative and shared null.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PosteriorModel {
+    pub linked: PrevalencePrior,
+    pub null: PrevalencePrior,
+}
+
+impl PosteriorModel {
+    pub const fn fixed(linked_probability: f64, null_probability: f64) -> Self {
+        Self {
+            linked: PrevalencePrior::Fixed {
+                probability: linked_probability,
+            },
+            null: PrevalencePrior::Fixed {
+                probability: null_probability,
+            },
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), BayesianModelError> {
+        self.linked.validate("posterior.linked")?;
+        self.null.validate("posterior.null")
+    }
+}
+
 /// Invalid parameter or observation in a Bayesian calculation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BayesianModelError {
@@ -530,6 +571,17 @@ fn validate_beta_prior(prefix: &str, prior: BetaPrior) -> Result<(), BayesianMod
         }
     }
     Ok(())
+}
+
+fn validate_probability(prefix: &str, probability: f64) -> Result<(), BayesianModelError> {
+    if probability.is_finite() && probability > 0.0 && probability < 1.0 {
+        Ok(())
+    } else {
+        Err(BayesianModelError {
+            field: format!("{prefix}.probability"),
+            reason: "must be finite and strictly between zero and one",
+        })
+    }
 }
 
 /// Bayes Factor for association in a 2x2 contingency table.
@@ -609,6 +661,7 @@ pub struct DirectionalModel {
     pub linked_prevalence: f64,
     pub null_prevalence: f64,
     pub group1_linked_weight: f64,
+    pub posterior: PosteriorModel,
     pub bayes_factor: BayesFactorModel,
 }
 
@@ -620,6 +673,7 @@ impl DirectionalModel {
             linked_prevalence: 0.9,
             null_prevalence: 0.5,
             group1_linked_weight: 0.5,
+            posterior: PosteriorModel::fixed(0.9, 0.5),
             bayes_factor: BayesFactorModel::uniform_v1(),
         }
     }
@@ -648,6 +702,7 @@ pub fn posterior_sex_linked(
             linked_prevalence: p_sex,
             null_prevalence: 0.5,
             group1_linked_weight: 0.5,
+            posterior: PosteriorModel::fixed(p_sex, 0.5),
             bayes_factor: BayesFactorModel::uniform_v1(),
         },
     )
@@ -661,17 +716,23 @@ pub fn posterior_sex_linked_with_model(
     total_g2: u32,
     model: &DirectionalModel,
 ) -> f64 {
-    let p_sex = model.linked_prevalence;
-    let ll_g1_linked =
-        binom_logpmf(n_g1, total_g1, p_sex) + binom_logpmf(n_g2, total_g2, 1.0 - p_sex);
-    let ll_g2_linked =
-        binom_logpmf(n_g1, total_g1, 1.0 - p_sex) + binom_logpmf(n_g2, total_g2, p_sex);
+    debug_assert!(model.posterior.validate().is_ok());
+    let linked_total = total_g1 + total_g2;
+    let ll_g1_linked = log_prevalence_marginal(
+        n_g1 + (total_g2 - n_g2),
+        linked_total,
+        model.posterior.linked,
+    );
+    let ll_g2_linked = log_prevalence_marginal(
+        (total_g1 - n_g1) + n_g2,
+        linked_total,
+        model.posterior.linked,
+    );
     let ll_linked = logsumexp2(
         ll_g1_linked + model.group1_linked_weight.ln(),
         ll_g2_linked + (1.0 - model.group1_linked_weight).ln(),
     );
-    let ll_null = binom_logpmf(n_g1, total_g1, model.null_prevalence)
-        + binom_logpmf(n_g2, total_g2, model.null_prevalence);
+    let ll_null = log_prevalence_marginal(n_g1 + n_g2, total_g1 + total_g2, model.posterior.null);
 
     let log_odds = ll_linked - ll_null + (model.linkage_prior / (1.0 - model.linkage_prior)).ln();
 
@@ -682,6 +743,15 @@ pub fn posterior_sex_linked_with_model(
         0.0
     } else {
         1.0 / (1.0 + (-log_odds).exp())
+    }
+}
+
+fn log_prevalence_marginal(k: u32, n: u32, prior: PrevalencePrior) -> f64 {
+    match prior {
+        PrevalencePrior::Fixed { probability } => {
+            k as f64 * probability.ln() + (n - k) as f64 * (1.0 - probability).ln()
+        }
+        PrevalencePrior::Beta(prior) => log_beta_binom_with_prior(k, n, prior),
     }
 }
 

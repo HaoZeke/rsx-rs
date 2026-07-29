@@ -269,6 +269,10 @@ fn bayes_model(args: &mut Vec<OsString>, model: &rsx_core::bayes_profile::ModelP
     number(args, "--linked-probability", model.linked_prevalence);
     number(args, "--null-prevalence", model.null_prevalence);
     number(args, "--group1-linked-weight", model.group1_linked_weight);
+    if let Some(posterior) = model.posterior {
+        posterior_prior(args, "linked", posterior.linked);
+        posterior_prior(args, "null", posterior.null);
+    }
     number(
         args,
         "--bf-group1-alpha",
@@ -291,4 +295,28 @@ fn bayes_model(args: &mut Vec<OsString>, model: &rsx_core::bayes_profile::ModelP
     );
     number(args, "--bf-null-alpha", model.bayes_factor.null.alpha);
     number(args, "--bf-null-beta", model.bayes_factor.null.beta);
+}
+
+fn posterior_prior(
+    args: &mut Vec<OsString>,
+    role: &str,
+    prior: rsx_core::bayes_profile::PrevalencePriorProfile,
+) {
+    use rsx_core::bayes_profile::PrevalencePriorProfile;
+
+    match prior {
+        PrevalencePriorProfile::Fixed { probability } => {
+            option(args, &format!("--posterior-{role}-family"), "fixed");
+            number(
+                args,
+                &format!("--posterior-{role}-probability"),
+                probability,
+            );
+        }
+        PrevalencePriorProfile::Beta { alpha, beta } => {
+            option(args, &format!("--posterior-{role}-family"), "beta");
+            number(args, &format!("--posterior-{role}-alpha"), alpha);
+            number(args, &format!("--posterior-{role}-beta"), beta);
+        }
+    }
 }
