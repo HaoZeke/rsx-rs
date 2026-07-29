@@ -13,7 +13,13 @@ authors = [
     {name = "Ruhila Goswami", email = "ruhiresearcher209@gmail.com"}
 ]
 requires-python = ">=3.9"
-dependencies = ["click>=8", "narwhals>=1.0", "pyarrow>=14"]
+dependencies = [
+    "click>=8",
+    "narwhals>=1.0",
+    "pydantic>=2,<3",
+    "pyarrow>=14",
+    "tomli>=2; python_version < '3.11'",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
