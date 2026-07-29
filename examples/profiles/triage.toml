@@ -1,0 +1,33 @@
+schema_version = 1
+profile_name = "directional-triage-v1"
+write_hydrated_profile = "triage.hydrated.toml"
+reproducibility_archive = "triage-reproducibility.zip"
+
+[run]
+command = "triage"
+markers_table = "markers.tsv"
+popmap = "popmap.tsv"
+output_file = "triage.tsv"
+min_depth = 5
+groups = ["M", "F"]
+signif_threshold = 0.05
+posterior_threshold = 0.9
+bayes_factor_threshold = 10.0
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
+
+[run.bayes_model.bayes_factor.alternative_group1]
+alpha = 1.0
+beta = 1.0
+
+[run.bayes_model.bayes_factor.alternative_group2]
+alpha = 1.0
+beta = 1.0
+
+[run.bayes_model.bayes_factor.null]
+alpha = 1.0
+beta = 1.0

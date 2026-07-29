@@ -48,7 +48,8 @@ pixi run build
 pip install pyrsx
 ```
 
-See the [Python README](rsx-python/README.md) for the high-level `MarkerTable`, `TriageResult`, narwhals, and plotting APIs.
+See the [Python README](rsx-python/README.md) for the `MarkerTable`,
+`TriageResult`, narwhals, and plotting APIs.
 
 ## 30-second quickstart
 
@@ -68,29 +69,55 @@ target/release/rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv \
 cargo run -p rsxcore --release --example benchmark_compute_backends \
   --features cuda -- 1000,10000,100000,1000000,10000000 5
 
-# Python (high-level)
+# Python
 import pyrsx
 pyrsx.process("reads/", "markers.tsv", threads=8, min_depth=5)
 pyrsx.signif("markers.tsv", "popmap.tsv", "signif.tsv", test="fisher", correction="fdr", bayes=True)
 tbl = pyrsx.MarkerTable.from_path("markers.tsv")
-...
+tbl.summary()
 ```
 
 Full pipeline, memory guarantees, and all 10 commands (including new `merge`, `pca`, `triage`) are documented at https://rsx.rgoswami.me .
 
+## Versioned run profiles
+
+Every analysis argument fits in a strict, schema-versioned Tom's Obvious
+Minimal Language (TOML) profile. Explicit command-line values override the
+profile. The resolved profile records the values that the calculation
+receives.
+
+```bash
+rsx --profile examples/profiles/triage.toml \
+  --write-hydrated-profile triage.hydrated.toml \
+  --reproducibility-archive triage-reproducibility.zip
+```
+
+The hydrated TOML includes compatibility defaults such as all
+Bayesian prior shapes and the depth streaming policy. For example, `depth`
+accepts `--streaming-mode auto|memory|streaming` and
+`--streaming-threshold-bytes`; both values are preserved in a hydrated
+profile.
+
+rsx creates the reproducibility ZIP before input validation or analysis.
+A failed invocation therefore retains its resolved configuration whenever
+profile resolution succeeds. The ZIP contains the input and hydrated TOML,
+executable, lockfile, build and run manifests, JSON Schema, CycloneDX
+software bill of materials, citation and license files, and checksums. It
+omits analysis results and input datasets.
+
 ## Features
 
 - All original RADSex commands + `merge` (external sort for 75M+ markers, ~500 MB RAM), `pca` (streaming sample-space / Tucker mode-2 factors), `triage` (Bayes + strict candidate ranking).
-- Bounded-memory streaming for the default analysis paths (Bonferroni `signif`, `distrib`, `freq`, `triage`, streaming `pca` / `merge`). Exceptions: FDR `signif` stores O(n_markers) p-values for BH correction then re-streams; non-streaming `depth` on tables under 2 GB can hold per-individual depth vectors. See the [quickstart memory table](https://rsx.rgoswami.me/tutorials/quickstart.html).
-- 2-6x+ faster than C++ RADSex on literature panels (byte-identical output when groups specified).
+- Bounded-memory streaming for the default analysis paths (Bonferroni `signif`, `distrib`, `freq`, `triage`, streaming `pca` / `merge`). Exceptions: FDR `signif` stores O(n_markers) p-values for BH correction then re-streams; `depth` can use a configurable automatic threshold, forced memory mode, or forced streaming mode. See the [quickstart memory table](https://rsx.rgoswami.me/tutorials/quickstart.html).
+- More than twofold faster than C++ RADSex on literature panels, with matching output when groups are specified.
 - Python (`pyrsx`), R (`rsxr`), and C (`rsx.h` / cargo-c) bindings over the shared core.
 - Optional: NVIDIA CUDA chi-square batches for `signif`, parquet I/O, MPI,
-  and minimap2 mapping (feature-gated for Windows). CUDA selection is explicit;
+  and minimap2 mapping (controlled by feature flags on Windows). CUDA selection is explicit;
   unsupported tests and builds without the `cuda` feature return an error. The
   CUDA path transfers count pairs directly, retains the compiled kernel, and
   reuses the largest page-locked result buffer within a process. Metrics keep
   first-batch setup separate from transfers and kernel execution.
-- Reproducible: pixi environments, ASV + literature benchmark harness, SymPy/Sollya proofs for the math.
+- Reproducible: pixi environments, an Airspeed Velocity literature benchmark suite, and SymPy/Sollya proofs for the math.
 
 ## Documentation
 
