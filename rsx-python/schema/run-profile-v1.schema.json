@@ -17,6 +17,34 @@
       "title": "BayesFactorProfile",
       "type": "object"
     },
+    "BetaPrevalencePriorProfile": {
+      "additionalProperties": false,
+      "description": "A Beta prior integrated over marker prevalence.",
+      "properties": {
+        "alpha": {
+          "exclusiveMinimum": 0.0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "beta": {
+          "exclusiveMinimum": 0.0,
+          "title": "Beta",
+          "type": "number"
+        },
+        "family": {
+          "const": "beta",
+          "title": "Family",
+          "type": "string"
+        }
+      },
+      "required": [
+        "family",
+        "alpha",
+        "beta"
+      ],
+      "title": "BetaPrevalencePriorProfile",
+      "type": "object"
+    },
     "BetaPriorProfile": {
       "additionalProperties": false,
       "description": "Positive shape parameters for a Beta distribution.",
@@ -119,6 +147,17 @@
           "exclusiveMinimum": 0.0,
           "title": "Null Prevalence",
           "type": "number"
+        },
+        "posterior": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PosteriorProfile"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -211,6 +250,29 @@
         "bayes_model"
       ],
       "title": "DistribProfile",
+      "type": "object"
+    },
+    "FixedPrevalencePriorProfile": {
+      "additionalProperties": false,
+      "description": "A fixed marker-prevalence probability.",
+      "properties": {
+        "family": {
+          "const": "fixed",
+          "title": "Family",
+          "type": "string"
+        },
+        "probability": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Probability",
+          "type": "number"
+        }
+      },
+      "required": [
+        "family",
+        "probability"
+      ],
+      "title": "FixedPrevalencePriorProfile",
       "type": "object"
     },
     "FreqProfile": {
@@ -411,6 +473,41 @@
       ],
       "title": "PcaProfile",
       "type": "object"
+    },
+    "PosteriorProfile": {
+      "additionalProperties": false,
+      "description": "Prevalence models for linked and null posterior hypotheses.",
+      "properties": {
+        "linked": {
+          "$ref": "#/$defs/PrevalencePriorProfile"
+        },
+        "null": {
+          "$ref": "#/$defs/PrevalencePriorProfile"
+        }
+      },
+      "required": [
+        "linked",
+        "null"
+      ],
+      "title": "PosteriorProfile",
+      "type": "object"
+    },
+    "PrevalencePriorProfile": {
+      "discriminator": {
+        "mapping": {
+          "beta": "#/$defs/BetaPrevalencePriorProfile",
+          "fixed": "#/$defs/FixedPrevalencePriorProfile"
+        },
+        "propertyName": "family"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FixedPrevalencePriorProfile"
+        },
+        {
+          "$ref": "#/$defs/BetaPrevalencePriorProfile"
+        }
+      ]
     },
     "ProcessProfile": {
       "additionalProperties": false,
