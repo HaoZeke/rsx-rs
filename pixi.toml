@@ -107,6 +107,21 @@ compilers = ">=1.8"
 [feature.mpi.tasks]
 build-mpi = { cmd = "MPICC=$CONDA_PREFIX/bin/mpicc CC=$CONDA_PREFIX/bin/mpicc C_INCLUDE_PATH=$CONDA_PREFIX/include LIBRARY_PATH=$CONDA_PREFIX/lib RUSTFLAGS='-C target-cpu=native' cargo build --release --features mpi" }
 
+[feature.cuda]
+platforms = ["linux-64"]
+
+[feature.cuda.dependencies]
+# cudarc compiles the embedded CUDA C kernel through NVRTC at runtime.
+cuda-nvrtc = "12.2.*"
+
+[feature.cuda.activation.env]
+RUSTFLAGS = ""
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+
+[feature.cuda.tasks]
+test-cuda = { cmd = "cargo test -p rsxcore --features cuda --test test_compute_backend && cargo test -p rsxcore --features cuda commands::signif::tests::signif_cuda_matches_cpu_output" }
+benchmark-cuda = { cmd = "cargo run --release -p rsxcore --features cuda --example benchmark_compute_backends -- 100000,1000000,10000000,50000000 5" }
+
 [feature.benchmark]
 platforms = ["linux-64"]
 channels = ["bioconda"]
@@ -156,3 +171,4 @@ benchmark = { features = ["benchmark"], solve-group = "default" }
 python = { features = ["python"], solve-group = "default" }
 paper = { features = ["benchmark", "python"], solve-group = "default" }
 mpi = { features = ["dev", "mpi"], solve-group = "default" }
+cuda = { features = ["dev", "cuda"], solve-group = "cuda" }
