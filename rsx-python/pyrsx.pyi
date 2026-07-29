@@ -175,6 +175,11 @@ def distrib(
     group2: str = "",
     correction: str = "bonferroni",
     test: str = "chisq",
+    bayes: bool = False,
+    prior_probability: float = 0.01,
+    linked_probability: float = 0.9,
+    null_prevalence: float = 0.5,
+    group1_linked_weight: float = 0.5,
 ) -> None:
     """Compute marker distribution between two groups.
 
@@ -188,6 +193,11 @@ def distrib(
         group2: Name of second group.
         correction: Multiple testing correction: "bonferroni", "fdr", "none".
         test: Statistical test: "chisq", "fisher", "gtest".
+        bayes: Add Bayes factor and posterior columns.
+        prior_probability: Prior probability that a marker is sex-linked.
+        linked_probability: Expected prevalence in the linked group.
+        null_prevalence: Expected prevalence under the null model.
+        group1_linked_weight: Mixture weight for the group-1-linked direction.
     """
     ...
 
@@ -203,6 +213,10 @@ def signif(
     test: str = "chisq",
     output_fasta: bool = False,
     bayes: bool = False,
+    prior_probability: float = 0.01,
+    linked_probability: float = 0.9,
+    null_prevalence: float = 0.5,
+    group1_linked_weight: float = 0.5,
 ) -> None:
     """Extract markers significantly associated with a group.
 
@@ -218,6 +232,10 @@ def signif(
         test: Test method: "chisq", "fisher", "gtest".
         output_fasta: If True, output FASTA instead of table.
         bayes: If True, add Bayes Factor and posterior columns.
+        prior_probability: Prior probability that a marker is sex-linked.
+        linked_probability: Expected prevalence in the linked group.
+        null_prevalence: Expected prevalence under the null model.
+        group1_linked_weight: Mixture weight for the group-1-linked direction.
     """
     ...
 
@@ -231,6 +249,8 @@ def triage(
     bayes_factor_threshold: float = 10.0,
     prior_probability: float = 0.01,
     linked_probability: float = 0.9,
+    null_prevalence: float = 0.5,
+    group1_linked_weight: float = 0.5,
     group1: str = "",
     group2: str = "",
 ) -> None:
@@ -246,6 +266,8 @@ def triage(
         bayes_factor_threshold: Bayes factor threshold.
         prior_probability: Prior probability that a marker is sex-linked.
         linked_probability: Expected marker prevalence in the linked sex.
+        null_prevalence: Expected marker prevalence under the null model.
+        group1_linked_weight: Mixture weight for the group-1-linked direction.
         group1: Name of first group.
         group2: Name of second group.
     """

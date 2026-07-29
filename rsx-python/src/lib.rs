@@ -49,8 +49,34 @@ use rsx_core::popmap::Popmap;
 use rsx_core::source::MarkerTableSource;
 use tempfile::NamedTempFile;
 
+fn directional_model(
+    linkage_prior: f64,
+    linked_prevalence: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
+) -> PyResult<rsx_core::stats::DirectionalModel> {
+    for (name, value) in [
+        ("prior_probability", linkage_prior),
+        ("linked_probability", linked_prevalence),
+        ("null_prevalence", null_prevalence),
+        ("group1_linked_weight", group1_linked_weight),
+    ] {
+        if !value.is_finite() || value <= 0.0 || value >= 1.0 {
+            return Err(PyrsxError::new_err(format!(
+                "{name} must be finite and strictly between zero and one"
+            )));
+        }
+    }
+    Ok(rsx_core::stats::DirectionalModel {
+        linkage_prior,
+        linked_prevalence,
+        null_prevalence,
+        group1_linked_weight,
+    })
+}
+
 // --------------------------------------------------------------------------- //
-// Path-based low-level wrappers (unchanged surface)
+// Path-based low-level wrappers.
 // --------------------------------------------------------------------------- //
 
 /// Process demultiplexed reads into a marker depth table.
@@ -78,7 +104,7 @@ fn process(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq"))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
 #[allow(clippy::too_many_arguments)]
 fn distrib(
     table_path: &str,
@@ -90,6 +116,11 @@ fn distrib(
     group2: &str,
     correction: &str,
     test: &str,
+    bayes: bool,
+    prior_probability: f64,
+    linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
         .map_err(PyrsxError::new_err)?;
@@ -103,8 +134,13 @@ fn distrib(
         signif_threshold,
         correction: corr,
         test_method: tm,
-        output_bayes: false,
-        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
+        output_bayes: bayes,
+        bayes_model: directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
@@ -112,7 +148,7 @@ fn distrib(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
 #[allow(clippy::too_many_arguments)]
 fn signif(
     table_path: &str,
@@ -126,6 +162,10 @@ fn signif(
     test: &str,
     output_fasta: bool,
     bayes: bool,
+    prior_probability: f64,
+    linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
         .map_err(PyrsxError::new_err)?;
@@ -143,7 +183,12 @@ fn signif(
                 test_method: tm,
                 output_fasta,
                 output_bayes: bayes,
-                bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
+                bayes_model: directional_model(
+                    prior_probability,
+                    linked_probability,
+                    null_prevalence,
+                    group1_linked_weight,
+                )?,
                 group1: group1.to_string(),
                 group2: group2.to_string(),
             })
@@ -153,7 +198,7 @@ fn signif(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, posterior_threshold=0.9, bayes_factor_threshold=10.0, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, posterior_threshold=0.9, bayes_factor_threshold=10.0, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]
 fn triage(
     table_path: &str,
@@ -165,6 +210,8 @@ fn triage(
     bayes_factor_threshold: f64,
     prior_probability: f64,
     linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
     group1: &str,
     group2: &str,
 ) -> PyResult<()> {
@@ -176,12 +223,12 @@ fn triage(
         signif_threshold,
         posterior_threshold,
         bayes_factor_threshold,
-        bayes_model: rsx_core::stats::DirectionalModel {
-            linkage_prior: prior_probability,
-            linked_prevalence: linked_probability,
-            null_prevalence: 0.5,
-            group1_linked_weight: 0.5,
-        },
+        bayes_model: directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
@@ -479,11 +526,11 @@ fn ipc_bytes_to_pyarrow_tables(py: Python<'_>, bytes: &[u8]) -> PyResult<Vec<PyO
 }
 
 // --------------------------------------------------------------------------- //
-// Arrow entry points keyed on a TSV path (unchanged surface).
+// Arrow entry points keyed on a TSV path.
 // --------------------------------------------------------------------------- //
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
+#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow(
     py: Python<'_>,
@@ -493,6 +540,8 @@ fn triage_to_arrow(
     posterior_threshold: f64,
     prior_probability: f64,
     linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
     group1: &str,
     group2: &str,
 ) -> PyResult<PyObject> {
@@ -504,12 +553,12 @@ fn triage_to_arrow(
         signif_threshold: 0.05,
         posterior_threshold,
         bayes_factor_threshold: 10.0,
-        bayes_model: rsx_core::stats::DirectionalModel {
-            linkage_prior: prior_probability,
-            linked_prevalence: linked_probability,
-            null_prevalence: 0.5,
-            group1_linked_weight: 0.5,
-        },
+        bayes_model: directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -572,7 +621,7 @@ mod cmd_overhead {
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, group1="", group2=""))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow_from_arrow(
     py: Python<'_>,
@@ -582,6 +631,8 @@ fn triage_to_arrow_from_arrow(
     posterior_threshold: f64,
     prior_probability: f64,
     linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
     group1: &str,
     group2: &str,
 ) -> PyResult<PyObject> {
@@ -602,12 +653,12 @@ fn triage_to_arrow_from_arrow(
         signif_threshold: 0.05,
         posterior_threshold,
         bayes_factor_threshold: 10.0,
-        bayes_model: rsx_core::stats::DirectionalModel {
-            linkage_prior: prior_probability,
-            linked_prevalence: linked_probability,
-            null_prevalence: 0.5,
-            group1_linked_weight: 0.5,
-        },
+        bayes_model: directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -729,7 +780,7 @@ fn depth_from_arrow(
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq"))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
 #[allow(clippy::too_many_arguments)]
 fn distrib_from_arrow(
     py: Python<'_>,
@@ -741,6 +792,11 @@ fn distrib_from_arrow(
     group2: &str,
     correction: &str,
     test: &str,
+    bayes: bool,
+    prior_probability: f64,
+    linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
     let source = MarkerTableSource::from_arrow_ipc(
@@ -767,8 +823,13 @@ fn distrib_from_arrow(
         signif_threshold,
         correction: corr,
         test_method: tm,
-        output_bayes: false,
-        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
+        output_bayes: bayes,
+        bayes_model: directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -781,7 +842,7 @@ fn distrib_from_arrow(
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
 #[allow(clippy::too_many_arguments)]
 fn signif_from_arrow(
     py: Python<'_>,
@@ -795,6 +856,10 @@ fn signif_from_arrow(
     test: &str,
     output_fasta: bool,
     bayes: bool,
+    prior_probability: f64,
+    linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
     let source = MarkerTableSource::from_arrow_ipc(
@@ -823,7 +888,12 @@ fn signif_from_arrow(
         test_method: tm,
         output_fasta,
         output_bayes: bayes,
-        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
+        bayes_model: directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
