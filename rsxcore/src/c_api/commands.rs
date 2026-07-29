@@ -31,26 +31,39 @@ fn directional_model(
     linked_prevalence: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> Result<crate::stats::DirectionalModel, rsx_status_t> {
-    for (name, value) in [
-        ("prior_probability", linkage_prior),
-        ("linked_probability", linked_prevalence),
-        ("null_prevalence", null_prevalence),
-        ("group1_linked_weight", group1_linked_weight),
-    ] {
-        if !value.is_finite() || value <= 0.0 || value >= 1.0 {
-            set_last_error(&format!(
-                "{name} must be finite and strictly between zero and one"
-            ));
-            return Err(rsx_status_t::RSX_INVALID_PARAMETER);
-        }
-    }
-    Ok(crate::stats::DirectionalModel {
+    use crate::bayes_profile::{BayesFactorProfile, BetaPriorProfile, ModelProfile};
+
+    ModelProfile {
         linkage_prior,
         linked_prevalence,
         null_prevalence,
         group1_linked_weight,
-        ..crate::stats::DirectionalModel::directional_screening_v1()
+        bayes_factor: BayesFactorProfile {
+            alternative_group1: BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            alternative_group2: BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            null: BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+        },
+    }
+    .to_runtime()
+    .map_err(|error| {
+        set_last_error(&error.to_string());
+        rsx_status_t::RSX_INVALID_PARAMETER
     })
 }
 
@@ -169,6 +182,12 @@ pub unsafe extern "C" fn rsx_distrib(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> rsx_status_t {
     catch_unwind(|| {
         let table_path = match unsafe { cstr_to_string(table_path, "table_path") } {
@@ -204,6 +223,12 @@ pub unsafe extern "C" fn rsx_distrib(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         ) {
             Ok(model) => model,
             Err(error) => return error,
@@ -255,6 +280,12 @@ pub unsafe extern "C" fn rsx_signif(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> rsx_status_t {
     catch_unwind(|| {
         let table_path = match unsafe { cstr_to_string(table_path, "table_path") } {
@@ -290,6 +321,12 @@ pub unsafe extern "C" fn rsx_signif(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         ) {
             Ok(model) => model,
             Err(error) => return error,
@@ -338,6 +375,12 @@ pub unsafe extern "C" fn rsx_triage(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
     group1: *const c_char,
     group2: *const c_char,
 ) -> rsx_status_t {
@@ -376,6 +419,12 @@ pub unsafe extern "C" fn rsx_triage(
                 linked_probability,
                 null_prevalence,
                 group1_linked_weight,
+                bf_group1_alpha,
+                bf_group1_beta,
+                bf_group2_alpha,
+                bf_group2_beta,
+                bf_null_alpha,
+                bf_null_beta,
             ) {
                 Ok(model) => model,
                 Err(error) => return error,
