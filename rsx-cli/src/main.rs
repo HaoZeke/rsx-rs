@@ -3,16 +3,30 @@
 
 //! CLI for RADSex: sex-determination analysis from RAD-Sequencing data.
 
+use std::ffi::OsString;
+
 use clap::{Parser, Subcommand};
 use rsx_core::commands;
+
+mod profile_args;
 
 #[derive(Parser)]
 #[command(
     name = "rsx",
     about = "rsx: sex-determination from RAD-seq data",
-    version
+    version,
+    args_override_self = true
 )]
 struct Cli {
+    /// Versioned TOML profile supplying a complete command invocation
+    #[arg(long, global = true)]
+    profile: Option<String>,
+    /// Write the fully resolved invocation before analysis
+    #[arg(long, global = true)]
+    write_hydrated_profile: Option<String>,
+    /// Write a software reproducibility bundle before analysis
+    #[arg(long, global = true)]
+    reproducibility_archive: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -319,7 +333,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(0);
     }
 
-    let cli = Cli::parse();
+    let cli = parse_cli_from(std::env::args_os())?;
 
     let result: Result<(), Box<dyn std::error::Error>> = match cli.command {
         Commands::Process {
@@ -595,6 +609,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     result
+}
+
+fn parse_cli_from<I>(arguments: I) -> Result<Cli, Box<dyn std::error::Error>>
+where
+    I: IntoIterator<Item = OsString>,
+{
+    let expanded = profile_args::expand_profile_args(arguments)?;
+    Ok(Cli::try_parse_from(expanded)?)
 }
 
 fn main() {
