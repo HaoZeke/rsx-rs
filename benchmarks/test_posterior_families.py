@@ -9,6 +9,7 @@ from benchmarks.analyze_bayesian_evidence import (
     posterior_sex_linked_with_model,
 )
 from benchmarks.analyze_posterior_families import analyze_profiles, read_profiles
+from benchmarks.plot_posterior_families import prepare_plot_rows
 
 
 class PosteriorFamilyTests(unittest.TestCase):
@@ -97,6 +98,29 @@ class PosteriorFamilyTests(unittest.TestCase):
         self.assertEqual(rows[0]["threshold"], 0.9)
         self.assertEqual(rows[1]["linked_family"], "beta")
         self.assertEqual(rows[1]["source_table"], "published_panel/distrib_10.tsv")
+
+    def test_plot_rows_expose_family_and_zero_marker_profiles(self):
+        rows = prepare_plot_rows(
+            [
+                {
+                    "dataset": "danio_albolineatus",
+                    "profile": "fixed-default",
+                    "linked_family": "fixed",
+                    "markers_posterior_gt_threshold": 30,
+                },
+                {
+                    "dataset": "danio_albolineatus",
+                    "profile": "beta-symmetric",
+                    "linked_family": "beta",
+                    "markers_posterior_gt_threshold": 0,
+                },
+            ]
+        )
+
+        self.assertEqual(rows.loc[0, "dataset_label"], "D. albolineatus")
+        self.assertEqual(rows.loc[1, "plot_count"], 1)
+        self.assertEqual(rows.loc[1, "count_label"], "0")
+        self.assertEqual(rows.loc[1, "family_label"], "Beta integrated")
 
 
 if __name__ == "__main__":
