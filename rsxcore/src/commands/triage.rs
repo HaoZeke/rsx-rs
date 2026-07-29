@@ -69,6 +69,67 @@ fn candidate_class(
     }
 }
 
+#[derive(Clone)]
+struct TriageRow {
+    id: String,
+    sequence: String,
+    group1: String,
+    group1_present: u32,
+    group1_total: u32,
+    group1_penetrance: f64,
+    group2: String,
+    group2_present: u32,
+    group2_total: u32,
+    group2_penetrance: f64,
+    bias_direction: String,
+    bias: f64,
+    p: f64,
+    corrected_p: f64,
+    bayes_factor: f64,
+    posterior: f64,
+    strict_call: bool,
+    posterior_call: bool,
+    bayes_factor_call: bool,
+    class: &'static str,
+}
+
+impl TriageRow {
+    fn is_more_informative_than(&self, other: &Self) -> bool {
+        self.posterior
+            .total_cmp(&other.posterior)
+            .then_with(|| self.bayes_factor.total_cmp(&other.bayes_factor))
+            .then_with(|| other.p.total_cmp(&self.p))
+            .is_gt()
+    }
+}
+
+fn write_row<W: Write>(output: &mut W, row: &TriageRow) -> std::io::Result<()> {
+    writeln!(
+        output,
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        row.id,
+        row.sequence,
+        row.group1,
+        row.group1_present,
+        row.group1_total,
+        Cg(row.group1_penetrance),
+        row.group2,
+        row.group2_present,
+        row.group2_total,
+        Cg(row.group2_penetrance),
+        row.bias_direction,
+        Cg(row.bias),
+        Cg(row.p),
+        Cg(row.corrected_p),
+        Cg(row.bayes_factor),
+        Cg(row.posterior),
+        row.strict_call,
+        row.posterior_call,
+        row.bayes_factor_call,
+        row.class
+    )
+}
+
 pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
@@ -126,6 +187,8 @@ pub fn run_with_source<S: MarkerStream>(
     )?;
 
     let mut write_err: Option<std::io::Error> = None;
+    let mut called_rows = 0_u64;
+    let mut best_exploratory: Option<TriageRow> = None;
     source.for_each(|marker| {
         if write_err.is_some() || marker.n_individuals == 0 {
             return;
@@ -147,10 +210,6 @@ pub fn run_with_source<S: MarkerStream>(
             stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &params.bayes_model);
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
-        if !(strict_call || posterior_call || bayes_factor_call) {
-            return;
-        }
-
         let g1_penetrance = penetrance(g1, total_g1);
         let g2_penetrance = penetrance(g2, total_g2);
         let bias = stats::group_bias(g1, total_g1, g2, total_g2);
@@ -158,35 +217,51 @@ pub fn run_with_source<S: MarkerStream>(
         let direction =
             bias_direction(&groups.group1, &groups.group2, g1_penetrance, g2_penetrance);
 
-        if let Err(e) = writeln!(
-            output,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            marker.id,
-            marker.sequence,
-            groups.group1,
-            g1,
-            total_g1,
-            Cg(g1_penetrance),
-            groups.group2,
-            g2,
-            total_g2,
-            Cg(g2_penetrance),
-            direction,
-            Cg(bias),
-            Cg(p),
-            Cg(p_corrected),
-            Cg(bf),
-            Cg(posterior),
+        let row = TriageRow {
+            id: marker.id.clone(),
+            sequence: marker.sequence.clone(),
+            group1: groups.group1.clone(),
+            group1_present: g1,
+            group1_total: total_g1,
+            group1_penetrance: g1_penetrance,
+            group2: groups.group2.clone(),
+            group2_present: g2,
+            group2_total: total_g2,
+            group2_penetrance: g2_penetrance,
+            bias_direction: direction,
+            bias,
+            p,
+            corrected_p: p_corrected,
+            bayes_factor: bf,
+            posterior,
             strict_call,
             posterior_call,
             bayes_factor_call,
-            class
-        ) {
+            class,
+        };
+
+        if !(strict_call || posterior_call || bayes_factor_call) {
+            if best_exploratory
+                .as_ref()
+                .is_none_or(|best| row.is_more_informative_than(best))
+            {
+                best_exploratory = Some(row);
+            }
+            return;
+        }
+
+        called_rows += 1;
+        if let Err(e) = write_row(&mut output, &row) {
             write_err = Some(e);
         }
     })?;
     if let Some(e) = write_err {
         return Err(e.into());
+    }
+    if called_rows == 0
+        && let Some(row) = best_exploratory
+    {
+        write_row(&mut output, &row)?;
     }
 
     Ok(())
@@ -285,6 +360,32 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
     let mut bfcall_b = BooleanBuilder::with_capacity(cap);
     let mut class_b = StringBuilder::with_capacity(cap, cap * 16);
 
+    let mut append_row = |row: &TriageRow| {
+        id_b.append_value(&row.id);
+        seq_b.append_value(&row.sequence);
+        g1n_b.append_value(&row.group1);
+        g1p_b.append_value(row.group1_present);
+        g1t_b.append_value(row.group1_total);
+        g1pen_b.append_value(row.group1_penetrance);
+        g2n_b.append_value(&row.group2);
+        g2p_b.append_value(row.group2_present);
+        g2t_b.append_value(row.group2_total);
+        g2pen_b.append_value(row.group2_penetrance);
+        dir_b.append_value(&row.bias_direction);
+        bias_b.append_value(row.bias);
+        p_b.append_value(row.p);
+        cp_b.append_value(row.corrected_p);
+        bf_b.append_value(row.bayes_factor);
+        post_b.append_value(row.posterior);
+        strict_b.append_value(row.strict_call);
+        pcall_b.append_value(row.posterior_call);
+        bfcall_b.append_value(row.bayes_factor_call);
+        class_b.append_value(row.class);
+    };
+
+    let mut called_rows = 0_u64;
+    let mut best_exploratory: Option<TriageRow> = None;
+
     source.for_each(|marker| {
         if marker.n_individuals == 0 {
             return;
@@ -310,37 +411,54 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
 
-        if !(strict_call || posterior_call || bayes_factor_call) {
-            return;
-        }
-
         let g1_pen = penetrance(g1, total_g1);
         let g2_pen = penetrance(g2, total_g2);
         let bias = stats::group_bias(g1, total_g1, g2, total_g2);
         let dir = bias_direction(&groups.group1, &groups.group2, g1_pen, g2_pen);
         let class = candidate_class(strict_call, posterior_call, bayes_factor_call);
 
-        id_b.append_value(marker.id.clone());
-        seq_b.append_value(&marker.sequence);
-        g1n_b.append_value(&g1_name);
-        g1p_b.append_value(g1);
-        g1t_b.append_value(total_g1);
-        g1pen_b.append_value(g1_pen);
-        g2n_b.append_value(&g2_name);
-        g2p_b.append_value(g2);
-        g2t_b.append_value(total_g2);
-        g2pen_b.append_value(g2_pen);
-        dir_b.append_value(&dir);
-        bias_b.append_value(bias);
-        p_b.append_value(p);
-        cp_b.append_value(p_corrected);
-        bf_b.append_value(bf);
-        post_b.append_value(posterior);
-        strict_b.append_value(strict_call);
-        pcall_b.append_value(posterior_call);
-        bfcall_b.append_value(bayes_factor_call);
-        class_b.append_value(class);
+        let row = TriageRow {
+            id: marker.id.clone(),
+            sequence: marker.sequence.clone(),
+            group1: g1_name.clone(),
+            group1_present: g1,
+            group1_total: total_g1,
+            group1_penetrance: g1_pen,
+            group2: g2_name.clone(),
+            group2_present: g2,
+            group2_total: total_g2,
+            group2_penetrance: g2_pen,
+            bias_direction: dir,
+            bias,
+            p,
+            corrected_p: p_corrected,
+            bayes_factor: bf,
+            posterior,
+            strict_call,
+            posterior_call,
+            bayes_factor_call,
+            class,
+        };
+
+        if !(strict_call || posterior_call || bayes_factor_call) {
+            if best_exploratory
+                .as_ref()
+                .is_none_or(|best| row.is_more_informative_than(best))
+            {
+                best_exploratory = Some(row);
+            }
+            return;
+        }
+
+        called_rows += 1;
+        append_row(&row);
     })?;
+
+    if called_rows == 0
+        && let Some(row) = best_exploratory
+    {
+        append_row(&row);
+    }
 
     let batch = RecordBatch::try_new(
         std::sync::Arc::new(schema),
