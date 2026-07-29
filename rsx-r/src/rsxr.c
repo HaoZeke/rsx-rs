@@ -55,9 +55,10 @@ SEXP C_rsx_distrib(SEXP table_path, SEXP popmap_path, SEXP output_file,
                    SEXP bf_group1_alpha, SEXP bf_group1_beta,
                    SEXP bf_group2_alpha, SEXP bf_group2_beta,
                    SEXP bf_null_alpha, SEXP bf_null_beta,
-                   SEXP posterior_linked_family, SEXP posterior_linked_alpha,
+                   SEXP posterior_linked_family, SEXP posterior_linked_probability,
+                   SEXP posterior_linked_alpha,
                    SEXP posterior_linked_beta, SEXP posterior_null_family,
-                   SEXP posterior_null_alpha, SEXP posterior_null_beta) {
+                   SEXP posterior_null_probability, SEXP posterior_null_alpha, SEXP posterior_null_beta) {
   rsx_status_t st = rsx_distrib(
       rsxr_str(table_path, "table_path"),
       rsxr_str(popmap_path, "popmap_path"),
@@ -80,9 +81,11 @@ SEXP C_rsx_distrib(SEXP table_path, SEXP popmap_path, SEXP output_file,
       (double) Rf_asReal(bf_null_alpha),
       (double) Rf_asReal(bf_null_beta),
       rsxr_str(posterior_linked_family, "posterior_linked_family"),
+      (double) Rf_asReal(posterior_linked_probability),
       (double) Rf_asReal(posterior_linked_alpha),
       (double) Rf_asReal(posterior_linked_beta),
       rsxr_str(posterior_null_family, "posterior_null_family"),
+      (double) Rf_asReal(posterior_null_probability),
       (double) Rf_asReal(posterior_null_alpha),
       (double) Rf_asReal(posterior_null_beta));
   rsxr_check(st);
@@ -98,9 +101,10 @@ SEXP C_rsx_signif(SEXP table_path, SEXP popmap_path, SEXP output_file,
                   SEXP bf_group1_beta, SEXP bf_group2_alpha,
                   SEXP bf_group2_beta, SEXP bf_null_alpha,
                   SEXP bf_null_beta, SEXP posterior_linked_family,
+                  SEXP posterior_linked_probability,
                   SEXP posterior_linked_alpha, SEXP posterior_linked_beta,
-                  SEXP posterior_null_family, SEXP posterior_null_alpha,
-                  SEXP posterior_null_beta) {
+                  SEXP posterior_null_family, SEXP posterior_null_probability,
+                  SEXP posterior_null_alpha, SEXP posterior_null_beta) {
   rsx_status_t st = rsx_signif(
       rsxr_str(table_path, "table_path"),
       rsxr_str(popmap_path, "popmap_path"),
@@ -124,9 +128,11 @@ SEXP C_rsx_signif(SEXP table_path, SEXP popmap_path, SEXP output_file,
       (double) Rf_asReal(bf_null_alpha),
       (double) Rf_asReal(bf_null_beta),
       rsxr_str(posterior_linked_family, "posterior_linked_family"),
+      (double) Rf_asReal(posterior_linked_probability),
       (double) Rf_asReal(posterior_linked_alpha),
       (double) Rf_asReal(posterior_linked_beta),
       rsxr_str(posterior_null_family, "posterior_null_family"),
+      (double) Rf_asReal(posterior_null_probability),
       (double) Rf_asReal(posterior_null_alpha),
       (double) Rf_asReal(posterior_null_beta));
   rsxr_check(st);
@@ -141,9 +147,10 @@ SEXP C_rsx_triage(SEXP table_path, SEXP popmap_path, SEXP output_file,
                   SEXP bf_group1_beta, SEXP bf_group2_alpha,
                   SEXP bf_group2_beta, SEXP bf_null_alpha,
                   SEXP bf_null_beta, SEXP group1, SEXP group2,
-                  SEXP posterior_linked_family, SEXP posterior_linked_alpha,
+                  SEXP posterior_linked_family, SEXP posterior_linked_probability,
+                   SEXP posterior_linked_alpha,
                   SEXP posterior_linked_beta, SEXP posterior_null_family,
-                  SEXP posterior_null_alpha, SEXP posterior_null_beta) {
+                  SEXP posterior_null_probability, SEXP posterior_null_alpha, SEXP posterior_null_beta) {
   rsx_status_t st = rsx_triage(
       rsxr_str(table_path, "table_path"),
       rsxr_str(popmap_path, "popmap_path"),
@@ -165,9 +172,11 @@ SEXP C_rsx_triage(SEXP table_path, SEXP popmap_path, SEXP output_file,
       rsxr_str(group1, "group1"),
       rsxr_str(group2, "group2"),
       rsxr_str(posterior_linked_family, "posterior_linked_family"),
+      (double) Rf_asReal(posterior_linked_probability),
       (double) Rf_asReal(posterior_linked_alpha),
       (double) Rf_asReal(posterior_linked_beta),
       rsxr_str(posterior_null_family, "posterior_null_family"),
+      (double) Rf_asReal(posterior_null_probability),
       (double) Rf_asReal(posterior_null_alpha),
       (double) Rf_asReal(posterior_null_beta));
   rsxr_check(st);
@@ -226,9 +235,9 @@ SEXP C_rsx_version(void) {
 static const R_CallMethodDef CallEntries[] = {
     {"C_rsx_process", (DL_FUNC) &C_rsx_process, 4},
     {"C_rsx_freq",    (DL_FUNC) &C_rsx_freq,    3},
-    {"C_rsx_distrib", (DL_FUNC) &C_rsx_distrib, 26},
-    {"C_rsx_signif",  (DL_FUNC) &C_rsx_signif,  27},
-    {"C_rsx_triage",  (DL_FUNC) &C_rsx_triage,  25},
+    {"C_rsx_distrib", (DL_FUNC) &C_rsx_distrib, 28},
+    {"C_rsx_signif",  (DL_FUNC) &C_rsx_signif,  29},
+    {"C_rsx_triage",  (DL_FUNC) &C_rsx_triage,  27},
     {"C_rsx_depth",   (DL_FUNC) &C_rsx_depth,   5},
     {"C_rsx_merge",   (DL_FUNC) &C_rsx_merge,   4},
     {"C_rsx_pca",     (DL_FUNC) &C_rsx_pca,     4},
