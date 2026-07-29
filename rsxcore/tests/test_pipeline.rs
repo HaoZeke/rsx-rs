@@ -407,7 +407,6 @@ fn test_subset_command() {
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
         output_fasta: false,
-        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: String::new(),
         group2: String::new(),
         min_group1: 2,
@@ -470,7 +469,6 @@ fn test_map_command() {
         correction: rsx_core::test_method::CorrectionMethod::Bonferroni,
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
-        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: String::new(),
         group2: String::new(),
     })
