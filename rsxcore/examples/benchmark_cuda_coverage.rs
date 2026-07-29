@@ -64,6 +64,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = DirectionalModel::directional_screening_v1();
     let host = host();
 
+    // Every row names its device, so a summary never has to infer it.
+    let device = compute_p_batch_with_metrics(
+        PValueBackend::Cuda,
+        TestMethod::ChiSquared,
+        &[AssociationCounts {
+            group1: 1,
+            group2: 1,
+        }],
+        total_group1.max(1),
+        total_group2.max(1),
+    )?
+    .metrics
+    .device;
+
     println!(
         "host,device,kernel,markers,individuals,repetition,cpu_s,cuda_setup_s,cuda_kernel_s,cuda_total_s,h2d_bytes,d2h_bytes,total_speedup,max_abs_diff,max_rel_diff"
     );
@@ -171,7 +185,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let (difference, relative) = agreement(&totals[0], &totals[1]);
             println!(
-                "{host},cuda,Gram,{gram_markers},{individuals},{repetition},{:.9},0.0,0.0,{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
+                "{host},{device},Gram,{gram_markers},{individuals},{repetition},{:.9},0.0,0.0,{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
                 seconds[0],
                 seconds[1],
                 gram_markers * individuals * 2,
