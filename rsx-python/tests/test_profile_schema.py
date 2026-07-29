@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+import pyrsx
 from pydantic import ValidationError
 
 from pyrsx.profile import RunProfile, parse_run_profile_toml
@@ -76,3 +77,42 @@ def test_checked_in_json_schema_matches_pydantic_model() -> None:
 
     assert checked_in == generated
     assert len(generated["$defs"]["RunCommand"]["oneOf"]) == 10
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: pyrsx.distrib(
+            "missing.tsv",
+            "missing-popmap.tsv",
+            "unused.tsv",
+            bayes=True,
+            prior_probability=0.02,
+            linked_probability=0.85,
+            null_prevalence=0.4,
+            group1_linked_weight=0.7,
+        ),
+        lambda: pyrsx.signif(
+            "missing.tsv",
+            "missing-popmap.tsv",
+            "unused.tsv",
+            bayes=True,
+            prior_probability=0.02,
+            linked_probability=0.85,
+            null_prevalence=0.4,
+            group1_linked_weight=0.7,
+        ),
+        lambda: pyrsx.triage(
+            "missing.tsv",
+            "missing-popmap.tsv",
+            "unused.tsv",
+            prior_probability=0.02,
+            linked_probability=0.85,
+            null_prevalence=0.4,
+            group1_linked_weight=0.7,
+        ),
+    ],
+)
+def test_low_level_bindings_accept_complete_bayesian_model(call) -> None:
+    with pytest.raises(RuntimeError):
+        call()
