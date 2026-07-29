@@ -292,9 +292,40 @@ def freq(markers_table, output_file, min_depth):
 @click.option("-p", "--popmap", required=True)
 @click.option("-o", "--output-file", required=True)
 @click.option("-f", "--min-frequency", default=0.75, show_default=True)
-def depth(markers_table, popmap, output_file, min_frequency):
+@click.option(
+    "--streaming-mode",
+    type=click.Choice(["auto", "memory", "streaming"]),
+    default="auto",
+    show_default=True,
+)
+@click.option(
+    "--streaming-threshold-bytes",
+    type=click.IntRange(min=0),
+    default=2_000_000_000,
+    show_default=True,
+)
+def depth(
+    markers_table,
+    popmap,
+    output_file,
+    min_frequency,
+    streaming_mode,
+    streaming_threshold_bytes,
+):
     """Compute retained read statistics per individual."""
-    _depth(markers_table, popmap, output_file, min_frequency=min_frequency)
+    streaming = {
+        "auto": None,
+        "memory": False,
+        "streaming": True,
+    }[streaming_mode]
+    _depth(
+        markers_table,
+        popmap,
+        output_file,
+        min_frequency=min_frequency,
+        streaming=streaming,
+        streaming_threshold_bytes=streaming_threshold_bytes,
+    )
     click.echo(f"Wrote {output_file}")
 
 

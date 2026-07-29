@@ -295,12 +295,14 @@ fn freq(table_path: &str, output_file: &str, min_depth: u16) -> PyResult<()> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_frequency=0.75))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_frequency=0.75, streaming=None, streaming_threshold_bytes=2_000_000_000))]
 fn depth(
     table_path: &str,
     popmap_path: &str,
     output_file: &str,
     min_frequency: f32,
+    streaming: Option<bool>,
+    streaming_threshold_bytes: u64,
 ) -> PyResult<()> {
     let file_size = std::fs::metadata(table_path).map(|m| m.len()).unwrap_or(0);
     rsx_core::commands::depth::run(&rsx_core::commands::depth::DepthParams {
@@ -308,7 +310,7 @@ fn depth(
         popmap_file_path: popmap_path.to_string(),
         output_file_path: output_file.to_string(),
         min_frequency,
-        streaming: file_size > 2_000_000_000,
+        streaming: streaming.unwrap_or(file_size > streaming_threshold_bytes),
     })
     .map_err(|e| PyrsxError::new_err(e.to_string()))
 }

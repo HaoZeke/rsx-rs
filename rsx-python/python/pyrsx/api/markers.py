@@ -454,6 +454,8 @@ class MarkerTable:
         self,
         popmap: Any,
         min_frequency: float = 0.75,
+        streaming: bool | None = None,
+        streaming_threshold_bytes: int = 2_000_000_000,
         **kwargs: Any,
     ) -> "TableResult":
         """Per-sample depth statistics (requires a popmap)."""
@@ -482,6 +484,8 @@ class MarkerTable:
                     str(popmap),
                     out.name,
                     min_frequency=min_frequency,
+                    streaming=streaming,
+                    streaming_threshold_bytes=streaming_threshold_bytes,
                 )
                 res_df = _read_core_tsv(out.name)
             finally:
@@ -490,7 +494,12 @@ class MarkerTable:
         return TableResult(
             _df=res_df,
             command="depth",
-            params={"min_frequency": min_frequency, **kwargs},
+            params={
+                "min_frequency": min_frequency,
+                "streaming": streaming,
+                "streaming_threshold_bytes": streaming_threshold_bytes,
+                **kwargs,
+            },
         )
 
     def distrib(

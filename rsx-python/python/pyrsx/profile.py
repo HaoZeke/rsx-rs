@@ -108,6 +108,8 @@ class DepthProfile(StrictProfileModel):
     popmap: str
     output_file: str
     min_frequency: float = Field(ge=0.0, le=1.0)
+    streaming_mode: Literal["auto", "memory", "streaming"] = "auto"
+    streaming_threshold_bytes: int = Field(default=2_000_000_000, ge=0)
 
 
 class MapProfile(StrictProfileModel):

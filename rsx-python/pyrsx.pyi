@@ -63,7 +63,12 @@ class MarkerTable:
     def pca(self, *, k: int = 2, min_depth: int = 1, **kwargs: Any) -> "PcaResult": ...
     def freq(self, min_depth: int = 1, **kwargs: Any) -> "TableResult": ...
     def depth(
-        self, popmap: Any, min_frequency: float = 0.75, **kwargs: Any
+        self,
+        popmap: Any,
+        min_frequency: float = 0.75,
+        streaming: bool | None = None,
+        streaming_threshold_bytes: int = 2_000_000_000,
+        **kwargs: Any,
     ) -> "TableResult": ...
     def distrib(
         self,
@@ -365,6 +370,8 @@ def depth(
     popmap_path: str,
     output_file: str,
     min_frequency: float = 0.75,
+    streaming: bool | None = None,
+    streaming_threshold_bytes: int = 2_000_000_000,
 ) -> None:
     """Compute retained read statistics per individual.
 
@@ -373,6 +380,8 @@ def depth(
         popmap_path: Path to population map.
         output_file: Path to output depth statistics.
         min_frequency: Minimum fraction of individuals for a marker to count.
+        streaming: Force streaming or in-memory execution; None selects by size.
+        streaming_threshold_bytes: File-size boundary used when streaming is None.
     """
     ...
 
