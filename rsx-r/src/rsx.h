@@ -116,7 +116,13 @@ enum rsx_status_t rsx_distrib(const char *table_path,
                               double bf_group2_alpha,
                               double bf_group2_beta,
                               double bf_null_alpha,
-                              double bf_null_beta);
+                              double bf_null_beta,
+                              const char *posterior_linked_family,
+                              double posterior_linked_alpha,
+                              double posterior_linked_beta,
+                              const char *posterior_null_family,
+                              double posterior_null_alpha,
+                              double posterior_null_beta);
 
 /**
  * Run the `signif` command.
@@ -144,7 +150,13 @@ enum rsx_status_t rsx_signif(const char *table_path,
                              double bf_group2_alpha,
                              double bf_group2_beta,
                              double bf_null_alpha,
-                             double bf_null_beta);
+                             double bf_null_beta,
+                             const char *posterior_linked_family,
+                             double posterior_linked_alpha,
+                             double posterior_linked_beta,
+                             const char *posterior_null_family,
+                             double posterior_null_alpha,
+                             double posterior_null_beta);
 
 /**
  * Run the `triage` command.
@@ -170,7 +182,13 @@ enum rsx_status_t rsx_triage(const char *table_path,
                              double bf_null_alpha,
                              double bf_null_beta,
                              const char *group1,
-                             const char *group2);
+                             const char *group2,
+                             const char *posterior_linked_family,
+                             double posterior_linked_alpha,
+                             double posterior_linked_beta,
+                             const char *posterior_null_family,
+                             double posterior_null_alpha,
+                             double posterior_null_beta);
 
 /**
  * Run the `depth` command.
