@@ -38,32 +38,33 @@ class MarkerTable:
         *,
         backend: Literal["pandas", "polars", "pyarrow", "auto"] = "auto",
     ) -> MarkerTable: ...
-
     @property
     def n_markers(self) -> int: ...
     @property
     def n_individuals(self) -> int: ...
-
     @property
     def data(self) -> nw.DataFrame | None: ...
     @property
     def df(self) -> nw.DataFrame | None: ...
-
     def __len__(self) -> int: ...
     def __repr__(self) -> str: ...
     def summary(self) -> str: ...
-
-    def to_dataframe(self, *, backend: Literal["pandas", "polars", "pyarrow", "auto"] = "auto") -> Any: ...
+    def to_dataframe(
+        self, *, backend: Literal["pandas", "polars", "pyarrow", "auto"] = "auto"
+    ) -> Any: ...
     def to_pandas(self) -> Any: ...
     def to_polars(self) -> Any: ...
-
     def __arrow_c_stream__(self, requested_schema: Any = None) -> Any: ...
 
     # Analysis methods (return narwhals-backed results)
-    def triage(self, *, popmap: Any, params: "TriageParams | None" = None, **kwargs: Any) -> "TriageResult": ...
+    def triage(
+        self, *, popmap: Any, params: "TriageParams | None" = None, **kwargs: Any
+    ) -> "TriageResult": ...
     def pca(self, *, k: int = 2, min_depth: int = 1, **kwargs: Any) -> "PcaResult": ...
     def freq(self, min_depth: int = 1, **kwargs: Any) -> "TableResult": ...
-    def depth(self, popmap: Any, min_frequency: float = 0.75, **kwargs: Any) -> "TableResult": ...
+    def depth(
+        self, popmap: Any, min_frequency: float = 0.75, **kwargs: Any
+    ) -> "TableResult": ...
     def distrib(
         self,
         popmap: Any,
@@ -89,7 +90,6 @@ class MarkerTable:
         **kwargs: Any,
     ) -> "TableResult": ...
 
-
 class TriageResult:
     """Triage result (strict + Bayesian). Backed by narwhals DataFrame."""
 
@@ -102,7 +102,6 @@ class TriageResult:
     def plot_evidence(self, **kwargs: Any) -> Any: ...
     def __arrow_c_stream__(self, requested_schema: Any = None) -> Any: ...
     def __getattr__(self, name: str) -> Any: ...
-
 
 class PcaResult:
     """PCA result. Backed by narwhals DataFrame."""
@@ -117,7 +116,6 @@ class PcaResult:
     def __arrow_c_stream__(self, requested_schema: Any = None) -> Any: ...
     def __getattr__(self, name: str) -> Any: ...
 
-
 class TableResult:
     """Generic table result for freq/depth/distrib/signif etc. Narwhals backed."""
 
@@ -131,7 +129,6 @@ class TableResult:
     def __arrow_c_stream__(self, requested_schema: Any = None) -> Any: ...
     def __getattr__(self, name: str) -> Any: ...
     def __repr__(self) -> str: ...
-
 
 @dataclass
 class TriageParams:
@@ -180,6 +177,12 @@ def distrib(
     linked_probability: float = 0.9,
     null_prevalence: float = 0.5,
     group1_linked_weight: float = 0.5,
+    bf_group1_alpha: float = 1.0,
+    bf_group1_beta: float = 1.0,
+    bf_group2_alpha: float = 1.0,
+    bf_group2_beta: float = 1.0,
+    bf_null_alpha: float = 1.0,
+    bf_null_beta: float = 1.0,
 ) -> None:
     """Compute marker distribution between two groups.
 
@@ -198,6 +201,12 @@ def distrib(
         linked_probability: Expected prevalence in the linked group.
         null_prevalence: Expected prevalence under the null model.
         group1_linked_weight: Mixture weight for the group-1-linked direction.
+        bf_group1_alpha: Group-1 alternative Beta alpha shape.
+        bf_group1_beta: Group-1 alternative Beta beta shape.
+        bf_group2_alpha: Group-2 alternative Beta alpha shape.
+        bf_group2_beta: Group-2 alternative Beta beta shape.
+        bf_null_alpha: Shared-null Beta alpha shape.
+        bf_null_beta: Shared-null Beta beta shape.
     """
     ...
 
@@ -217,6 +226,12 @@ def signif(
     linked_probability: float = 0.9,
     null_prevalence: float = 0.5,
     group1_linked_weight: float = 0.5,
+    bf_group1_alpha: float = 1.0,
+    bf_group1_beta: float = 1.0,
+    bf_group2_alpha: float = 1.0,
+    bf_group2_beta: float = 1.0,
+    bf_null_alpha: float = 1.0,
+    bf_null_beta: float = 1.0,
 ) -> None:
     """Extract markers significantly associated with a group.
 
@@ -236,6 +251,12 @@ def signif(
         linked_probability: Expected prevalence in the linked group.
         null_prevalence: Expected prevalence under the null model.
         group1_linked_weight: Mixture weight for the group-1-linked direction.
+        bf_group1_alpha: Group-1 alternative Beta alpha shape.
+        bf_group1_beta: Group-1 alternative Beta beta shape.
+        bf_group2_alpha: Group-2 alternative Beta alpha shape.
+        bf_group2_beta: Group-2 alternative Beta beta shape.
+        bf_null_alpha: Shared-null Beta alpha shape.
+        bf_null_beta: Shared-null Beta beta shape.
     """
     ...
 
@@ -251,6 +272,12 @@ def triage(
     linked_probability: float = 0.9,
     null_prevalence: float = 0.5,
     group1_linked_weight: float = 0.5,
+    bf_group1_alpha: float = 1.0,
+    bf_group1_beta: float = 1.0,
+    bf_group2_alpha: float = 1.0,
+    bf_group2_beta: float = 1.0,
+    bf_null_alpha: float = 1.0,
+    bf_null_beta: float = 1.0,
     group1: str = "",
     group2: str = "",
 ) -> None:
@@ -268,6 +295,12 @@ def triage(
         linked_probability: Expected marker prevalence in the linked sex.
         null_prevalence: Expected marker prevalence under the null model.
         group1_linked_weight: Mixture weight for the group-1-linked direction.
+        bf_group1_alpha: Group-1 alternative Beta alpha shape.
+        bf_group1_beta: Group-1 alternative Beta beta shape.
+        bf_group2_alpha: Group-2 alternative Beta alpha shape.
+        bf_group2_beta: Group-2 alternative Beta beta shape.
+        bf_null_alpha: Shared-null Beta alpha shape.
+        bf_null_beta: Shared-null Beta beta shape.
         group1: Name of first group.
         group2: Name of second group.
     """
@@ -343,4 +376,5 @@ def pca(
 
 class PyrsxError(RuntimeError):
     """Base exception for all pyrsx errors (more specific than bare RuntimeError)."""
+
     ...

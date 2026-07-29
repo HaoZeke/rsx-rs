@@ -54,26 +54,37 @@ fn directional_model(
     linked_prevalence: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> PyResult<rsx_core::stats::DirectionalModel> {
-    for (name, value) in [
-        ("prior_probability", linkage_prior),
-        ("linked_probability", linked_prevalence),
-        ("null_prevalence", null_prevalence),
-        ("group1_linked_weight", group1_linked_weight),
-    ] {
-        if !value.is_finite() || value <= 0.0 || value >= 1.0 {
-            return Err(PyrsxError::new_err(format!(
-                "{name} must be finite and strictly between zero and one"
-            )));
-        }
-    }
-    Ok(rsx_core::stats::DirectionalModel {
+    use rsx_core::bayes_profile::{BayesFactorProfile, BetaPriorProfile, ModelProfile};
+
+    ModelProfile {
         linkage_prior,
         linked_prevalence,
         null_prevalence,
         group1_linked_weight,
-        ..rsx_core::stats::DirectionalModel::directional_screening_v1()
-    })
+        bayes_factor: BayesFactorProfile {
+            alternative_group1: BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            alternative_group2: BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            null: BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+        },
+    }
+    .to_runtime()
+    .map_err(|error| PyrsxError::new_err(error.to_string()))
 }
 
 // --------------------------------------------------------------------------- //
@@ -105,7 +116,7 @@ fn process(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn distrib(
     table_path: &str,
@@ -122,6 +133,12 @@ fn distrib(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
         .map_err(PyrsxError::new_err)?;
@@ -141,6 +158,12 @@ fn distrib(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
@@ -149,7 +172,7 @@ fn distrib(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn signif(
     table_path: &str,
@@ -167,6 +190,12 @@ fn signif(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> PyResult<()> {
     let corr = rsx_core::test_method::CorrectionMethod::parse_str(correction)
         .map_err(PyrsxError::new_err)?;
@@ -189,6 +218,12 @@ fn signif(
                     linked_probability,
                     null_prevalence,
                     group1_linked_weight,
+                    bf_group1_alpha,
+                    bf_group1_beta,
+                    bf_group2_alpha,
+                    bf_group2_beta,
+                    bf_null_alpha,
+                    bf_null_beta,
                 )?,
                 group1: group1.to_string(),
                 group2: group2.to_string(),
@@ -199,7 +234,7 @@ fn signif(
 }
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, posterior_threshold=0.9, bayes_factor_threshold=10.0, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, group1="", group2=""))]
+#[pyo3(signature = (table_path, popmap_path, output_file, min_depth=1, signif_threshold=0.05, posterior_threshold=0.9, bayes_factor_threshold=10.0, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]
 fn triage(
     table_path: &str,
@@ -213,6 +248,12 @@ fn triage(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
     group1: &str,
     group2: &str,
 ) -> PyResult<()> {
@@ -229,6 +270,12 @@ fn triage(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
@@ -531,7 +578,7 @@ fn ipc_bytes_to_pyarrow_tables(py: Python<'_>, bytes: &[u8]) -> PyResult<Vec<PyO
 // --------------------------------------------------------------------------- //
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, group1="", group2=""))]
+#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow(
     py: Python<'_>,
@@ -543,6 +590,12 @@ fn triage_to_arrow(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
     group1: &str,
     group2: &str,
 ) -> PyResult<PyObject> {
@@ -559,6 +612,12 @@ fn triage_to_arrow(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
@@ -622,7 +681,7 @@ mod cmd_overhead {
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, group1="", group2=""))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2=""))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow_from_arrow(
     py: Python<'_>,
@@ -634,6 +693,12 @@ fn triage_to_arrow_from_arrow(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
     group1: &str,
     group2: &str,
 ) -> PyResult<PyObject> {
@@ -659,6 +724,12 @@ fn triage_to_arrow_from_arrow(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
@@ -781,7 +852,7 @@ fn depth_from_arrow(
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn distrib_from_arrow(
     py: Python<'_>,
@@ -798,6 +869,12 @@ fn distrib_from_arrow(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
     let source = MarkerTableSource::from_arrow_ipc(
@@ -830,6 +907,12 @@ fn distrib_from_arrow(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
@@ -843,7 +926,7 @@ fn distrib_from_arrow(
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, signif_threshold=0.05, group1="", group2="", correction="bonferroni", test="chisq", output_fasta=false, bayes=false, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0))]
 #[allow(clippy::too_many_arguments)]
 fn signif_from_arrow(
     py: Python<'_>,
@@ -861,6 +944,12 @@ fn signif_from_arrow(
     linked_probability: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
+    bf_group1_alpha: f64,
+    bf_group1_beta: f64,
+    bf_group2_alpha: f64,
+    bf_group2_beta: f64,
+    bf_null_alpha: f64,
+    bf_null_beta: f64,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
     let source = MarkerTableSource::from_arrow_ipc(
@@ -894,6 +983,12 @@ fn signif_from_arrow(
             linked_probability,
             null_prevalence,
             group1_linked_weight,
+            bf_group1_alpha,
+            bf_group1_beta,
+            bf_group2_alpha,
+            bf_group2_beta,
+            bf_null_alpha,
+            bf_null_beta,
         )?,
         group1: group1.to_string(),
         group2: group2.to_string(),
