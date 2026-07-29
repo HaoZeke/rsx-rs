@@ -50,6 +50,8 @@
 <span>  bayes_factor_threshold <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>  prior_probability <span class="op">=</span> <span class="fl">0.01</span>,</span>
 <span>  linked_probability <span class="op">=</span> <span class="fl">0.9</span>,</span>
+<span>  null_prevalence <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  group1_linked_weight <span class="op">=</span> <span class="fl">0.5</span>,</span>
 <span>  group1 <span class="op">=</span> <span class="st">"M"</span>,</span>
 <span>  group2 <span class="op">=</span> <span class="st">"F"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -88,11 +90,19 @@
 
 
 <dt id="arg-prior-probability">prior_probability<a class="anchor" aria-label="anchor" href="#arg-prior-probability"></a></dt>
-<dd><p>Prior probability of sex linkage.</p></dd>
+<dd><p>Prior probability that a marker is sex-linked.</p></dd>
 
 
 <dt id="arg-linked-probability">linked_probability<a class="anchor" aria-label="anchor" href="#arg-linked-probability"></a></dt>
-<dd><p>Probability model for a linked marker.</p></dd>
+<dd><p>Expected marker prevalence in the linked group.</p></dd>
+
+
+<dt id="arg-null-prevalence">null_prevalence<a class="anchor" aria-label="anchor" href="#arg-null-prevalence"></a></dt>
+<dd><p>Expected marker prevalence under the null model.</p></dd>
+
+
+<dt id="arg-group-linked-weight">group1_linked_weight<a class="anchor" aria-label="anchor" href="#arg-group-linked-weight"></a></dt>
+<dd><p>Mixture weight for the group-1-linked direction.</p></dd>
 
 
 <dt id="arg-group-group-">group1, group2<a class="anchor" aria-label="anchor" href="#arg-group-group-"></a></dt>

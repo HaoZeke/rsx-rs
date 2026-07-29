@@ -22,8 +22,6 @@ Useful links:
 
 - <https://rsx.rgoswami.me>
 
-- <https://haozeke.github.io/rsx-rs/rsxr/>
-
 - Report bugs at <https://github.com/HaoZeke/rsx-rs/issues>
 
 ## Author

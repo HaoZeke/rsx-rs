@@ -15,7 +15,11 @@ rsx_distrib(
   group2 = "",
   correction = "bonferroni",
   test = "chisq",
-  output_bayes = FALSE
+  output_bayes = FALSE,
+  prior_probability = 0.01,
+  linked_probability = 0.9,
+  null_prevalence = 0.5,
+  group1_linked_weight = 0.5
 )
 ```
 
@@ -56,6 +60,22 @@ rsx_distrib(
 - output_bayes:
 
   Also emit Bayesian columns.
+
+- prior_probability:
+
+  Prior probability that a marker is sex-linked.
+
+- linked_probability:
+
+  Expected marker prevalence in the linked group.
+
+- null_prevalence:
+
+  Expected marker prevalence under the null model.
+
+- group1_linked_weight:
+
+  Mixture weight for the group-1-linked direction.
 
 ## Value
 
