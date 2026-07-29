@@ -24,7 +24,13 @@ rsx_triage(
   bf_null_alpha = 1,
   bf_null_beta = 1,
   group1 = "M",
-  group2 = "F"
+  group2 = "F",
+  posterior_linked_family = "fixed",
+  posterior_linked_alpha = 1,
+  posterior_linked_beta = 1,
+  posterior_null_family = "fixed",
+  posterior_null_alpha = 1,
+  posterior_null_beta = 1
 )
 ```
 
@@ -92,6 +98,20 @@ rsx_triage(
 - group1, group2:
 
   Group labels to contrast (e.g. "M", "F").
+
+- posterior_linked_family, posterior_null_family:
+
+  Posterior prevalence family: `"fixed"` uses `linked_probability` or
+  `null_prevalence`; `"beta"` integrates over the corresponding Beta
+  shape parameters.
+
+- posterior_linked_alpha, posterior_linked_beta:
+
+  Beta-prior shape parameters for linked-marker prevalence.
+
+- posterior_null_alpha, posterior_null_beta:
+
+  Beta-prior shape parameters for null-marker prevalence.
 
 ## Value
 

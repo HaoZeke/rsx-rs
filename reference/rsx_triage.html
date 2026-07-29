@@ -59,7 +59,13 @@
 <span>  bf_null_alpha <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  bf_null_beta <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  group1 <span class="op">=</span> <span class="st">"M"</span>,</span>
-<span>  group2 <span class="op">=</span> <span class="st">"F"</span></span>
+<span>  group2 <span class="op">=</span> <span class="st">"F"</span>,</span>
+<span>  posterior_linked_family <span class="op">=</span> <span class="st">"fixed"</span>,</span>
+<span>  posterior_linked_alpha <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  posterior_linked_beta <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  posterior_null_family <span class="op">=</span> <span class="st">"fixed"</span>,</span>
+<span>  posterior_null_alpha <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  posterior_null_beta <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -128,6 +134,22 @@ prevalence under the null model.</p></dd>
 
 <dt id="arg-group-group-">group1, group2<a class="anchor" aria-label="anchor" href="#arg-group-group-"></a></dt>
 <dd><p>Group labels to contrast (e.g. "M", "F").</p></dd>
+
+
+<dt id="arg-posterior-linked-family-posterior-null-family">posterior_linked_family, posterior_null_family<a class="anchor" aria-label="anchor" href="#arg-posterior-linked-family-posterior-null-family"></a></dt>
+<dd><p>Posterior prevalence
+family: <code>"fixed"</code> uses <code>linked_probability</code> or <code>null_prevalence</code>; <code>"beta"</code>
+integrates over the corresponding Beta shape parameters.</p></dd>
+
+
+<dt id="arg-posterior-linked-alpha-posterior-linked-beta">posterior_linked_alpha, posterior_linked_beta<a class="anchor" aria-label="anchor" href="#arg-posterior-linked-alpha-posterior-linked-beta"></a></dt>
+<dd><p>Beta-prior shape
+parameters for linked-marker prevalence.</p></dd>
+
+
+<dt id="arg-posterior-null-alpha-posterior-null-beta">posterior_null_alpha, posterior_null_beta<a class="anchor" aria-label="anchor" href="#arg-posterior-null-alpha-posterior-null-beta"></a></dt>
+<dd><p>Beta-prior shape parameters
+for null-marker prevalence.</p></dd>
 
 </dl></div>
     <div class="section level2">
