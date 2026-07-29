@@ -3,7 +3,7 @@ pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   rsxr: rsxr.html
-last_built: 2026-07-29T13:13Z
+last_built: 2026-07-29T13:27Z
 urls:
   reference: https://haozeke.github.io/rsx-rs/rsxr/reference
   article: https://haozeke.github.io/rsx-rs/rsxr/articles
