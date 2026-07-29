@@ -17,12 +17,6 @@ rsx_triage(
   linked_probability = 0.9,
   null_prevalence = 0.5,
   group1_linked_weight = 0.5,
-  bf_group1_alpha = 1,
-  bf_group1_beta = 1,
-  bf_group2_alpha = 1,
-  bf_group2_beta = 1,
-  bf_null_alpha = 1,
-  bf_null_beta = 1,
   group1 = "M",
   group2 = "F"
 )
@@ -73,21 +67,6 @@ rsx_triage(
 - group1_linked_weight:
 
   Mixture weight for the group-1-linked direction.
-
-- bf_group1_alpha, bf_group1_beta:
-
-  Beta-prior shape parameters for marker prevalence under the
-  group-1-linked alternative.
-
-- bf_group2_alpha, bf_group2_beta:
-
-  Beta-prior shape parameters for marker prevalence under the
-  group-2-linked alternative.
-
-- bf_null_alpha, bf_null_beta:
-
-  Beta-prior shape parameters for marker prevalence under the null
-  model.
 
 - group1, group2:
 
