@@ -764,16 +764,6 @@ fn logsumexp2(a: f64, b: f64) -> f64 {
     }
 }
 
-fn binom_logpmf(k: u32, n: u32, p: f64) -> f64 {
-    if p <= 0.0 || p >= 1.0 {
-        if (p <= 0.0 && k == 0) || (p >= 1.0 && k == n) {
-            return 0.0;
-        }
-        return f64::NEG_INFINITY;
-    }
-    lfact(n) - lfact(k) - lfact(n - k) + k as f64 * p.ln() + (n - k) as f64 * (1.0 - p).ln()
-}
-
 /// Empirical Bayes EM: estimate pi (fraction of sex-linked markers) from data.
 /// Returns (pi, posteriors) after convergence.
 /// group_counts: Vec of (n_g1, n_g2) for each marker.
