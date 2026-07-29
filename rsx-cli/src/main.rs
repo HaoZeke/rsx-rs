@@ -606,7 +606,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::extract_groups;
+    use std::fs;
+
+    use super::{Commands, extract_groups, parse_cli_from};
 
     #[test]
     fn missing_groups_uses_popmap_resolution() {
@@ -630,5 +632,58 @@ mod tests {
             err.to_string()
                 .contains("exactly two non-empty group names")
         );
+    }
+
+    #[test]
+    fn profile_supplies_required_arguments_and_cli_overrides_values() {
+        let path = std::env::temp_dir().join(format!(
+            "rsx-process-profile-{}-{}.toml",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        fs::write(
+            &path,
+            r#"
+schema_version = 1
+profile_name = "process-v1"
+
+[run]
+command = "process"
+input_dir = "reads"
+output_file = "markers.tsv"
+threads = 4
+min_depth = 2
+kmer_dedup = 31
+"#,
+        )
+        .unwrap();
+
+        let cli = parse_cli_from([
+            "rsx".into(),
+            "--profile".into(),
+            path.clone().into_os_string(),
+            "--threads".into(),
+            "8".into(),
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Process {
+                input_dir,
+                output_file,
+                threads,
+                min_depth,
+                kmer_dedup,
+            } => {
+                assert_eq!(input_dir, "reads");
+                assert_eq!(output_file, "markers.tsv");
+                assert_eq!(threads, 8);
+                assert_eq!(min_depth, 2);
+                assert_eq!(kmer_dedup, Some(31));
+            }
+            _ => panic!("profile selected the wrong command"),
+        }
+
+        fs::remove_file(path).unwrap();
     }
 }
