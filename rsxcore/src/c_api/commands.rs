@@ -26,41 +26,38 @@ unsafe fn parse_test(ptr: *const c_char) -> Result<TestMethod, rsx_status_t> {
     })
 }
 
-fn directional_model(
+/// Bayesian model inputs regrouped from the flat scalar list the C ABI carries.
+///
+/// Named fields keep the three Beta priors distinguishable at each call site;
+/// the same values arrive across the boundary as interchangeable `f64`.
+struct DirectionalModelArgs {
     linkage_prior: f64,
     linked_prevalence: f64,
     null_prevalence: f64,
     group1_linked_weight: f64,
-    bf_group1_alpha: f64,
-    bf_group1_beta: f64,
-    bf_group2_alpha: f64,
-    bf_group2_beta: f64,
-    bf_null_alpha: f64,
-    bf_null_beta: f64,
+    bf_group1: crate::bayes_profile::BetaPriorProfile,
+    bf_group2: crate::bayes_profile::BetaPriorProfile,
+    bf_null: crate::bayes_profile::BetaPriorProfile,
+}
+
+fn directional_model(
+    args: DirectionalModelArgs,
 ) -> Result<crate::stats::DirectionalModel, rsx_status_t> {
-    use crate::bayes_profile::{
-        BayesFactorProfile, BetaPriorProfile, ModelProfile, PosteriorProfile,
-    };
+    use crate::bayes_profile::{BayesFactorProfile, ModelProfile, PosteriorProfile};
 
     ModelProfile {
-        linkage_prior,
-        linked_prevalence,
-        null_prevalence,
-        group1_linked_weight,
-        posterior: Some(PosteriorProfile::fixed(linked_prevalence, null_prevalence)),
+        linkage_prior: args.linkage_prior,
+        linked_prevalence: args.linked_prevalence,
+        null_prevalence: args.null_prevalence,
+        group1_linked_weight: args.group1_linked_weight,
+        posterior: Some(PosteriorProfile::fixed(
+            args.linked_prevalence,
+            args.null_prevalence,
+        )),
         bayes_factor: BayesFactorProfile {
-            alternative_group1: BetaPriorProfile {
-                alpha: bf_group1_alpha,
-                beta: bf_group1_beta,
-            },
-            alternative_group2: BetaPriorProfile {
-                alpha: bf_group2_alpha,
-                beta: bf_group2_beta,
-            },
-            null: BetaPriorProfile {
-                alpha: bf_null_alpha,
-                beta: bf_null_beta,
-            },
+            alternative_group1: args.bf_group1,
+            alternative_group2: args.bf_group2,
+            null: args.bf_null,
         },
     }
     .to_runtime()
@@ -221,18 +218,24 @@ pub unsafe extern "C" fn rsx_distrib(
             Ok(t) => t,
             Err(e) => return e,
         };
-        let bayes_model = match directional_model(
-            prior_probability,
-            linked_probability,
+        let bayes_model = match directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-        ) {
+            bf_group1: crate::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: crate::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: crate::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+        }) {
             Ok(model) => model,
             Err(error) => return error,
         };
@@ -319,18 +322,24 @@ pub unsafe extern "C" fn rsx_signif(
             Ok(t) => t,
             Err(e) => return e,
         };
-        let bayes_model = match directional_model(
-            prior_probability,
-            linked_probability,
+        let bayes_model = match directional_model(DirectionalModelArgs {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
             null_prevalence,
             group1_linked_weight,
-            bf_group1_alpha,
-            bf_group1_beta,
-            bf_group2_alpha,
-            bf_group2_beta,
-            bf_null_alpha,
-            bf_null_beta,
-        ) {
+            bf_group1: crate::bayes_profile::BetaPriorProfile {
+                alpha: bf_group1_alpha,
+                beta: bf_group1_beta,
+            },
+            bf_group2: crate::bayes_profile::BetaPriorProfile {
+                alpha: bf_group2_alpha,
+                beta: bf_group2_beta,
+            },
+            bf_null: crate::bayes_profile::BetaPriorProfile {
+                alpha: bf_null_alpha,
+                beta: bf_null_beta,
+            },
+        }) {
             Ok(model) => model,
             Err(error) => return error,
         };
