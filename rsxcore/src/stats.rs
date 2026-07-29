@@ -454,24 +454,135 @@ pub fn benjamini_hochberg_weighted(p_values: &[(f64, u64)]) -> Vec<f64> {
 // Bayesian methods
 // ========================================================================
 
-/// Bayes Factor for association in a 2x2 contingency table.
-/// BF > 1: evidence for association. BF > 10: strong evidence.
-/// Uses Beta-Binomial marginal likelihoods with uniform Beta(1,1) priors.
-/// H1: separate proportions per group. H0: shared proportion.
-pub fn bayes_factor_2x2(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
-    // H1 (association): p_g1, p_g2 independent, each Beta(1,1)
-    // Marginal = B(k+1, n-k+1) / B(1,1) for each group
-    let log_h1 = log_beta_binom(n_g1, total_g1) + log_beta_binom(n_g2, total_g2);
-
-    // H0 (independence): single shared p ~ Beta(1,1)
-    let log_h0 = log_beta_binom(n_g1 + n_g2, total_g1 + total_g2);
-
-    (log_h1 - log_h0).exp()
+/// Shape parameters for a Beta prior.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BetaPrior {
+    pub alpha: f64,
+    pub beta: f64,
 }
 
-/// Log marginal likelihood for Binomial(k|n) with Beta(1,1) prior.
-fn log_beta_binom(k: u32, n: u32) -> f64 {
-    libm::lgamma((k + 1) as f64) + libm::lgamma((n - k + 1) as f64) - libm::lgamma((n + 2) as f64)
+impl BetaPrior {
+    pub const fn uniform() -> Self {
+        Self {
+            alpha: 1.0,
+            beta: 1.0,
+        }
+    }
+}
+
+/// Priors for the independent-group and shared-prevalence hypotheses.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BayesFactorModel {
+    pub alternative_group1: BetaPrior,
+    pub alternative_group2: BetaPrior,
+    pub null: BetaPrior,
+}
+
+impl BayesFactorModel {
+    /// Explicit representation of the uniform-prior calculation in rsx 0.2.
+    pub const fn uniform_v1() -> Self {
+        Self {
+            alternative_group1: BetaPrior::uniform(),
+            alternative_group2: BetaPrior::uniform(),
+            null: BetaPrior::uniform(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), BayesianModelError> {
+        validate_beta_prior("alternative_group1", self.alternative_group1)?;
+        validate_beta_prior("alternative_group2", self.alternative_group2)?;
+        validate_beta_prior("null", self.null)
+    }
+}
+
+/// Invalid parameter or observation in a Bayesian calculation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BayesianModelError {
+    field: String,
+    reason: &'static str,
+}
+
+impl BayesianModelError {
+    pub fn field(&self) -> &str {
+        &self.field
+    }
+}
+
+impl std::fmt::Display for BayesianModelError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "invalid Bayesian model field {}: {}",
+            self.field, self.reason
+        )
+    }
+}
+
+impl std::error::Error for BayesianModelError {}
+
+fn validate_beta_prior(prefix: &str, prior: BetaPrior) -> Result<(), BayesianModelError> {
+    for (name, value) in [("alpha", prior.alpha), ("beta", prior.beta)] {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(BayesianModelError {
+                field: format!("{prefix}.{name}"),
+                reason: "must be finite and greater than zero",
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Bayes Factor for association in a 2x2 contingency table.
+/// BF > 1: evidence for association. BF > 10: strong evidence.
+/// Uses the version-1 uniform Beta prior compatibility profile.
+pub fn bayes_factor_2x2(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
+    bayes_factor_2x2_with_model(
+        n_g1,
+        n_g2,
+        total_g1,
+        total_g2,
+        &BayesFactorModel::uniform_v1(),
+    )
+    .expect("the version-1 uniform Bayes-factor profile is valid")
+}
+
+/// Bayes Factor with independently configurable Beta priors.
+pub fn bayes_factor_2x2_with_model(
+    n_g1: u32,
+    n_g2: u32,
+    total_g1: u32,
+    total_g2: u32,
+    model: &BayesFactorModel,
+) -> Result<f64, BayesianModelError> {
+    model.validate()?;
+    if n_g1 > total_g1 {
+        return Err(BayesianModelError {
+            field: "n_g1".to_owned(),
+            reason: "must not exceed total_g1",
+        });
+    }
+    if n_g2 > total_g2 {
+        return Err(BayesianModelError {
+            field: "n_g2".to_owned(),
+            reason: "must not exceed total_g2",
+        });
+    }
+
+    let log_h1 = log_beta_binom_with_prior(n_g1, total_g1, model.alternative_group1)
+        + log_beta_binom_with_prior(n_g2, total_g2, model.alternative_group2);
+
+    let log_h0 = log_beta_binom_with_prior(n_g1 + n_g2, total_g1 + total_g2, model.null);
+
+    Ok((log_h1 - log_h0).exp())
+}
+
+fn log_beta_binom_with_prior(k: u32, n: u32, prior: BetaPrior) -> f64 {
+    log_beta(k as f64 + prior.alpha, (n - k) as f64 + prior.beta)
+        - log_beta(prior.alpha, prior.beta)
+}
+
+fn log_beta(alpha: f64, beta: f64) -> f64 {
+    libm::lgamma(alpha) + libm::lgamma(beta) - libm::lgamma(alpha + beta)
 }
 
 /// Parameters of the directional binomial-mixture model.
@@ -1020,7 +1131,10 @@ mod tests {
         let directional = bayes_factor_2x2_with_model(9, 1, 10, 10, &model).unwrap();
         let uniform = bayes_factor_2x2(9, 1, 10, 10);
 
-        assert!(directional > uniform, "directional={directional}, uniform={uniform}");
+        assert!(
+            directional > uniform,
+            "directional={directional}, uniform={uniform}"
+        );
     }
 
     #[test]
