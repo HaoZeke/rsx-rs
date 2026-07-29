@@ -992,6 +992,51 @@ mod tests {
         assert!(bf > 10.0, "all-male marker BF should be > 10: BF={bf}");
     }
 
+    #[test]
+    fn test_configurable_bayes_factor_uniform_profile_matches_compatibility_api() {
+        let model = BayesFactorModel::uniform_v1();
+        let configured = bayes_factor_2x2_with_model(10, 0, 10, 10, &model).unwrap();
+        let compatibility = bayes_factor_2x2(10, 0, 10, 10);
+
+        assert_eq!(configured, compatibility);
+    }
+
+    #[test]
+    fn test_configurable_bayes_factor_uses_distinct_group_and_null_priors() {
+        let model = BayesFactorModel {
+            alternative_group1: BetaPrior {
+                alpha: 8.0,
+                beta: 2.0,
+            },
+            alternative_group2: BetaPrior {
+                alpha: 2.0,
+                beta: 8.0,
+            },
+            null: BetaPrior {
+                alpha: 10.0,
+                beta: 10.0,
+            },
+        };
+        let directional = bayes_factor_2x2_with_model(9, 1, 10, 10, &model).unwrap();
+        let uniform = bayes_factor_2x2(9, 1, 10, 10);
+
+        assert!(directional > uniform, "directional={directional}, uniform={uniform}");
+    }
+
+    #[test]
+    fn test_configurable_bayes_factor_rejects_non_positive_prior_shapes() {
+        let model = BayesFactorModel {
+            alternative_group1: BetaPrior {
+                alpha: 0.0,
+                beta: 1.0,
+            },
+            ..BayesFactorModel::uniform_v1()
+        };
+
+        let error = bayes_factor_2x2_with_model(5, 5, 10, 10, &model).unwrap_err();
+        assert_eq!(error.field(), "alternative_group1.alpha");
+    }
+
     // === Posterior sex-linked ===
     #[test]
     fn test_posterior_strong_signal() {
