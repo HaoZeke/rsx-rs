@@ -51,7 +51,13 @@ test_that("Bayesian R bindings accept the complete directional model", {
     prior_probability = 0.02,
     linked_probability = 0.85,
     null_prevalence = 0.4,
-    group1_linked_weight = 0.7
+    group1_linked_weight = 0.7,
+    bf_group1_alpha = 8.0,
+    bf_group1_beta = 2.0,
+    bf_group2_alpha = 2.0,
+    bf_group2_beta = 8.0,
+    bf_null_alpha = 10.0,
+    bf_null_beta = 10.0
   )
   expect_error(do.call(rsx_distrib, c(list(miss, miss, out, output_bayes = TRUE), model)), "rsx:")
   expect_error(do.call(rsx_signif, c(list(miss, miss, out, bayes = TRUE), model)), "rsx:")
