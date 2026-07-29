@@ -62,6 +62,22 @@
         "popmap": {
           "title": "Popmap",
           "type": "string"
+        },
+        "streaming_mode": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "memory",
+            "streaming"
+          ],
+          "title": "Streaming Mode",
+          "type": "string"
+        },
+        "streaming_threshold_bytes": {
+          "default": 2000000000,
+          "minimum": 0,
+          "title": "Streaming Threshold Bytes",
+          "type": "integer"
         }
       },
       "required": [
