@@ -82,3 +82,158 @@ fn cuda_reuses_compiled_kernel() {
     assert!(repeated.metrics.output_buffer_reused);
     assert_eq!(repeated.metrics.host_staging_bytes, 0);
 }
+
+fn evidence_models() -> Vec<(&'static str, rsx_core::stats::DirectionalModel)> {
+    use rsx_core::stats::{BetaPrior, DirectionalModel, PosteriorModel, PrevalencePrior};
+
+    let screening = DirectionalModel::directional_screening_v1();
+    let mut beta_posterior = screening;
+    beta_posterior.posterior = PosteriorModel {
+        linked: PrevalencePrior::Beta(BetaPrior {
+            alpha: 8.0,
+            beta: 2.0,
+        }),
+        null: PrevalencePrior::Beta(BetaPrior {
+            alpha: 2.0,
+            beta: 2.0,
+        }),
+    };
+    let mut skewed = screening;
+    skewed.group1_linked_weight = 0.25;
+    skewed.linkage_prior = 0.2;
+    skewed.bayes_factor.alternative_group1 = BetaPrior {
+        alpha: 3.0,
+        beta: 5.0,
+    };
+    skewed.bayes_factor.null = BetaPrior {
+        alpha: 0.5,
+        beta: 1.5,
+    };
+
+    vec![
+        ("fixed screening", screening),
+        ("beta prevalence", beta_posterior),
+        ("skewed directional", skewed),
+    ]
+}
+
+#[test]
+fn cpu_bayes_evidence_matches_the_scalar_path() {
+    use rsx_core::compute_backend::compute_bayes_evidence_batch;
+
+    let total_group1 = 9;
+    let total_group2 = 6;
+    let counts: Vec<_> = (0..=total_group1)
+        .flat_map(|group1| {
+            (0..=total_group2).map(move |group2| AssociationCounts { group1, group2 })
+        })
+        .collect();
+
+    for (label, model) in evidence_models() {
+        let (factors, posteriors) = compute_bayes_evidence_batch(
+            PValueBackend::Cpu,
+            &counts,
+            total_group1,
+            total_group2,
+            &model,
+        )
+        .unwrap();
+
+        for (index, entry) in counts.iter().enumerate() {
+            let expected_posterior = rsx_core::stats::posterior_sex_linked_with_model(
+                entry.group1,
+                entry.group2,
+                total_group1,
+                total_group2,
+                &model,
+            );
+            assert_eq!(
+                posteriors[index], expected_posterior,
+                "{label} marker {index}"
+            );
+            assert!(
+                factors[index].is_finite() && factors[index] >= 0.0,
+                "{label} marker {index}: bayes factor {}",
+                factors[index]
+            );
+        }
+    }
+}
+
+#[cfg(feature = "cuda")]
+#[test]
+fn cuda_bayes_evidence_matches_cpu_reference() {
+    use rsx_core::compute_backend::compute_bayes_evidence_batch;
+
+    let total_group1 = 16;
+    let total_group2 = 13;
+    let counts: Vec<_> = (0..=total_group1)
+        .flat_map(|group1| {
+            (0..=total_group2).map(move |group2| AssociationCounts { group1, group2 })
+        })
+        .cycle()
+        .take(65_537)
+        .collect();
+
+    for (label, model) in evidence_models() {
+        let (cpu_factors, cpu_posteriors) = compute_bayes_evidence_batch(
+            PValueBackend::Cpu,
+            &counts,
+            total_group1,
+            total_group2,
+            &model,
+        )
+        .unwrap();
+        let (cuda_factors, cuda_posteriors) = compute_bayes_evidence_batch(
+            PValueBackend::Cuda,
+            &counts,
+            total_group1,
+            total_group2,
+            &model,
+        )
+        .unwrap();
+
+        for index in 0..counts.len() {
+            let posterior_error = (cpu_posteriors[index] - cuda_posteriors[index]).abs();
+            assert!(
+                posterior_error <= 1.0e-12,
+                "{label} marker {index}: posterior CPU={:.17e} CUDA={:.17e} abs_error={posterior_error:.3e}",
+                cpu_posteriors[index],
+                cuda_posteriors[index]
+            );
+
+            let expected = cpu_factors[index];
+            let observed = cuda_factors[index];
+            let relative = if expected == 0.0 {
+                observed.abs()
+            } else {
+                (expected - observed).abs() / expected.abs()
+            };
+            assert!(
+                relative <= 1.0e-12,
+                "{label} marker {index}: bayes factor CPU={expected:.17e} CUDA={observed:.17e} rel_error={relative:.3e}"
+            );
+        }
+    }
+}
+
+#[cfg(feature = "cuda")]
+#[test]
+fn cuda_bayes_evidence_shares_the_compiled_module() {
+    use rsx_core::compute_backend::compute_bayes_evidence_batch_with_metrics;
+
+    let counts = [AssociationCounts {
+        group1: 8,
+        group2: 2,
+    }];
+    let model = rsx_core::stats::DirectionalModel::directional_screening_v1();
+    compute_bayes_evidence_batch_with_metrics(PValueBackend::Cuda, &counts, 10, 10, &model)
+        .unwrap();
+    let repeated =
+        compute_bayes_evidence_batch_with_metrics(PValueBackend::Cuda, &counts, 10, 10, &model)
+            .unwrap();
+
+    assert_eq!(repeated.metrics.setup_seconds, 0.0);
+    assert_eq!(repeated.metrics.markers, 1);
+    assert!(repeated.metrics.kernel_seconds > 0.0);
+}
