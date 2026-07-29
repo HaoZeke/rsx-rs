@@ -1,6 +1,7 @@
 // GPL-3.0-or-later
 
 use rsx_core::bayes_profile::{BayesProfileInput, ParameterSource, ProfileOverrides};
+use rsx_core::stats::{DirectionalModel, posterior_sex_linked_with_model};
 
 const COMPLETE_PROFILE: &str = r#"
 schema_version = 1
@@ -57,4 +58,24 @@ fn complete_profile_hydrates_with_stable_digest() {
         .hydrate(&ProfileOverrides::default())
         .unwrap();
     assert_eq!(decoded.digest_sha256(), hydrated.digest_sha256());
+}
+
+#[test]
+fn directional_posterior_uses_null_prevalence_and_direction_weight() {
+    let group1_model = DirectionalModel {
+        linkage_prior: 0.5,
+        linked_prevalence: 0.9,
+        null_prevalence: 0.3,
+        group1_linked_weight: 0.99,
+    };
+    let group2_model = DirectionalModel {
+        group1_linked_weight: 0.01,
+        ..group1_model
+    };
+
+    let group1_posterior = posterior_sex_linked_with_model(10, 0, 10, 10, &group1_model);
+    let group2_posterior = posterior_sex_linked_with_model(10, 0, 10, 10, &group2_model);
+
+    assert!(group1_posterior > group2_posterior);
+    assert!(group1_posterior > 0.9);
 }
