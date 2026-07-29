@@ -37,6 +37,9 @@ if [ -n "${CORE_DIR}" ]; then
   fi
 fi
 
+test -f "${DEST}/include/rsx.h"
+cp "${DEST}/include/rsx.h" "${PKG_ROOT}/src/rsx.h"
+
 # Read workspace version from monorepo root when available; else default.
 WS_VERSION="0.2.6"
 if [ -f "${PKG_ROOT}/../Cargo.toml" ]; then

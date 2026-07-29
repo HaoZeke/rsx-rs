@@ -2,6 +2,21 @@
 use std::{env, path::PathBuf};
 
 #[cfg(feature = "gen-header")]
+fn track_rust_sources(path: &std::path::Path) {
+    println!("cargo:rerun-if-changed={}", path.display());
+    if !path.is_dir() {
+        return;
+    }
+    for entry in std::fs::read_dir(path).expect("Unable to inspect Rust sources") {
+        let entry = entry.expect("Unable to inspect Rust source entry");
+        let entry_path = entry.path();
+        if entry_path.is_dir() || entry_path.extension().is_some_and(|value| value == "rs") {
+            track_rust_sources(&entry_path);
+        }
+    }
+}
+
+#[cfg(feature = "gen-header")]
 fn generate_c_header(crate_dir: &str) {
     let output_dir = PathBuf::from(crate_dir).join("include");
     std::fs::create_dir_all(&output_dir).unwrap();
@@ -42,6 +57,16 @@ fn main() {
     #[cfg(feature = "gen-header")]
     {
         let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let crate_path = PathBuf::from(&crate_dir);
+        track_rust_sources(&crate_path.join("src"));
+        println!(
+            "cargo:rerun-if-changed={}",
+            crate_path.join("cbindgen.toml").display()
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            crate_path.join("Cargo.toml").display()
+        );
         generate_c_header(&crate_dir);
     }
 }
