@@ -65,6 +65,10 @@ def load_benchmark(path: Path) -> pd.DataFrame:
                 if header_seen:
                     continue
                 header_seen = True
+                lines.append(line)
+                continue
+            if not header_seen or not line[0].isdigit():
+                continue
             lines.append(line)
     if not header_seen:
         raise ValueError(f"{path} does not contain a CUDA benchmark header")
