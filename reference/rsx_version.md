@@ -16,5 +16,5 @@ The rsx version string the bindings were compiled against.
 
 ``` r
 rsx_version()
-#> [1] "0.2.6"
+#> [1] "0.2.7"
 ```
