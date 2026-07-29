@@ -115,13 +115,15 @@ const CUDA_KERNEL_SOURCE: &str = r#"
         }
     }
 
-    // One thread owns one upper-triangle Gram entry and walks the tile, so the
-    // accumulation needs no atomics and stays exactly the scalar summation
-    // order the host path uses.
+    // Markers are split across the grid's second dimension so the launch is
+    // not limited to the few thousand upper-triangle entries. Products of two
+    // depths are integers held exactly in binary64, so the partial sums may be
+    // combined in any order without changing the result.
     extern "C" __global__ void gram_accumulate(
         const unsigned short *depths,
         unsigned int individuals,
         unsigned long long markers,
+        unsigned long long markers_per_chunk,
         double *gram,
         double *mean
     ) {
@@ -134,19 +136,24 @@ const CUDA_KERNEL_SOURCE: &str = r#"
         unsigned long long j = pair % n;
         if (j < i) return;
 
+        unsigned long long first = (unsigned long long)blockIdx.y * markers_per_chunk;
+        if (first >= markers) return;
+        unsigned long long last = first + markers_per_chunk;
+        if (last > markers) last = markers;
+
         double total = 0.0;
-        for (unsigned long long m = 0; m < markers; ++m) {
+        for (unsigned long long m = first; m < last; ++m) {
             const unsigned short *row = depths + m * n;
             total += (double)row[i] * (double)row[j];
         }
-        gram[i * n + j] += total;
+        if (total != 0.0) atomicAdd(&gram[i * n + j], total);
 
         if (i == j) {
             double sum = 0.0;
-            for (unsigned long long m = 0; m < markers; ++m) {
+            for (unsigned long long m = first; m < last; ++m) {
                 sum += (double)depths[m * n + i];
             }
-            mean[i] += sum;
+            if (sum != 0.0) atomicAdd(&mean[i], sum);
         }
     }
 
@@ -873,7 +880,9 @@ struct CudaGramState {
 impl GramAccumulator {
     /// Markers per device transfer. Sized so one tile stays a few megabytes for
     /// realistic individual counts.
-    const DEFAULT_TILE_MARKERS: usize = 16_384;
+    const DEFAULT_TILE_MARKERS: usize = 262_144;
+    /// Markers each thread walks before the grid adds another chunk.
+    const MARKERS_PER_CHUNK: u64 = 512;
 
     pub fn new(
         backend: PValueBackend,
@@ -962,13 +971,24 @@ impl GramAccumulator {
         let device_tile = stream.clone_htod(&self.tile)?;
         let individuals = self.individuals as u32;
         let pairs = (self.individuals * self.individuals) as u32;
-        let config = LaunchConfig::for_num_elems(pairs);
+
+        // Spread the tile over enough chunks to fill the device: the pair count
+        // alone is only a few thousand threads.
+        let block = 128u32;
+        let chunks = markers.div_ceil(Self::MARKERS_PER_CHUNK).max(1);
+        let markers_per_chunk = markers.div_ceil(chunks).max(1);
+        let config = LaunchConfig {
+            grid_dim: (pairs.div_ceil(block), chunks as u32, 1),
+            block_dim: (block, 1, 1),
+            shared_mem_bytes: 0,
+        };
         unsafe {
             stream
                 .launch_builder(&module.gram_accumulate)
                 .arg(&device_tile)
                 .arg(&individuals)
                 .arg(&markers)
+                .arg(&markers_per_chunk)
                 .arg(&mut state.gram)
                 .arg(&mut state.mean)
                 .launch(config)?;
