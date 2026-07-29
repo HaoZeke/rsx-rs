@@ -269,6 +269,7 @@ fn test_signif_command() {
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
         output_fasta: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: "M".into(),
         group2: "F".into(),
     })
@@ -303,6 +304,7 @@ fn test_signif_fasta_output() {
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
         output_fasta: true,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: "M".into(),
         group2: "F".into(),
     })
@@ -372,8 +374,7 @@ fn test_triage_command_outputs_biological_candidate_classes() {
         signif_threshold: 0.05,
         posterior_threshold: 0.9,
         bayes_factor_threshold: 10.0,
-        prior_probability: 0.01,
-        linked_probability: 0.9,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: "M".to_string(),
         group2: "F".to_string(),
     })
@@ -406,6 +407,7 @@ fn test_subset_command() {
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
         output_fasta: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: String::new(),
         group2: String::new(),
         min_group1: 2,
@@ -570,6 +572,7 @@ fn test_full_pipeline() {
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
         output_fasta: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: String::new(),
         group2: String::new(),
     })

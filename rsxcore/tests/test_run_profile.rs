@@ -39,6 +39,12 @@ disable_correction = false
 correction = "bonferroni"
 test_method = "chisq"
 output_bayes = false
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
 "#,
         ),
         (
@@ -57,6 +63,12 @@ test_method = "fisher"
 backend = "cpu"
 output_fasta = false
 output_bayes = false
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
 "#,
         ),
         (
@@ -72,8 +84,12 @@ groups = ["M", "F"]
 signif_threshold = 0.05
 posterior_threshold = 0.9
 bayes_factor_threshold = 10.0
-prior_probability = 0.01
-linked_probability = 0.9
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
 "#,
         ),
         (

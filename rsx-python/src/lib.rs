@@ -143,6 +143,7 @@ fn signif(
                 test_method: tm,
                 output_fasta,
                 output_bayes: bayes,
+                bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
                 group1: group1.to_string(),
                 group2: group2.to_string(),
             })
@@ -175,8 +176,12 @@ fn triage(
         signif_threshold,
         posterior_threshold,
         bayes_factor_threshold,
-        prior_probability,
-        linked_probability,
+        bayes_model: rsx_core::stats::DirectionalModel {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
+            null_prevalence: 0.5,
+            group1_linked_weight: 0.5,
+        },
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
@@ -499,8 +504,12 @@ fn triage_to_arrow(
         signif_threshold: 0.05,
         posterior_threshold,
         bayes_factor_threshold: 10.0,
-        prior_probability,
-        linked_probability,
+        bayes_model: rsx_core::stats::DirectionalModel {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
+            null_prevalence: 0.5,
+            group1_linked_weight: 0.5,
+        },
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -593,8 +602,12 @@ fn triage_to_arrow_from_arrow(
         signif_threshold: 0.05,
         posterior_threshold,
         bayes_factor_threshold: 10.0,
-        prior_probability,
-        linked_probability,
+        bayes_model: rsx_core::stats::DirectionalModel {
+            linkage_prior: prior_probability,
+            linked_prevalence: linked_probability,
+            null_prevalence: 0.5,
+            group1_linked_weight: 0.5,
+        },
         group1: group1.to_string(),
         group2: group2.to_string(),
     };
@@ -810,6 +823,7 @@ fn signif_from_arrow(
         test_method: tm,
         output_fasta,
         output_bayes: bayes,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: group1.to_string(),
         group2: group2.to_string(),
     };

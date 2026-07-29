@@ -7,6 +7,8 @@ use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
+use crate::bayes_profile::ModelProfile;
+
 #[derive(Debug)]
 pub enum RunProfileError {
     Parse(toml::de::Error),
@@ -97,6 +99,7 @@ pub struct DistribProfile {
     pub correction: String,
     pub test_method: String,
     pub output_bayes: bool,
+    pub bayes_model: ModelProfile,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -114,6 +117,7 @@ pub struct SignifProfile {
     pub backend: String,
     pub output_fasta: bool,
     pub output_bayes: bool,
+    pub bayes_model: ModelProfile,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -128,8 +132,7 @@ pub struct TriageProfile {
     pub signif_threshold: f32,
     pub posterior_threshold: f64,
     pub bayes_factor_threshold: f64,
-    pub prior_probability: f64,
-    pub linked_probability: f64,
+    pub bayes_model: ModelProfile,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

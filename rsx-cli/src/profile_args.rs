@@ -136,6 +136,7 @@ fn command_args(profile: &RunProfile) -> Vec<OsString> {
             option(&mut args, "--correction", &value.correction);
             option(&mut args, "--test", &value.test_method);
             flag(&mut args, "--bayes", value.output_bayes);
+            bayes_model(&mut args, &value.bayes_model);
         }
         CommandProfile::Signif(value) => {
             option(&mut args, "--markers-table", &value.markers_table);
@@ -149,6 +150,7 @@ fn command_args(profile: &RunProfile) -> Vec<OsString> {
             option(&mut args, "--backend", &value.backend);
             flag(&mut args, "--output-fasta", value.output_fasta);
             flag(&mut args, "--bayes", value.output_bayes);
+            bayes_model(&mut args, &value.bayes_model);
         }
         CommandProfile::Triage(value) => {
             option(&mut args, "--markers-table", &value.markers_table);
@@ -167,8 +169,7 @@ fn command_args(profile: &RunProfile) -> Vec<OsString> {
                 "--bayes-factor-threshold",
                 value.bayes_factor_threshold,
             );
-            number(&mut args, "--prior-probability", value.prior_probability);
-            number(&mut args, "--linked-probability", value.linked_probability);
+            bayes_model(&mut args, &value.bayes_model);
         }
         CommandProfile::Freq(value) => {
             option(&mut args, "--markers-table", &value.markers_table);
@@ -255,4 +256,11 @@ fn flag(args: &mut Vec<OsString>, name: &str, enabled: bool) {
     if enabled {
         args.push(OsString::from(name));
     }
+}
+
+fn bayes_model(args: &mut Vec<OsString>, model: &rsx_core::bayes_profile::ModelProfile) {
+    number(args, "--prior-probability", model.linkage_prior);
+    number(args, "--linked-probability", model.linked_prevalence);
+    number(args, "--null-prevalence", model.null_prevalence);
+    number(args, "--group1-linked-weight", model.group1_linked_weight);
 }

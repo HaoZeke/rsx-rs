@@ -251,6 +251,7 @@ pub unsafe extern "C" fn rsx_signif(
             test_method,
             output_fasta,
             output_bayes,
+            bayes_model: crate::stats::DirectionalModel::directional_screening_v1(),
             group1,
             group2,
         };
@@ -314,8 +315,12 @@ pub unsafe extern "C" fn rsx_triage(
             signif_threshold,
             posterior_threshold,
             bayes_factor_threshold,
-            prior_probability,
-            linked_probability,
+            bayes_model: crate::stats::DirectionalModel {
+                linkage_prior: prior_probability,
+                linked_prevalence: linked_probability,
+                null_prevalence: 0.5,
+                group1_linked_weight: 0.5,
+            },
             group1,
             group2,
         };

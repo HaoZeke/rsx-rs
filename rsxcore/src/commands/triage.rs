@@ -28,8 +28,7 @@ pub struct TriageParams {
     pub signif_threshold: f32,
     pub posterior_threshold: f64,
     pub bayes_factor_threshold: f64,
-    pub prior_probability: f64,
-    pub linked_probability: f64,
+    pub bayes_model: stats::DirectionalModel,
     pub group1: String,
     pub group2: String,
 }
@@ -116,8 +115,8 @@ pub fn run_with_source<S: MarkerStream>(
         params.signif_threshold,
         Cg(params.posterior_threshold),
         Cg(params.bayes_factor_threshold),
-        Cg(params.prior_probability),
-        Cg(params.linked_probability),
+        Cg(params.bayes_model.linkage_prior),
+        Cg(params.bayes_model.linked_prevalence),
         n_markers
     )?;
     writeln!(
@@ -137,14 +136,8 @@ pub fn run_with_source<S: MarkerStream>(
         let p_corrected = stats::bonferroni_correct(p, n_markers);
         let strict_call = p < strict_threshold;
         let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
-        let posterior = stats::posterior_sex_linked(
-            g1,
-            g2,
-            total_g1,
-            total_g2,
-            params.prior_probability,
-            params.linked_probability,
-        );
+        let posterior =
+            stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &params.bayes_model);
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
         if !(strict_call || posterior_call || bayes_factor_call) {
@@ -296,14 +289,8 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
 
         let strict_call = p < corrected_threshold;
         let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
-        let posterior = stats::posterior_sex_linked(
-            g1,
-            g2,
-            total_g1,
-            total_g2,
-            params.prior_probability,
-            params.linked_probability,
-        );
+        let posterior =
+            stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &params.bayes_model);
 
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
@@ -438,8 +425,7 @@ mod tests {
             signif_threshold: 0.05,
             posterior_threshold: 0.9,
             bayes_factor_threshold: 10.0,
-            prior_probability: 0.01,
-            linked_probability: 0.9,
+            bayes_model: stats::DirectionalModel::directional_screening_v1(),
             group1: "M".to_string(),
             group2: "F".to_string(),
         };

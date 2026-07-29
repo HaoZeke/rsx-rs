@@ -89,6 +89,18 @@ enum Commands {
         /// Include Bayes Factor and posterior P(sex-linked) per cell
         #[arg(long = "bayes")]
         output_bayes: bool,
+        /// Prior probability that a marker is sex-linked
+        #[arg(long = "prior-probability", default_value = "0.01")]
+        prior_probability: f64,
+        /// Expected marker prevalence in the linked group
+        #[arg(long = "linked-probability", default_value = "0.9")]
+        linked_probability: f64,
+        /// Expected marker prevalence under the null model
+        #[arg(long = "null-prevalence", default_value = "0.5")]
+        null_prevalence: f64,
+        /// Mixture weight assigned to the group-1-linked direction
+        #[arg(long = "group1-linked-weight", default_value = "0.5")]
+        group1_linked_weight: f64,
     },
 
     /// Extract markers significantly associated with a group
@@ -126,6 +138,18 @@ enum Commands {
         /// Include Bayes Factor and posterior P(sex-linked) in output
         #[arg(long = "bayes")]
         output_bayes: bool,
+        /// Prior probability that a marker is sex-linked
+        #[arg(long = "prior-probability", default_value = "0.01")]
+        prior_probability: f64,
+        /// Expected marker prevalence in the linked group
+        #[arg(long = "linked-probability", default_value = "0.9")]
+        linked_probability: f64,
+        /// Expected marker prevalence under the null model
+        #[arg(long = "null-prevalence", default_value = "0.5")]
+        null_prevalence: f64,
+        /// Mixture weight assigned to the group-1-linked direction
+        #[arg(long = "group1-linked-weight", default_value = "0.5")]
+        group1_linked_weight: f64,
     },
 
     /// Rank strict and Bayesian marker candidates for biological follow-up
@@ -160,6 +184,12 @@ enum Commands {
         /// Expected marker prevalence in the linked sex
         #[arg(long = "linked-probability", default_value = "0.9")]
         linked_probability: f64,
+        /// Expected marker prevalence under the null model
+        #[arg(long = "null-prevalence", default_value = "0.5")]
+        null_prevalence: f64,
+        /// Mixture weight assigned to the group-1-linked direction
+        #[arg(long = "group1-linked-weight", default_value = "0.5")]
+        group1_linked_weight: f64,
     },
 
     /// Compute marker frequencies in all individuals
@@ -379,6 +409,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             correction,
             test_method,
             output_bayes,
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
         } => {
             let (g1, g2) = extract_groups(groups)?;
             let mut corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
@@ -397,7 +431,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 correction: corr,
                 test_method: test,
                 output_bayes,
-                bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
+                bayes_model: rsx_core::stats::DirectionalModel {
+                    linkage_prior: prior_probability,
+                    linked_prevalence: linked_probability,
+                    null_prevalence,
+                    group1_linked_weight,
+                },
                 group1: g1,
                 group2: g2,
             })
@@ -415,6 +454,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             backend,
             output_fasta,
             output_bayes,
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
         } => {
             let (g1, g2) = extract_groups(groups)?;
             let corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
@@ -443,6 +486,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     test_method: test,
                     output_fasta,
                     output_bayes,
+                    bayes_model: rsx_core::stats::DirectionalModel {
+                        linkage_prior: prior_probability,
+                        linked_prevalence: linked_probability,
+                        null_prevalence,
+                        group1_linked_weight,
+                    },
                     group1: g1,
                     group2: g2,
                 },
@@ -461,6 +510,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             bayes_factor_threshold,
             prior_probability,
             linked_probability,
+            null_prevalence,
+            group1_linked_weight,
         } => {
             let (g1, g2) = extract_groups(groups)?;
             commands::triage::run(&commands::triage::TriageParams {
@@ -471,8 +522,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 signif_threshold,
                 posterior_threshold,
                 bayes_factor_threshold,
-                prior_probability,
-                linked_probability,
+                bayes_model: rsx_core::stats::DirectionalModel {
+                    linkage_prior: prior_probability,
+                    linked_prevalence: linked_probability,
+                    null_prevalence,
+                    group1_linked_weight,
+                },
                 group1: g1,
                 group2: g2,
             })
@@ -657,6 +712,10 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             correction,
             test_method,
             output_bayes,
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
         } => CommandProfile::Distrib(run_profile::DistribProfile {
             markers_table: markers_table.clone(),
             popmap: popmap.clone(),
@@ -668,6 +727,12 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             correction: correction.clone(),
             test_method: test_method.clone(),
             output_bayes: *output_bayes,
+            bayes_model: rsx_core::bayes_profile::ModelProfile {
+                linkage_prior: *prior_probability,
+                linked_prevalence: *linked_probability,
+                null_prevalence: *null_prevalence,
+                group1_linked_weight: *group1_linked_weight,
+            },
         }),
         Commands::Signif {
             markers_table,
@@ -681,6 +746,10 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             backend,
             output_fasta,
             output_bayes,
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
         } => CommandProfile::Signif(run_profile::SignifProfile {
             markers_table: markers_table.clone(),
             popmap: popmap.clone(),
@@ -693,6 +762,12 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             backend: backend.clone(),
             output_fasta: *output_fasta,
             output_bayes: *output_bayes,
+            bayes_model: rsx_core::bayes_profile::ModelProfile {
+                linkage_prior: *prior_probability,
+                linked_prevalence: *linked_probability,
+                null_prevalence: *null_prevalence,
+                group1_linked_weight: *group1_linked_weight,
+            },
         }),
         Commands::Triage {
             markers_table,
@@ -705,6 +780,8 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             bayes_factor_threshold,
             prior_probability,
             linked_probability,
+            null_prevalence,
+            group1_linked_weight,
         } => CommandProfile::Triage(run_profile::TriageProfile {
             markers_table: markers_table.clone(),
             popmap: popmap.clone(),
@@ -714,8 +791,12 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             signif_threshold: *signif_threshold,
             posterior_threshold: *posterior_threshold,
             bayes_factor_threshold: *bayes_factor_threshold,
-            prior_probability: *prior_probability,
-            linked_probability: *linked_probability,
+            bayes_model: rsx_core::bayes_profile::ModelProfile {
+                linkage_prior: *prior_probability,
+                linked_prevalence: *linked_probability,
+                null_prevalence: *null_prevalence,
+                group1_linked_weight: *group1_linked_weight,
+            },
         }),
         Commands::Freq {
             markers_table,

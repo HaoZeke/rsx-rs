@@ -25,6 +25,7 @@ pub struct SignifParams {
     pub test_method: TestMethod,
     pub output_fasta: bool,
     pub output_bayes: bool,
+    pub bayes_model: stats::DirectionalModel,
     pub group1: String,
     pub group2: String,
 }
@@ -176,7 +177,15 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
             let g1 = marker.presence.count_masked(&mask_g1);
             let g2 = marker.presence.count_masked(&mask_g2);
             let result = if params.output_bayes {
-                write_marker_bayes_row(&mut output, marker, g1, g2, total_g1, total_g2)
+                write_marker_bayes_row(
+                    &mut output,
+                    marker,
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    &params.bayes_model,
+                )
             } else {
                 marker.write_as_table(&mut output)
             };
@@ -254,7 +263,15 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
             m.p_corrected = p_corr;
             m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)
         } else if params.output_bayes {
-            write_marker_bayes_row(&mut output, marker, g1, g2, total_g1, total_g2)
+            write_marker_bayes_row(
+                &mut output,
+                marker,
+                g1,
+                g2,
+                total_g1,
+                total_g2,
+                &params.bayes_model,
+            )
         } else {
             marker.write_as_table(&mut output)
         };
@@ -365,6 +382,7 @@ fn run_cuda<S: MarkerStream>(
                 association.group2,
                 total_g1,
                 total_g2,
+                &params.bayes_model,
             )
         } else {
             marker.write_as_table(&mut output)
@@ -386,9 +404,10 @@ fn write_marker_bayes_row<W: Write>(
     g2: u32,
     total_g1: u32,
     total_g2: u32,
+    bayes_model: &stats::DirectionalModel,
 ) -> std::io::Result<()> {
     let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
-    let post = stats::posterior_sex_linked(g1, g2, total_g1, total_g2, 0.01, 0.9);
+    let post = stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, bayes_model);
     write!(output, "{}\t{}", marker.id, marker.sequence)?;
     for &d in &marker.individual_depths {
         write!(output, "\t{d}")?;
@@ -456,6 +475,7 @@ mod tests {
             test_method: TestMethod::ChiSquared,
             output_fasta: false,
             output_bayes: false,
+            bayes_model: stats::DirectionalModel::directional_screening_v1(),
             group1: "M".into(),
             group2: "F".into(),
         })
@@ -489,6 +509,7 @@ mod tests {
             test_method: TestMethod::ChiSquared,
             output_fasta: true,
             output_bayes: false,
+            bayes_model: stats::DirectionalModel::directional_screening_v1(),
             group1: "M".into(),
             group2: "F".into(),
         });
@@ -521,6 +542,7 @@ mod tests {
             test_method: TestMethod::ChiSquared,
             output_fasta: false,
             output_bayes: false,
+            bayes_model: stats::DirectionalModel::directional_screening_v1(),
             group1: "M".into(),
             group2: "F".into(),
         })
@@ -553,6 +575,7 @@ mod tests {
             test_method: TestMethod::ChiSquared,
             output_fasta: false,
             output_bayes: false,
+            bayes_model: stats::DirectionalModel::directional_screening_v1(),
             group1: "M".into(),
             group2: "F".into(),
         };
