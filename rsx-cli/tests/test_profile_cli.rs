@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use rsx_core::run_profile::{CommandProfile, RunProfile};
 use rsx_core::stats::{
-    bayes_factor_2x2, bayes_factor_2x2_with_model, posterior_sex_linked_with_model,
+    Cg, bayes_factor_2x2, bayes_factor_2x2_with_model, posterior_sex_linked_with_model,
 };
 use sha2::{Digest, Sha256};
 
@@ -118,7 +118,7 @@ beta = 10.0
     let output = fs::read_to_string(&output_path).unwrap();
     let row = output.lines().nth(2).unwrap();
     let observed: f64 = row.split('\t').nth(14).unwrap().parse().unwrap();
-    assert_eq!(observed, format!("{expected:.4}").parse::<f64>().unwrap());
+    assert_eq!(observed, Cg(expected).to_string().parse::<f64>().unwrap());
 }
 
 #[test]
