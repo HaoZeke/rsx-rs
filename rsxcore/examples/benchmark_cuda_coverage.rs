@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .device;
 
     println!(
-        "host,device,kernel,markers,individuals,repetition,cpu_s,cuda_setup_s,cuda_kernel_s,cuda_total_s,h2d_bytes,d2h_bytes,total_speedup,max_abs_diff,max_rel_diff"
+        "host,device,kernel,markers,individuals,repetition,cpu_s,cuda_setup_s,cuda_h2d_s,cuda_kernel_s,cuda_d2h_s,cuda_total_s,h2d_bytes,d2h_bytes,total_speedup,max_abs_diff,max_rel_diff"
     );
 
     for &markers in &sizes {
@@ -113,11 +113,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let (difference, relative) =
                     agreement(cpu.p_values.try_as_slice()?, cuda.p_values.try_as_slice()?);
                 println!(
-                    "{host},{},{test:?},{markers},{individuals},{repetition},{:.9},{:.9},{:.9},{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
+                    "{host},{},{test:?},{markers},{individuals},{repetition},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
                     cuda.metrics.device,
                     cpu.metrics.total_seconds,
                     cuda.metrics.setup_seconds,
+                    cuda.metrics.host_to_device_seconds,
                     cuda.metrics.kernel_seconds,
+                    cuda.metrics.device_to_host_seconds,
                     cuda.metrics.total_seconds,
                     cuda.metrics.host_to_device_bytes,
                     cuda.metrics.device_to_host_bytes,
@@ -147,11 +149,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ] {
                 let (difference, relative) = agreement(host_values, device_values);
                 println!(
-                    "{host},{},{label},{markers},{individuals},{repetition},{:.9},{:.9},{:.9},{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
+                    "{host},{},{label},{markers},{individuals},{repetition},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
                     cuda.metrics.device,
                     cpu.metrics.total_seconds,
                     cuda.metrics.setup_seconds,
+                    cuda.metrics.host_to_device_seconds,
                     cuda.metrics.kernel_seconds,
+                    cuda.metrics.device_to_host_seconds,
                     cuda.metrics.total_seconds,
                     cuda.metrics.host_to_device_bytes,
                     cuda.metrics.device_to_host_bytes,
@@ -185,7 +189,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let (difference, relative) = agreement(&totals[0], &totals[1]);
             println!(
-                "{host},{device},Gram,{gram_markers},{individuals},{repetition},{:.9},0.0,0.0,{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
+                "{host},{device},Gram,{gram_markers},{individuals},{repetition},{:.9},0.0,0.0,0.0,0.0,{:.9},{},{},{:.4},{difference:.3e},{relative:.3e}",
                 seconds[0],
                 seconds[1],
                 gram_markers * individuals * 2,
