@@ -110,7 +110,13 @@ enum rsx_status_t rsx_distrib(const char *table_path,
                               double prior_probability,
                               double linked_probability,
                               double null_prevalence,
-                              double group1_linked_weight);
+                              double group1_linked_weight,
+                              double bf_group1_alpha,
+                              double bf_group1_beta,
+                              double bf_group2_alpha,
+                              double bf_group2_beta,
+                              double bf_null_alpha,
+                              double bf_null_beta);
 
 /**
  * Run the `signif` command.
@@ -132,7 +138,13 @@ enum rsx_status_t rsx_signif(const char *table_path,
                              double prior_probability,
                              double linked_probability,
                              double null_prevalence,
-                             double group1_linked_weight);
+                             double group1_linked_weight,
+                             double bf_group1_alpha,
+                             double bf_group1_beta,
+                             double bf_group2_alpha,
+                             double bf_group2_beta,
+                             double bf_null_alpha,
+                             double bf_null_beta);
 
 /**
  * Run the `triage` command.
@@ -151,6 +163,12 @@ enum rsx_status_t rsx_triage(const char *table_path,
                              double linked_probability,
                              double null_prevalence,
                              double group1_linked_weight,
+                             double bf_group1_alpha,
+                             double bf_group1_beta,
+                             double bf_group2_alpha,
+                             double bf_group2_beta,
+                             double bf_null_alpha,
+                             double bf_null_beta,
                              const char *group1,
                              const char *group2);
 

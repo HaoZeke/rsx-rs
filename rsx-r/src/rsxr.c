@@ -51,7 +51,10 @@ SEXP C_rsx_distrib(SEXP table_path, SEXP popmap_path, SEXP output_file,
                    SEXP min_depth, SEXP signif_threshold, SEXP group1,
                    SEXP group2, SEXP correction, SEXP test, SEXP output_bayes,
                    SEXP prior_probability, SEXP linked_probability,
-                   SEXP null_prevalence, SEXP group1_linked_weight) {
+                   SEXP null_prevalence, SEXP group1_linked_weight,
+                   SEXP bf_group1_alpha, SEXP bf_group1_beta,
+                   SEXP bf_group2_alpha, SEXP bf_group2_beta,
+                   SEXP bf_null_alpha, SEXP bf_null_beta) {
   rsx_status_t st = rsx_distrib(
       rsxr_str(table_path, "table_path"),
       rsxr_str(popmap_path, "popmap_path"),
@@ -66,7 +69,13 @@ SEXP C_rsx_distrib(SEXP table_path, SEXP popmap_path, SEXP output_file,
       (double) Rf_asReal(prior_probability),
       (double) Rf_asReal(linked_probability),
       (double) Rf_asReal(null_prevalence),
-      (double) Rf_asReal(group1_linked_weight));
+      (double) Rf_asReal(group1_linked_weight),
+      (double) Rf_asReal(bf_group1_alpha),
+      (double) Rf_asReal(bf_group1_beta),
+      (double) Rf_asReal(bf_group2_alpha),
+      (double) Rf_asReal(bf_group2_beta),
+      (double) Rf_asReal(bf_null_alpha),
+      (double) Rf_asReal(bf_null_beta));
   rsxr_check(st);
   return R_NilValue;
 }
@@ -76,7 +85,10 @@ SEXP C_rsx_signif(SEXP table_path, SEXP popmap_path, SEXP output_file,
                   SEXP group2, SEXP correction, SEXP test, SEXP output_fasta,
                   SEXP output_bayes, SEXP prior_probability,
                   SEXP linked_probability, SEXP null_prevalence,
-                  SEXP group1_linked_weight) {
+                  SEXP group1_linked_weight, SEXP bf_group1_alpha,
+                  SEXP bf_group1_beta, SEXP bf_group2_alpha,
+                  SEXP bf_group2_beta, SEXP bf_null_alpha,
+                  SEXP bf_null_beta) {
   rsx_status_t st = rsx_signif(
       rsxr_str(table_path, "table_path"),
       rsxr_str(popmap_path, "popmap_path"),
@@ -92,7 +104,13 @@ SEXP C_rsx_signif(SEXP table_path, SEXP popmap_path, SEXP output_file,
       (double) Rf_asReal(prior_probability),
       (double) Rf_asReal(linked_probability),
       (double) Rf_asReal(null_prevalence),
-      (double) Rf_asReal(group1_linked_weight));
+      (double) Rf_asReal(group1_linked_weight),
+      (double) Rf_asReal(bf_group1_alpha),
+      (double) Rf_asReal(bf_group1_beta),
+      (double) Rf_asReal(bf_group2_alpha),
+      (double) Rf_asReal(bf_group2_beta),
+      (double) Rf_asReal(bf_null_alpha),
+      (double) Rf_asReal(bf_null_beta));
   rsxr_check(st);
   return R_NilValue;
 }
@@ -101,7 +119,10 @@ SEXP C_rsx_triage(SEXP table_path, SEXP popmap_path, SEXP output_file,
                   SEXP min_depth, SEXP signif_threshold, SEXP posterior_threshold,
                   SEXP bayes_factor_threshold, SEXP prior_probability,
                   SEXP linked_probability, SEXP null_prevalence,
-                  SEXP group1_linked_weight, SEXP group1, SEXP group2) {
+                  SEXP group1_linked_weight, SEXP bf_group1_alpha,
+                  SEXP bf_group1_beta, SEXP bf_group2_alpha,
+                  SEXP bf_group2_beta, SEXP bf_null_alpha,
+                  SEXP bf_null_beta, SEXP group1, SEXP group2) {
   rsx_status_t st = rsx_triage(
       rsxr_str(table_path, "table_path"),
       rsxr_str(popmap_path, "popmap_path"),
@@ -114,6 +135,12 @@ SEXP C_rsx_triage(SEXP table_path, SEXP popmap_path, SEXP output_file,
       (double) Rf_asReal(linked_probability),
       (double) Rf_asReal(null_prevalence),
       (double) Rf_asReal(group1_linked_weight),
+      (double) Rf_asReal(bf_group1_alpha),
+      (double) Rf_asReal(bf_group1_beta),
+      (double) Rf_asReal(bf_group2_alpha),
+      (double) Rf_asReal(bf_group2_beta),
+      (double) Rf_asReal(bf_null_alpha),
+      (double) Rf_asReal(bf_null_beta),
       rsxr_str(group1, "group1"),
       rsxr_str(group2, "group2"));
   rsxr_check(st);
@@ -172,9 +199,9 @@ SEXP C_rsx_version(void) {
 static const R_CallMethodDef CallEntries[] = {
     {"C_rsx_process", (DL_FUNC) &C_rsx_process, 4},
     {"C_rsx_freq",    (DL_FUNC) &C_rsx_freq,    3},
-    {"C_rsx_distrib", (DL_FUNC) &C_rsx_distrib, 14},
-    {"C_rsx_signif",  (DL_FUNC) &C_rsx_signif,  15},
-    {"C_rsx_triage",  (DL_FUNC) &C_rsx_triage,  13},
+    {"C_rsx_distrib", (DL_FUNC) &C_rsx_distrib, 20},
+    {"C_rsx_signif",  (DL_FUNC) &C_rsx_signif,  21},
+    {"C_rsx_triage",  (DL_FUNC) &C_rsx_triage,  19},
     {"C_rsx_depth",   (DL_FUNC) &C_rsx_depth,   5},
     {"C_rsx_merge",   (DL_FUNC) &C_rsx_merge,   4},
     {"C_rsx_pca",     (DL_FUNC) &C_rsx_pca,     4},

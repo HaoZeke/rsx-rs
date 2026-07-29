@@ -50,6 +50,12 @@ rsx_freq <- function(table_path, output_file, min_depth = 1L) {
 #' @param linked_probability Expected marker prevalence in the linked group.
 #' @param null_prevalence Expected marker prevalence under the null model.
 #' @param group1_linked_weight Mixture weight for the group-1-linked direction.
+#' @param bf_group1_alpha,bf_group1_beta Beta-prior shape parameters for
+#'   marker prevalence under the group-1-linked alternative.
+#' @param bf_group2_alpha,bf_group2_beta Beta-prior shape parameters for
+#'   marker prevalence under the group-2-linked alternative.
+#' @param bf_null_alpha,bf_null_beta Beta-prior shape parameters for marker
+#'   prevalence under the null model.
 #' @return The output path, invisibly.
 #' @export
 #' @examples
@@ -65,12 +71,21 @@ rsx_distrib <- function(table_path, popmap_path, output_file,
                         prior_probability = 0.01,
                         linked_probability = 0.9,
                         null_prevalence = 0.5,
-                        group1_linked_weight = 0.5) {
+                        group1_linked_weight = 0.5,
+                        bf_group1_alpha = 1.0,
+                        bf_group1_beta = 1.0,
+                        bf_group2_alpha = 1.0,
+                        bf_group2_beta = 1.0,
+                        bf_null_alpha = 1.0,
+                        bf_null_beta = 1.0) {
   .Call(C_rsx_distrib, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         group1, group2, correction, test, as.logical(output_bayes),
         as.numeric(prior_probability), as.numeric(linked_probability),
-        as.numeric(null_prevalence), as.numeric(group1_linked_weight))
+        as.numeric(null_prevalence), as.numeric(group1_linked_weight),
+        as.numeric(bf_group1_alpha), as.numeric(bf_group1_beta),
+        as.numeric(bf_group2_alpha), as.numeric(bf_group2_beta),
+        as.numeric(bf_null_alpha), as.numeric(bf_null_beta))
   invisible(output_file)
 }
 
@@ -94,13 +109,22 @@ rsx_signif <- function(table_path, popmap_path, output_file,
                        prior_probability = 0.01,
                        linked_probability = 0.9,
                        null_prevalence = 0.5,
-                       group1_linked_weight = 0.5) {
+                       group1_linked_weight = 0.5,
+                       bf_group1_alpha = 1.0,
+                       bf_group1_beta = 1.0,
+                       bf_group2_alpha = 1.0,
+                       bf_group2_beta = 1.0,
+                       bf_null_alpha = 1.0,
+                       bf_null_beta = 1.0) {
   .Call(C_rsx_signif, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         group1, group2, correction, test,
         as.logical(output_fasta), as.logical(bayes),
         as.numeric(prior_probability), as.numeric(linked_probability),
-        as.numeric(null_prevalence), as.numeric(group1_linked_weight))
+        as.numeric(null_prevalence), as.numeric(group1_linked_weight),
+        as.numeric(bf_group1_alpha), as.numeric(bf_group1_beta),
+        as.numeric(bf_group2_alpha), as.numeric(bf_group2_beta),
+        as.numeric(bf_null_alpha), as.numeric(bf_null_beta))
   invisible(output_file)
 }
 
@@ -124,12 +148,21 @@ rsx_triage <- function(table_path, popmap_path, output_file,
                        linked_probability = 0.9,
                        null_prevalence = 0.5,
                        group1_linked_weight = 0.5,
+                       bf_group1_alpha = 1.0,
+                       bf_group1_beta = 1.0,
+                       bf_group2_alpha = 1.0,
+                       bf_group2_beta = 1.0,
+                       bf_null_alpha = 1.0,
+                       bf_null_beta = 1.0,
                        group1 = "M", group2 = "F") {
   .Call(C_rsx_triage, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         as.numeric(posterior_threshold), as.numeric(bayes_factor_threshold),
         as.numeric(prior_probability), as.numeric(linked_probability),
         as.numeric(null_prevalence), as.numeric(group1_linked_weight),
+        as.numeric(bf_group1_alpha), as.numeric(bf_group1_beta),
+        as.numeric(bf_group2_alpha), as.numeric(bf_group2_beta),
+        as.numeric(bf_null_alpha), as.numeric(bf_null_beta),
         group1, group2)
   invisible(output_file)
 }
