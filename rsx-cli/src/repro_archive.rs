@@ -234,7 +234,8 @@ fn write_zip_atomic(
         .open(&temporary)?;
     let mut archive = ZipWriter::new(file);
     let options = SimpleFileOptions::default()
-        .compression_method(CompressionMethod::Stored)
+        .compression_method(CompressionMethod::Deflated)
+        .compression_level(Some(1))
         .last_modified_time(DateTime::default())
         .unix_permissions(0o644);
     for (name, contents) in members {
