@@ -4,9 +4,14 @@
 //! CLI for RADSex: sex-determination analysis from RAD-Sequencing data.
 
 use std::ffi::OsString;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use clap::{Parser, Subcommand};
 use rsx_core::commands;
+use rsx_core::run_profile::{self, CommandProfile, RunProfile};
 
 mod profile_args;
 
@@ -334,6 +339,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let cli = parse_cli_from(std::env::args_os())?;
+    let hydrated = resolved_run_profile(&cli)?;
+    write_hydrated_profile(&hydrated)?;
 
     let result: Result<(), Box<dyn std::error::Error>> = match cli.command {
         Commands::Process {
@@ -617,6 +624,229 @@ where
 {
     let expanded = profile_args::expand_profile_args(arguments)?;
     Ok(Cli::try_parse_from(expanded)?)
+}
+
+fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Error>> {
+    let profile_name = match &cli.profile {
+        Some(path) => RunProfile::parse_toml(&fs::read_to_string(path)?)?.profile_name,
+        None => "cli-v1".to_owned(),
+    };
+    let run = match &cli.command {
+        Commands::Process {
+            input_dir,
+            output_file,
+            threads,
+            min_depth,
+            kmer_dedup,
+        } => CommandProfile::Process(run_profile::ProcessProfile {
+            input_dir: input_dir.clone(),
+            output_file: output_file.clone(),
+            threads: *threads,
+            min_depth: *min_depth,
+            kmer_dedup: *kmer_dedup,
+        }),
+        Commands::Distrib {
+            markers_table,
+            popmap,
+            output_file,
+            min_depth,
+            groups,
+            signif_threshold,
+            disable_correction,
+            correction,
+            test_method,
+            output_bayes,
+        } => CommandProfile::Distrib(run_profile::DistribProfile {
+            markers_table: markers_table.clone(),
+            popmap: popmap.clone(),
+            output_file: output_file.clone(),
+            min_depth: *min_depth,
+            groups: groups.clone(),
+            signif_threshold: *signif_threshold,
+            disable_correction: *disable_correction,
+            correction: correction.clone(),
+            test_method: test_method.clone(),
+            output_bayes: *output_bayes,
+        }),
+        Commands::Signif {
+            markers_table,
+            popmap,
+            output_file,
+            min_depth,
+            groups,
+            signif_threshold,
+            correction,
+            test_method,
+            backend,
+            output_fasta,
+            output_bayes,
+        } => CommandProfile::Signif(run_profile::SignifProfile {
+            markers_table: markers_table.clone(),
+            popmap: popmap.clone(),
+            output_file: output_file.clone(),
+            min_depth: *min_depth,
+            groups: groups.clone(),
+            signif_threshold: *signif_threshold,
+            correction: correction.clone(),
+            test_method: test_method.clone(),
+            backend: backend.clone(),
+            output_fasta: *output_fasta,
+            output_bayes: *output_bayes,
+        }),
+        Commands::Triage {
+            markers_table,
+            popmap,
+            output_file,
+            min_depth,
+            groups,
+            signif_threshold,
+            posterior_threshold,
+            bayes_factor_threshold,
+            prior_probability,
+            linked_probability,
+        } => CommandProfile::Triage(run_profile::TriageProfile {
+            markers_table: markers_table.clone(),
+            popmap: popmap.clone(),
+            output_file: output_file.clone(),
+            min_depth: *min_depth,
+            groups: groups.clone(),
+            signif_threshold: *signif_threshold,
+            posterior_threshold: *posterior_threshold,
+            bayes_factor_threshold: *bayes_factor_threshold,
+            prior_probability: *prior_probability,
+            linked_probability: *linked_probability,
+        }),
+        Commands::Freq {
+            markers_table,
+            output_file,
+            min_depth,
+        } => CommandProfile::Freq(run_profile::FreqProfile {
+            markers_table: markers_table.clone(),
+            output_file: output_file.clone(),
+            min_depth: *min_depth,
+        }),
+        Commands::Depth {
+            markers_table,
+            popmap,
+            output_file,
+            min_frequency,
+        } => CommandProfile::Depth(run_profile::DepthProfile {
+            markers_table: markers_table.clone(),
+            popmap: popmap.clone(),
+            output_file: output_file.clone(),
+            min_frequency: *min_frequency,
+        }),
+        #[cfg(feature = "map")]
+        Commands::Map {
+            markers_file,
+            output_file,
+            popmap,
+            genome_file,
+            min_depth,
+            groups,
+            min_quality,
+            min_frequency,
+            signif_threshold,
+            disable_correction,
+        } => CommandProfile::Map(run_profile::MapProfile {
+            markers_file: markers_file.clone(),
+            output_file: output_file.clone(),
+            popmap: popmap.clone(),
+            genome_file: genome_file.clone(),
+            min_depth: *min_depth,
+            groups: groups.clone(),
+            min_quality: *min_quality,
+            min_frequency: *min_frequency,
+            signif_threshold: *signif_threshold,
+            disable_correction: *disable_correction,
+        }),
+        Commands::Subset {
+            markers_table,
+            popmap,
+            output_file,
+            min_depth,
+            groups,
+            signif_threshold,
+            disable_correction,
+            output_fasta,
+            min_group1,
+            min_group2,
+            max_group1,
+            max_group2,
+            min_individuals,
+            max_individuals,
+        } => CommandProfile::Subset(run_profile::SubsetProfile {
+            markers_table: markers_table.clone(),
+            popmap: popmap.clone(),
+            output_file: output_file.clone(),
+            min_depth: *min_depth,
+            groups: groups.clone(),
+            signif_threshold: *signif_threshold,
+            disable_correction: *disable_correction,
+            output_fasta: *output_fasta,
+            min_group1: *min_group1,
+            min_group2: *min_group2,
+            max_group1: *max_group1,
+            max_group2: *max_group2,
+            min_individuals: *min_individuals,
+            max_individuals: *max_individuals,
+        }),
+        Commands::Merge {
+            input_files,
+            output_file,
+            buffer_size,
+            output_parquet,
+        } => CommandProfile::Merge(run_profile::MergeProfile {
+            input_files: input_files.clone(),
+            output_file: output_file.clone(),
+            buffer_size: *buffer_size,
+            output_parquet: *output_parquet,
+        }),
+        Commands::Pca {
+            markers_table,
+            output_dir,
+            min_depth,
+            components,
+        } => CommandProfile::Pca(run_profile::PcaProfile {
+            markers_table: markers_table.clone(),
+            output_dir: output_dir.clone(),
+            min_depth: *min_depth,
+            components: *components,
+        }),
+    };
+    Ok(RunProfile {
+        schema_version: 1,
+        profile_name,
+        reproducibility_archive: cli.reproducibility_archive.clone(),
+        write_hydrated_profile: cli.write_hydrated_profile.clone(),
+        run,
+    })
+}
+
+fn write_hydrated_profile(profile: &RunProfile) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(destination) = &profile.write_hydrated_profile else {
+        return Ok(());
+    };
+    let destination = Path::new(destination);
+    let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("profile.hydrated.toml");
+    static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let temporary = parent.join(format!(
+        ".{file_name}.rsx-{}-{sequence}.tmp",
+        std::process::id()
+    ));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)?;
+    file.write_all(profile.to_toml()?.as_bytes())?;
+    file.sync_all()?;
+    fs::rename(temporary, destination)?;
+    Ok(())
 }
 
 fn main() {
