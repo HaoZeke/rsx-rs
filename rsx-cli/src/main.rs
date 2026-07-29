@@ -14,6 +14,7 @@ use rsx_core::commands;
 use rsx_core::run_profile::{self, CommandProfile, RunProfile};
 
 mod profile_args;
+mod repro_archive;
 
 #[derive(Parser)]
 #[command(
@@ -371,6 +372,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = parse_cli_from(std::env::args_os())?;
     let hydrated = resolved_run_profile(&cli)?;
     write_hydrated_profile(&hydrated)?;
+    let input_profile = match &cli.profile {
+        Some(path) => fs::read_to_string(path)?,
+        None => hydrated.to_toml()?,
+    };
+    let archive_path = hydrated.reproducibility_archive.clone();
+    if let Some(path) = &archive_path {
+        repro_archive::write_archive(
+            Path::new(path),
+            &input_profile,
+            &hydrated,
+            repro_archive::ArchiveStatus::Started,
+        )?;
+    }
 
     let result: Result<(), Box<dyn std::error::Error>> = match cli.command {
         Commands::Process {
@@ -671,6 +685,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }),
     };
 
+    if let Some(path) = &archive_path {
+        let error_message = result.as_ref().err().map(ToString::to_string);
+        let status = match error_message.as_deref() {
+            Some(message) => repro_archive::ArchiveStatus::Failed(message),
+            None => repro_archive::ArchiveStatus::Completed,
+        };
+        if let Err(archive_error) =
+            repro_archive::write_archive(Path::new(path), &input_profile, &hydrated, status)
+        {
+            if result.is_ok() {
+                return Err(archive_error);
+            }
+            log::error!("could not enrich reproducibility archive: {archive_error}");
+        }
+    }
     result
 }
 
@@ -942,7 +971,7 @@ fn main() {
 mod tests {
     use std::fs;
 
-    use super::{Commands, extract_groups, parse_cli_from};
+    use super::{extract_groups, parse_cli_from, Commands};
 
     #[test]
     fn missing_groups_uses_popmap_resolution() {
@@ -962,10 +991,9 @@ mod tests {
     fn malformed_groups_are_rejected() {
         let groups = Some(vec!["male".to_string()]);
         let err = extract_groups(&groups).expect_err("single group must fail");
-        assert!(
-            err.to_string()
-                .contains("exactly two non-empty group names")
-        );
+        assert!(err
+            .to_string()
+            .contains("exactly two non-empty group names"));
     }
 
     #[test]

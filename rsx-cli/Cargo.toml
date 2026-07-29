@@ -25,7 +25,11 @@ rsxcore = { path = "../rsxcore", version = "0.2.6", features = ["parallel"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 env_logger = "0.11"
 log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+toml = "0.9"
+zip = { version = "4", default-features = false }
 
 [dev-dependencies]
 tempfile = "3"
-zip = { version = "4", default-features = false }
