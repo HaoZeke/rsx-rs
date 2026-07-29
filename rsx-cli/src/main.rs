@@ -939,4 +939,64 @@ kmer_dedup = 31
 
         fs::remove_file(path).unwrap();
     }
+
+    #[test]
+    fn bayesian_profile_fields_are_cli_overridable() {
+        let path =
+            std::env::temp_dir().join(format!("rsx-distrib-profile-{}.toml", std::process::id()));
+        fs::write(
+            &path,
+            r#"
+schema_version = 1
+profile_name = "distrib-bayes-v1"
+
+[run]
+command = "distrib"
+markers_table = "markers.tsv"
+popmap = "popmap.tsv"
+output_file = "distrib.tsv"
+min_depth = 1
+groups = ["M", "F"]
+signif_threshold = 0.05
+disable_correction = false
+correction = "bonferroni"
+test_method = "chisq"
+output_bayes = true
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
+"#,
+        )
+        .unwrap();
+
+        let cli = parse_cli_from([
+            "rsx".into(),
+            "--profile".into(),
+            path.clone().into_os_string(),
+            "--null-prevalence".into(),
+            "0.4".into(),
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Distrib {
+                prior_probability,
+                linked_probability,
+                null_prevalence,
+                group1_linked_weight,
+                ..
+            } => {
+                assert_eq!(prior_probability, 0.01);
+                assert_eq!(linked_probability, 0.9);
+                assert_eq!(null_prevalence, 0.4);
+                assert_eq!(group1_linked_weight, 0.5);
+            }
+            _ => panic!("profile selected the wrong command"),
+        }
+
+        fs::remove_file(path).unwrap();
+    }
 }
