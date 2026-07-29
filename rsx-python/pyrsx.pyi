@@ -138,12 +138,30 @@ class TableResult:
 @dataclass
 class TriageParams:
     min_depth: int = 10
+    signif_threshold: float = 0.05
     posterior_threshold: float = 0.9
+    bayes_factor_threshold: float = 10.0
     prior: float = 0.01
     linked_prob: float = 0.9
+    null_prevalence: float = 0.5
+    group1_linked_weight: float = 0.5
+    bf_group1_alpha: float = 1.0
+    bf_group1_beta: float = 1.0
+    bf_group2_alpha: float = 1.0
+    bf_group2_beta: float = 1.0
+    bf_null_alpha: float = 1.0
+    bf_null_beta: float = 1.0
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed"
+    posterior_linked_alpha: float = 1.0
+    posterior_linked_beta: float = 1.0
+    posterior_null_family: Literal["fixed", "beta"] = "fixed"
+    posterior_null_alpha: float = 1.0
+    posterior_null_beta: float = 1.0
+    correction: Literal["bonferroni", "fdr", "none"] = "bonferroni"
+    test: Literal["chisq", "fisher", "gtest"] = "chisq"
+    output_fasta: bool = False
     group1: str = "M"
     group2: str = "F"
-    ...
 
 # --------------------------------------------------------------------------- #
 # Low-level direct bindings (for power users / compatibility)
@@ -188,6 +206,12 @@ def distrib(
     bf_group2_beta: float = 1.0,
     bf_null_alpha: float = 1.0,
     bf_null_beta: float = 1.0,
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_alpha: float = 1.0,
+    posterior_linked_beta: float = 1.0,
+    posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_alpha: float = 1.0,
+    posterior_null_beta: float = 1.0,
 ) -> None:
     """Compute marker distribution between two groups.
 
@@ -237,6 +261,12 @@ def signif(
     bf_group2_beta: float = 1.0,
     bf_null_alpha: float = 1.0,
     bf_null_beta: float = 1.0,
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_alpha: float = 1.0,
+    posterior_linked_beta: float = 1.0,
+    posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_alpha: float = 1.0,
+    posterior_null_beta: float = 1.0,
 ) -> None:
     """Extract markers significantly associated with a group.
 
@@ -285,6 +315,12 @@ def triage(
     bf_null_beta: float = 1.0,
     group1: str = "",
     group2: str = "",
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_alpha: float = 1.0,
+    posterior_linked_beta: float = 1.0,
+    posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_alpha: float = 1.0,
+    posterior_null_beta: float = 1.0,
 ) -> None:
     """Rank strict and Bayesian marker candidates.
 
@@ -330,6 +366,12 @@ def triage_to_arrow(
     group2: str = "",
     signif_threshold: float = 0.05,
     bayes_factor_threshold: float = 10.0,
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_alpha: float = 1.0,
+    posterior_linked_beta: float = 1.0,
+    posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_alpha: float = 1.0,
+    posterior_null_beta: float = 1.0,
 ) -> Any: ...
 def triage_to_arrow_from_arrow(
     markers_ipc: bytes,
@@ -350,6 +392,67 @@ def triage_to_arrow_from_arrow(
     group2: str = "",
     signif_threshold: float = 0.05,
     bayes_factor_threshold: float = 10.0,
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_alpha: float = 1.0,
+    posterior_linked_beta: float = 1.0,
+    posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_alpha: float = 1.0,
+    posterior_null_beta: float = 1.0,
+) -> Any: ...
+def distrib_from_arrow(
+    markers_ipc: bytes,
+    popmap_ipc: bytes,
+    min_depth: int = 1,
+    signif_threshold: float = 0.05,
+    group1: str = "",
+    group2: str = "",
+    correction: str = "bonferroni",
+    test: str = "chisq",
+    bayes: bool = False,
+    prior_probability: float = 0.01,
+    linked_probability: float = 0.9,
+    null_prevalence: float = 0.5,
+    group1_linked_weight: float = 0.5,
+    bf_group1_alpha: float = 1.0,
+    bf_group1_beta: float = 1.0,
+    bf_group2_alpha: float = 1.0,
+    bf_group2_beta: float = 1.0,
+    bf_null_alpha: float = 1.0,
+    bf_null_beta: float = 1.0,
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_alpha: float = 1.0,
+    posterior_linked_beta: float = 1.0,
+    posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_alpha: float = 1.0,
+    posterior_null_beta: float = 1.0,
+) -> Any: ...
+def signif_from_arrow(
+    markers_ipc: bytes,
+    popmap_ipc: bytes,
+    min_depth: int = 1,
+    signif_threshold: float = 0.05,
+    group1: str = "",
+    group2: str = "",
+    correction: str = "bonferroni",
+    test: str = "chisq",
+    output_fasta: bool = False,
+    bayes: bool = False,
+    prior_probability: float = 0.01,
+    linked_probability: float = 0.9,
+    null_prevalence: float = 0.5,
+    group1_linked_weight: float = 0.5,
+    bf_group1_alpha: float = 1.0,
+    bf_group1_beta: float = 1.0,
+    bf_group2_alpha: float = 1.0,
+    bf_group2_beta: float = 1.0,
+    bf_null_alpha: float = 1.0,
+    bf_null_beta: float = 1.0,
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed",
+    posterior_linked_alpha: float = 1.0,
+    posterior_linked_beta: float = 1.0,
+    posterior_null_family: Literal["fixed", "beta"] = "fixed",
+    posterior_null_alpha: float = 1.0,
+    posterior_null_beta: float = 1.0,
 ) -> Any: ...
 def freq(
     table_path: str,
