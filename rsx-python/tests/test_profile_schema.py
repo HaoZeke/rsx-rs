@@ -62,6 +62,18 @@ def test_bayesian_commands_require_the_complete_directional_model() -> None:
                     "linked_prevalence": 0.9,
                     "null_prevalence": 0.4,
                     "group1_linked_weight": 0.75,
+                    "posterior": {
+                        "linked": {
+                            "family": "beta",
+                            "alpha": 9.0,
+                            "beta": 1.0,
+                        },
+                        "null": {
+                            "family": "beta",
+                            "alpha": 5.0,
+                            "beta": 5.0,
+                        },
+                    },
                     "bayes_factor": {
                         "alternative_group1": {"alpha": 8.0, "beta": 2.0},
                         "alternative_group2": {"alpha": 2.0, "beta": 8.0},
@@ -73,6 +85,8 @@ def test_bayesian_commands_require_the_complete_directional_model() -> None:
     )
     assert profile.run.bayes_model.null_prevalence == 0.4
     assert profile.run.bayes_model.group1_linked_weight == 0.75
+    assert profile.run.bayes_model.posterior.linked.family == "beta"
+    assert profile.run.bayes_model.posterior.linked.alpha == 9.0
     assert profile.run.bayes_model.bayes_factor.alternative_group1.alpha == 8.0
 
     invalid = profile.model_dump()
@@ -107,6 +121,10 @@ def test_legacy_directional_model_hydrates_uniform_beta_priors() -> None:
     )
 
     priors = profile.run.bayes_model.bayes_factor
+    posterior = profile.run.bayes_model.posterior
+    assert posterior.linked.family == "fixed"
+    assert posterior.linked.probability == 0.9
+    assert posterior.null.probability == 0.5
     assert priors.alternative_group1.alpha == 1.0
     assert priors.alternative_group2.beta == 1.0
     assert priors.null.alpha == 1.0
@@ -169,6 +187,12 @@ def test_checked_in_json_schema_matches_pydantic_model() -> None:
             bf_group2_beta=8.0,
             bf_null_alpha=10.0,
             bf_null_beta=10.0,
+            posterior_linked_family="beta",
+            posterior_linked_alpha=9.0,
+            posterior_linked_beta=1.0,
+            posterior_null_family="beta",
+            posterior_null_alpha=5.0,
+            posterior_null_beta=5.0,
         ),
         lambda: pyrsx.signif(
             "missing.tsv",
@@ -185,6 +209,12 @@ def test_checked_in_json_schema_matches_pydantic_model() -> None:
             bf_group2_beta=8.0,
             bf_null_alpha=10.0,
             bf_null_beta=10.0,
+            posterior_linked_family="beta",
+            posterior_linked_alpha=9.0,
+            posterior_linked_beta=1.0,
+            posterior_null_family="beta",
+            posterior_null_alpha=5.0,
+            posterior_null_beta=5.0,
         ),
         lambda: pyrsx.triage(
             "missing.tsv",
@@ -200,6 +230,12 @@ def test_checked_in_json_schema_matches_pydantic_model() -> None:
             bf_group2_beta=8.0,
             bf_null_alpha=10.0,
             bf_null_beta=10.0,
+            posterior_linked_family="beta",
+            posterior_linked_alpha=9.0,
+            posterior_linked_beta=1.0,
+            posterior_null_family="beta",
+            posterior_null_alpha=5.0,
+            posterior_null_beta=5.0,
         ),
     ],
 )

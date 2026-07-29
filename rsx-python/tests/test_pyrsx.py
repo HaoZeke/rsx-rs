@@ -357,6 +357,12 @@ def test_highlevel_triage_via_marker_table():
             bf_group2_beta=8.0,
             bf_null_alpha=10.0,
             bf_null_beta=10.0,
+            posterior_linked_family="beta",
+            posterior_linked_alpha=9.0,
+            posterior_linked_beta=1.0,
+            posterior_null_family="beta",
+            posterior_null_alpha=5.0,
+            posterior_null_beta=5.0,
         )
         result = mt.triage(popmap=str(pop), params=p)
 
@@ -379,6 +385,8 @@ def test_highlevel_triage_via_marker_table():
         assert result.params.group1 == "M"
         assert result.params.bf_group1_alpha == 8.0
         assert result.params.bf_null_beta == 10.0
+        assert result.params.posterior_linked_family == "beta"
+        assert result.params.posterior_null_alpha == 5.0
 
 
 def test_pca_to_arrow_lowlevel(test_data):
