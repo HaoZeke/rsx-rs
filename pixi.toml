@@ -81,6 +81,9 @@ compilers = ">=1.8"
 pyarrow = ">=14"
 pandas = ">=2.2,<3"
 
+[feature.python.target.linux-64.dependencies]
+patchelf = "*"
+
 [feature.python.pypi-dependencies]
 maturin = ">=1.0, <2"
 pytest = ">=8"
