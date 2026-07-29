@@ -727,6 +727,7 @@ pub unsafe extern "C" fn rsx_pca(
             } else {
                 Some(n_components)
             },
+            backend: crate::compute_backend::PValueBackend::Cpu,
         };
 
         match crate::commands::pca::run(&params) {

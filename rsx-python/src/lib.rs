@@ -457,6 +457,7 @@ fn pca(
                 output_dir: output_dir.to_string(),
                 min_depth,
                 n_components,
+                backend: rsx_core::compute_backend::PValueBackend::Cpu,
             })
             .map_err(|e| PyrsxError::new_err(e.to_string()))
         })
@@ -777,6 +778,7 @@ fn pca_to_arrow(
         output_dir: String::new(),
         min_depth,
         n_components,
+        backend: rsx_core::compute_backend::PValueBackend::Cpu,
     };
     let res = rsx_core::commands::pca::run_to_arrow(&params)
         .map_err(|e| PyrsxError::new_err(e.to_string()))?;
@@ -922,6 +924,7 @@ fn pca_to_arrow_from_arrow(
         output_dir: String::new(),
         min_depth,
         n_components,
+        backend: rsx_core::compute_backend::PValueBackend::Cpu,
     };
     let res = rsx_core::commands::pca::run_to_arrow_with_source(&source, &params)
         .map_err(|e| PyrsxError::new_err(e.to_string()))?;

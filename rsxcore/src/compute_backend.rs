@@ -115,6 +115,41 @@ const CUDA_KERNEL_SOURCE: &str = r#"
         }
     }
 
+    // One thread owns one upper-triangle Gram entry and walks the tile, so the
+    // accumulation needs no atomics and stays exactly the scalar summation
+    // order the host path uses.
+    extern "C" __global__ void gram_accumulate(
+        const unsigned short *depths,
+        unsigned int individuals,
+        unsigned long long markers,
+        double *gram,
+        double *mean
+    ) {
+        unsigned long long pair =
+            (unsigned long long)blockIdx.x * blockDim.x + threadIdx.x;
+        unsigned long long n = individuals;
+        if (pair >= n * n) return;
+
+        unsigned long long i = pair / n;
+        unsigned long long j = pair % n;
+        if (j < i) return;
+
+        double total = 0.0;
+        for (unsigned long long m = 0; m < markers; ++m) {
+            const unsigned short *row = depths + m * n;
+            total += (double)row[i] * (double)row[j];
+        }
+        gram[i * n + j] += total;
+
+        if (i == j) {
+            double sum = 0.0;
+            for (unsigned long long m = 0; m < markers; ++m) {
+                sum += (double)depths[m * n + i];
+            }
+            mean[i] += sum;
+        }
+    }
+
     extern "C" __global__ void chi_squared_p_values(
         const AssociationCounts *counts,
         unsigned int total_group1,
@@ -155,6 +190,7 @@ struct CachedCudaModule {
     context: std::sync::Arc<cudarc::driver::CudaContext>,
     chi_squared: cudarc::driver::CudaFunction,
     bayes_evidence: cudarc::driver::CudaFunction,
+    gram_accumulate: cudarc::driver::CudaFunction,
 }
 
 #[cfg(feature = "cuda")]
@@ -250,10 +286,12 @@ fn cuda_module() -> Result<(&'static CachedCudaModule, f64), Box<dyn std::error:
     let module = context.load_module(ptx)?;
     let chi_squared = module.load_function("chi_squared_p_values")?;
     let bayes_evidence = module.load_function("bayes_evidence")?;
+    let gram_accumulate = module.load_function("gram_accumulate")?;
     let _ = CUDA_MODULE.set(CachedCudaModule {
         context,
         chi_squared,
         bayes_evidence,
+        gram_accumulate,
     });
 
     Ok((
@@ -804,4 +842,163 @@ fn bayes_evidence_cuda(
             host_staging_bytes: 0,
         },
     })
+}
+
+/// Upper-triangle Gram matrix, per-individual depth sums, and marker count.
+pub type GramTotals = (Vec<f64>, Vec<f64>, u64);
+
+/// Streaming accumulation of the marker-by-individual Gram matrix.
+///
+/// Markers arrive one at a time but the device wants many, so the host fills a
+/// tile and hands whole tiles over. The CPU variant applies the same rank-1
+/// update directly, which keeps PCA on one code path.
+pub struct GramAccumulator {
+    backend: PValueBackend,
+    individuals: usize,
+    tile_markers: usize,
+    tile: Vec<u16>,
+    gram: Vec<f64>,
+    mean: Vec<f64>,
+    markers: u64,
+    #[cfg(feature = "cuda")]
+    device: Option<CudaGramState>,
+}
+
+#[cfg(feature = "cuda")]
+struct CudaGramState {
+    gram: cudarc::driver::CudaSlice<f64>,
+    mean: cudarc::driver::CudaSlice<f64>,
+}
+
+impl GramAccumulator {
+    /// Markers per device transfer. Sized so one tile stays a few megabytes for
+    /// realistic individual counts.
+    const DEFAULT_TILE_MARKERS: usize = 16_384;
+
+    pub fn new(
+        backend: PValueBackend,
+        individuals: usize,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut accumulator = Self {
+            backend,
+            individuals,
+            tile_markers: Self::DEFAULT_TILE_MARKERS,
+            tile: Vec::new(),
+            gram: vec![0.0; individuals * individuals],
+            mean: vec![0.0; individuals],
+            markers: 0,
+            #[cfg(feature = "cuda")]
+            device: None,
+        };
+        if backend == PValueBackend::Cuda {
+            accumulator.prepare_device()?;
+        }
+        Ok(accumulator)
+    }
+
+    #[cfg(feature = "cuda")]
+    fn prepare_device(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let (module, _) = cuda_module()?;
+        let stream = module.context.default_stream();
+        self.device = Some(CudaGramState {
+            gram: stream.alloc_zeros::<f64>(self.individuals * self.individuals)?,
+            mean: stream.alloc_zeros::<f64>(self.individuals)?,
+        });
+        self.tile.reserve(self.tile_markers * self.individuals);
+        Ok(())
+    }
+
+    #[cfg(not(feature = "cuda"))]
+    fn prepare_device(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "CUDA backend requested, but rsxcore was built without the `cuda` feature",
+        )
+        .into())
+    }
+
+    /// Fold one marker's per-individual depths into the accumulation.
+    pub fn push(&mut self, depths: &[u16]) -> Result<(), Box<dyn std::error::Error>> {
+        debug_assert_eq!(depths.len(), self.individuals);
+        self.markers += 1;
+        match self.backend {
+            PValueBackend::Cpu => {
+                let n = self.individuals;
+                for (i, &di) in depths.iter().enumerate() {
+                    let xi = f64::from(di);
+                    self.mean[i] += xi;
+                    let base = i * n;
+                    for (j, &dj) in depths.iter().enumerate().skip(i) {
+                        self.gram[base + j] += xi * f64::from(dj);
+                    }
+                }
+                Ok(())
+            }
+            PValueBackend::Cuda => {
+                self.tile.extend_from_slice(depths);
+                if self.tile.len() >= self.tile_markers * self.individuals {
+                    self.flush()?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    #[cfg(feature = "cuda")]
+    fn flush(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use cudarc::driver::{LaunchConfig, PushKernelArg};
+
+        if self.tile.is_empty() {
+            return Ok(());
+        }
+        let (module, _) = cuda_module()?;
+        let stream = module.context.default_stream();
+        let state = self
+            .device
+            .as_mut()
+            .expect("device state exists whenever the CUDA backend is selected");
+
+        let markers = (self.tile.len() / self.individuals) as u64;
+        let device_tile = stream.clone_htod(&self.tile)?;
+        let individuals = self.individuals as u32;
+        let pairs = (self.individuals * self.individuals) as u32;
+        let config = LaunchConfig::for_num_elems(pairs);
+        unsafe {
+            stream
+                .launch_builder(&module.gram_accumulate)
+                .arg(&device_tile)
+                .arg(&individuals)
+                .arg(&markers)
+                .arg(&mut state.gram)
+                .arg(&mut state.mean)
+                .launch(config)?;
+        }
+        stream.synchronize()?;
+        self.tile.clear();
+        Ok(())
+    }
+
+    #[cfg(not(feature = "cuda"))]
+    fn flush(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
+    }
+
+    /// Upper-triangle Gram, per-individual sums, and the marker count.
+    pub fn finish(mut self) -> Result<GramTotals, Box<dyn std::error::Error>> {
+        if self.backend == PValueBackend::Cuda {
+            self.flush()?;
+            #[cfg(feature = "cuda")]
+            {
+                let (module, _) = cuda_module()?;
+                let stream = module.context.default_stream();
+                let state = self
+                    .device
+                    .as_ref()
+                    .expect("device state exists whenever the CUDA backend is selected");
+                self.gram = stream.clone_dtoh(&state.gram)?;
+                self.mean = stream.clone_dtoh(&state.mean)?;
+            }
+        }
+        Ok((self.gram, self.mean, self.markers))
+    }
 }

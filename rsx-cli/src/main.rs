@@ -466,6 +466,9 @@ enum Commands {
         /// Number of principal components to output (default: all)
         #[arg(short = 'r', long = "components")]
         components: Option<usize>,
+        /// Gram accumulation backend: cpu (default) or cuda
+        #[arg(long = "backend", default_value = "cpu")]
+        backend: String,
     },
 }
 
@@ -804,12 +807,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             output_dir,
             min_depth,
             components,
-        } => commands::pca::run(&commands::pca::PcaParams {
-            markers_table_path: markers_table,
-            output_dir,
-            min_depth,
-            n_components: components,
-        }),
+            backend,
+        } => {
+            let backend = rsx_core::compute_backend::PValueBackend::parse_str(&backend)
+                .unwrap_or_else(|e| {
+                    log::error!("{e}");
+                    std::process::exit(1);
+                });
+            commands::pca::run(&commands::pca::PcaParams {
+                markers_table_path: markers_table,
+                output_dir,
+                min_depth,
+                n_components: components,
+                backend,
+            })
+        }
     };
 
     if let Some(path) = &archive_path {
@@ -1092,6 +1104,7 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             output_dir,
             min_depth,
             components,
+            backend: _,
         } => CommandProfile::Pca(run_profile::PcaProfile {
             markers_table: markers_table.clone(),
             output_dir: output_dir.clone(),

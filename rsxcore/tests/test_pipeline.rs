@@ -493,6 +493,7 @@ fn test_pca_command_uses_depth_values() {
         output_dir: output_dir.to_str().unwrap().to_string(),
         min_depth: 1,
         n_components: Some(2),
+        backend: rsx_core::compute_backend::PValueBackend::Cpu,
     })
     .unwrap();
 

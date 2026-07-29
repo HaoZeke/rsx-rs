@@ -13,6 +13,8 @@ pub struct PcaParams {
     pub output_dir: String,
     pub min_depth: u16,
     pub n_components: Option<usize>,
+    /// Where the Gram accumulation runs.
+    pub backend: crate::compute_backend::PValueBackend,
 }
 
 /// Internal result of the core PCA computation. Shared by the file-based
@@ -33,6 +35,7 @@ fn compute_pca(
     markers_table_path: &str,
     min_depth: u16,
     n_components: Option<usize>,
+    backend: crate::compute_backend::PValueBackend,
 ) -> Result<ComputedPca, Box<dyn std::error::Error>> {
     let table_path = Path::new(markers_table_path);
     let config = ParserConfig {
@@ -42,7 +45,7 @@ fn compute_pca(
         min_depth,
     };
     let stream = MarkersTableStream::open(table_path, None, config)?;
-    compute_pca_with_source(&stream, n_components)
+    compute_pca_with_source(&stream, n_components, backend)
 }
 
 /// Core streaming PCA against any `MarkerStream`.
@@ -53,6 +56,7 @@ fn compute_pca(
 fn compute_pca_with_source<S: MarkerStream>(
     source: &S,
     n_components: Option<usize>,
+    backend: crate::compute_backend::PValueBackend,
 ) -> Result<ComputedPca, Box<dyn std::error::Error>> {
     let n = source.header().n_individuals as usize;
 
@@ -63,7 +67,7 @@ fn compute_pca_with_source<S: MarkerStream>(
         n
     );
 
-    let (mut gram, mut mean, n_markers) = accumulate_gram_streaming(source, n)?;
+    let (mut gram, mut mean, n_markers) = accumulate_gram_streaming(source, n, backend)?;
 
     if n_markers == 0 {
         return Err("No markers found".into());
@@ -125,26 +129,22 @@ type GramStreamingAcc = (Vec<f64>, Vec<f64>, u64);
 fn accumulate_gram_streaming<S: MarkerStream>(
     source: &S,
     n: usize,
+    backend: crate::compute_backend::PValueBackend,
 ) -> Result<GramStreamingAcc, Box<dyn std::error::Error>> {
-    let mut gram = vec![0.0f64; n * n];
-    let mut mean = vec![0.0f64; n];
-    let mut n_markers = 0u64;
+    let mut accumulator = crate::compute_backend::GramAccumulator::new(backend, n)?;
+    let mut push_err: Option<Box<dyn std::error::Error>> = None;
     source.for_each(|marker| {
-        if marker.n_individuals == 0 {
+        if marker.n_individuals == 0 || push_err.is_some() {
             return;
         }
-        n_markers += 1;
-        let depths = &marker.individual_depths;
-        for i in 0..n {
-            let xi = depths[i] as f64;
-            mean[i] += xi;
-            let base = i * n;
-            for j in i..n {
-                gram[base + j] += xi * (depths[j] as f64);
-            }
+        if let Err(error) = accumulator.push(&marker.individual_depths) {
+            push_err = Some(error);
         }
     })?;
-    Ok((gram, mean, n_markers))
+    if let Some(error) = push_err {
+        return Err(error);
+    }
+    accumulator.finish()
 }
 
 /// Sparse rank-1 outer product for highly zero depth rows (exact). Exposed for
@@ -174,6 +174,7 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
         &params.markers_table_path,
         params.min_depth,
         params.n_components,
+        params.backend,
     )?;
     write_pca_outputs(&c, &params.output_dir)
 }
@@ -182,7 +183,7 @@ pub fn run_with_source<S: MarkerStream>(
     source: &S,
     params: &PcaParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let c = compute_pca_with_source(source, params.n_components)?;
+    let c = compute_pca_with_source(source, params.n_components, params.backend)?;
     write_pca_outputs(&c, &params.output_dir)
 }
 
@@ -372,6 +373,7 @@ pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::e
         &params.markers_table_path,
         params.min_depth,
         params.n_components,
+        params.backend,
     )?;
     pca_to_arrow_batches(c)
 }
@@ -381,7 +383,7 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
     source: &S,
     params: &PcaParams,
 ) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
-    let c = compute_pca_with_source(source, params.n_components)?;
+    let c = compute_pca_with_source(source, params.n_components, params.backend)?;
     pca_to_arrow_batches(c)
 }
 
@@ -495,6 +497,7 @@ mod tests {
             output_dir: out_dir.to_str().unwrap().to_string(),
             min_depth: 1,
             n_components: Some(3),
+            backend: crate::compute_backend::PValueBackend::Cpu,
         };
 
         run(&params).unwrap();

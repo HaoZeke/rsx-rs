@@ -237,3 +237,51 @@ fn cuda_bayes_evidence_shares_the_compiled_module() {
     assert_eq!(repeated.metrics.markers, 1);
     assert!(repeated.metrics.kernel_seconds > 0.0);
 }
+
+#[cfg(feature = "cuda")]
+#[test]
+fn cuda_gram_accumulation_matches_cpu_reference() {
+    use rsx_core::compute_backend::GramAccumulator;
+
+    let individuals = 23usize;
+    let markers = 40_001usize;
+    // A deterministic spread of depths, including the zeros real tables carry.
+    let rows: Vec<Vec<u16>> = (0..markers)
+        .map(|marker| {
+            (0..individuals)
+                .map(|individual| {
+                    let value = (marker * 7 + individual * 13) % 41;
+                    if value < 9 { 0 } else { value as u16 }
+                })
+                .collect()
+        })
+        .collect();
+
+    let mut cpu = GramAccumulator::new(PValueBackend::Cpu, individuals).unwrap();
+    let mut cuda = GramAccumulator::new(PValueBackend::Cuda, individuals).unwrap();
+    for row in &rows {
+        cpu.push(row).unwrap();
+        cuda.push(row).unwrap();
+    }
+    let (cpu_gram, cpu_mean, cpu_markers) = cpu.finish().unwrap();
+    let (cuda_gram, cuda_mean, cuda_markers) = cuda.finish().unwrap();
+
+    assert_eq!(cpu_markers, markers as u64);
+    assert_eq!(cuda_markers, cpu_markers);
+    assert_eq!(
+        cuda_mean, cpu_mean,
+        "per-individual sums must match exactly"
+    );
+
+    // Both sides sum the same integer products in the same order per entry.
+    for i in 0..individuals {
+        for j in i..individuals {
+            let index = i * individuals + j;
+            assert_eq!(
+                cuda_gram[index], cpu_gram[index],
+                "gram entry ({i},{j}) CPU={} CUDA={}",
+                cpu_gram[index], cuda_gram[index]
+            );
+        }
+    }
+}
