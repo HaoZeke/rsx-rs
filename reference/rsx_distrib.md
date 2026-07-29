@@ -27,9 +27,11 @@ rsx_distrib(
   bf_null_alpha = 1,
   bf_null_beta = 1,
   posterior_linked_family = "fixed",
+  posterior_linked_probability = linked_probability,
   posterior_linked_alpha = 1,
   posterior_linked_beta = 1,
   posterior_null_family = "fixed",
+  posterior_null_probability = null_prevalence,
   posterior_null_alpha = 1,
   posterior_null_beta = 1
 )
@@ -106,9 +108,13 @@ rsx_distrib(
 
 - posterior_linked_family, posterior_null_family:
 
-  Posterior prevalence family: `"fixed"` uses `linked_probability` or
-  `null_prevalence`; `"beta"` integrates over the corresponding Beta
-  shape parameters.
+  Posterior prevalence family: `"fixed"` uses its explicit probability;
+  `"beta"` integrates over the corresponding Beta shape parameters.
+
+- posterior_linked_probability, posterior_null_probability:
+
+  Fixed posterior prevalence probabilities. Their defaults preserve the
+  legacy `linked_probability` and `null_prevalence` behavior.
 
 - posterior_linked_alpha, posterior_linked_beta:
 
