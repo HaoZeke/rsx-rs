@@ -25,3 +25,6 @@ rsxcore = { path = "../rsxcore", version = "0.2.6", features = ["parallel"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 env_logger = "0.11"
 log = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
