@@ -123,9 +123,7 @@ def _arrow_bytes_from(obj: Any) -> bytes:
         )
         return _table_to_ipc_bytes(table)
 
-    raise TypeError(
-        f"Expected a DataFrame-like or path, got {type(obj).__name__}"
-    )
+    raise TypeError(f"Expected a DataFrame-like or path, got {type(obj).__name__}")
 
 
 class MarkerTable:
@@ -284,6 +282,7 @@ class MarkerTable:
         """
         try:
             import pyarrow as pa
+
             if self._df is not None:
                 table = from_narwhals(self._df, backend="pyarrow")
                 if hasattr(table, "__arrow_c_stream__"):
@@ -322,7 +321,9 @@ class MarkerTable:
         import pyrsx as _pyrsx
 
         if params is None:
-            p = TriageParams(**{k: v for k, v in kwargs.items() if hasattr(TriageParams, k)})
+            p = TriageParams(
+                **{k: v for k, v in kwargs.items() if hasattr(TriageParams, k)}
+            )
         else:
             p = params
 
@@ -417,9 +418,7 @@ class MarkerTable:
         import pyrsx as _pyrsx
 
         if self._df is not None:
-            ipc_bytes = _table_to_ipc_bytes(
-                from_narwhals(self._df, backend="pyarrow")
-            )
+            ipc_bytes = _table_to_ipc_bytes(from_narwhals(self._df, backend="pyarrow"))
             raw = _pyrsx.freq_from_arrow(ipc_bytes, min_depth=min_depth)
             res_df = to_narwhals(raw)
         else:
