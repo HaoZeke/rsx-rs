@@ -9,6 +9,8 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::stats::{BayesFactorModel, BetaPrior, DirectionalModel};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ParameterSource {
@@ -71,6 +73,80 @@ pub struct ModelProfile {
     pub linked_prevalence: f64,
     pub null_prevalence: f64,
     pub group1_linked_weight: f64,
+    #[serde(default = "BayesFactorProfile::uniform_v1")]
+    pub bayes_factor: BayesFactorProfile,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BetaPriorProfile {
+    pub alpha: f64,
+    pub beta: f64,
+}
+
+impl BetaPriorProfile {
+    pub const fn uniform() -> Self {
+        Self {
+            alpha: 1.0,
+            beta: 1.0,
+        }
+    }
+
+    const fn to_runtime(self) -> BetaPrior {
+        BetaPrior {
+            alpha: self.alpha,
+            beta: self.beta,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BayesFactorProfile {
+    pub alternative_group1: BetaPriorProfile,
+    pub alternative_group2: BetaPriorProfile,
+    pub null: BetaPriorProfile,
+}
+
+impl BayesFactorProfile {
+    pub const fn uniform_v1() -> Self {
+        Self {
+            alternative_group1: BetaPriorProfile::uniform(),
+            alternative_group2: BetaPriorProfile::uniform(),
+            null: BetaPriorProfile::uniform(),
+        }
+    }
+
+    const fn to_runtime(self) -> BayesFactorModel {
+        BayesFactorModel {
+            alternative_group1: self.alternative_group1.to_runtime(),
+            alternative_group2: self.alternative_group2.to_runtime(),
+            null: self.null.to_runtime(),
+        }
+    }
+}
+
+impl ModelProfile {
+    pub fn to_runtime(&self) -> Result<DirectionalModel, ProfileError> {
+        probability("model.linkage_prior", self.linkage_prior)?;
+        probability("model.linked_prevalence", self.linked_prevalence)?;
+        probability("model.null_prevalence", self.null_prevalence)?;
+        probability("model.group1_linked_weight", self.group1_linked_weight)?;
+        let bayes_factor = self.bayes_factor.to_runtime();
+        bayes_factor
+            .validate()
+            .map_err(|error| ProfileError::InvalidValue {
+                field: "model.bayes_factor",
+                reason: error.to_string(),
+            })?;
+        Ok(DirectionalModel {
+            linkage_prior: self.linkage_prior,
+            linked_prevalence: self.linked_prevalence,
+            null_prevalence: self.null_prevalence,
+            group1_linked_weight: self.group1_linked_weight,
+            bayes_factor,
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -282,6 +358,12 @@ fn input_sources() -> BTreeMap<String, ParameterSource> {
         "model.linked_prevalence",
         "model.null_prevalence",
         "model.group1_linked_weight",
+        "model.bayes_factor.alternative_group1.alpha",
+        "model.bayes_factor.alternative_group1.beta",
+        "model.bayes_factor.alternative_group2.alpha",
+        "model.bayes_factor.alternative_group2.beta",
+        "model.bayes_factor.null.alpha",
+        "model.bayes_factor.null.beta",
         "estimation.linkage_prior",
         "estimation.max_iterations",
         "estimation.tolerance",

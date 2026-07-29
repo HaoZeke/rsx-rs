@@ -1,7 +1,7 @@
 // GPL-3.0-or-later
 
 use rsx_core::bayes_profile::{BayesProfileInput, ParameterSource, ProfileOverrides};
-use rsx_core::stats::{DirectionalModel, posterior_sex_linked_with_model};
+use rsx_core::stats::{posterior_sex_linked_with_model, DirectionalModel};
 
 const COMPLETE_PROFILE: &str = r#"
 schema_version = 1
@@ -67,6 +67,7 @@ fn directional_posterior_uses_null_prevalence_and_direction_weight() {
         linked_prevalence: 0.9,
         null_prevalence: 0.3,
         group1_linked_weight: 0.99,
+        ..DirectionalModel::directional_screening_v1()
     };
     let group2_model = DirectionalModel {
         group1_linked_weight: 0.01,

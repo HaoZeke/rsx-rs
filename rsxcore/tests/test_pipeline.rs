@@ -230,6 +230,7 @@ fn distrib_posterior_uses_the_configured_direction_weight() {
                 linked_prevalence: 0.9,
                 null_prevalence: 0.3,
                 group1_linked_weight,
+                ..DirectionalModel::directional_screening_v1()
             },
             group1: "M".into(),
             group2: "F".into(),

@@ -461,6 +461,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     linked_prevalence: linked_probability,
                     null_prevalence,
                     group1_linked_weight,
+                    ..rsx_core::stats::DirectionalModel::directional_screening_v1()
                 },
                 group1: g1,
                 group2: g2,
@@ -516,6 +517,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         linked_prevalence: linked_probability,
                         null_prevalence,
                         group1_linked_weight,
+                        ..rsx_core::stats::DirectionalModel::directional_screening_v1()
                     },
                     group1: g1,
                     group2: g2,
@@ -552,6 +554,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     linked_prevalence: linked_probability,
                     null_prevalence,
                     group1_linked_weight,
+                    ..rsx_core::stats::DirectionalModel::directional_screening_v1()
                 },
                 group1: g1,
                 group2: g2,
@@ -821,6 +824,7 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
                 linked_prevalence: *linked_probability,
                 null_prevalence: *null_prevalence,
                 group1_linked_weight: *group1_linked_weight,
+                bayes_factor: rsx_core::bayes_profile::BayesFactorProfile::uniform_v1(),
             },
         }),
         Commands::Signif {
@@ -856,6 +860,7 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
                 linked_prevalence: *linked_probability,
                 null_prevalence: *null_prevalence,
                 group1_linked_weight: *group1_linked_weight,
+                bayes_factor: rsx_core::bayes_profile::BayesFactorProfile::uniform_v1(),
             },
         }),
         Commands::Triage {
@@ -885,6 +890,7 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
                 linked_prevalence: *linked_probability,
                 null_prevalence: *null_prevalence,
                 group1_linked_weight: *group1_linked_weight,
+                bayes_factor: rsx_core::bayes_profile::BayesFactorProfile::uniform_v1(),
             },
         }),
         Commands::Freq {

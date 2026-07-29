@@ -592,6 +592,7 @@ pub struct DirectionalModel {
     pub linked_prevalence: f64,
     pub null_prevalence: f64,
     pub group1_linked_weight: f64,
+    pub bayes_factor: BayesFactorModel,
 }
 
 impl DirectionalModel {
@@ -602,6 +603,7 @@ impl DirectionalModel {
             linked_prevalence: 0.9,
             null_prevalence: 0.5,
             group1_linked_weight: 0.5,
+            bayes_factor: BayesFactorModel::uniform_v1(),
         }
     }
 }
@@ -629,6 +631,7 @@ pub fn posterior_sex_linked(
             linked_prevalence: p_sex,
             null_prevalence: 0.5,
             group1_linked_weight: 0.5,
+            bayes_factor: BayesFactorModel::uniform_v1(),
         },
     )
 }

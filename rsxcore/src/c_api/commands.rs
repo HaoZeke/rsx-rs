@@ -50,6 +50,7 @@ fn directional_model(
         linked_prevalence,
         null_prevalence,
         group1_linked_weight,
+        ..crate::stats::DirectionalModel::directional_screening_v1()
     })
 }
 
