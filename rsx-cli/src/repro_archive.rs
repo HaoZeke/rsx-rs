@@ -1,6 +1,6 @@
 // GPL-3.0-or-later
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -263,6 +263,32 @@ fn verify_zip(path: &Path, expected_members: usize) -> Result<(), Box<dyn Error>
         .read_to_string(&mut checksums)?;
     if checksums.is_empty() {
         return Err("archive checksum manifest is empty".into());
+    }
+    let archive_names: BTreeSet<String> = archive
+        .file_names()
+        .filter(|name| *name != "SHA256SUMS")
+        .map(str::to_owned)
+        .collect();
+    let mut checked_names = BTreeSet::new();
+    for line in checksums.lines() {
+        let (expected, name) = line
+            .split_once("  ")
+            .ok_or_else(|| format!("invalid checksum line: {line}"))?;
+        if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(format!("invalid SHA256 digest for {name}").into());
+        }
+        if !checked_names.insert(name.to_owned()) {
+            return Err(format!("duplicate checksum entry for {name}").into());
+        }
+        let mut contents = Vec::new();
+        archive.by_name(name)?.read_to_end(&mut contents)?;
+        let actual = sha256(&contents);
+        if actual != expected {
+            return Err(format!("checksum mismatch for {name}").into());
+        }
+    }
+    if checked_names != archive_names {
+        return Err("checksum manifest does not cover every archive member".into());
     }
     Ok(())
 }
