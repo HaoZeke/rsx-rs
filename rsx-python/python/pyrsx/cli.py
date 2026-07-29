@@ -29,6 +29,30 @@ def bayes_model_options(function):
     )
     for name, default in reversed(specifications):
         function = click.option(name, default=default, show_default=True)(function)
+    function = click.option(
+        "--posterior-linked-family",
+        type=click.Choice(["fixed", "beta"]),
+        default="fixed",
+        show_default=True,
+    )(function)
+    function = click.option(
+        "--posterior-linked-alpha", default=1.0, show_default=True
+    )(function)
+    function = click.option(
+        "--posterior-linked-beta", default=1.0, show_default=True
+    )(function)
+    function = click.option(
+        "--posterior-null-family",
+        type=click.Choice(["fixed", "beta"]),
+        default="fixed",
+        show_default=True,
+    )(function)
+    function = click.option(
+        "--posterior-null-alpha", default=1.0, show_default=True
+    )(function)
+    function = click.option(
+        "--posterior-null-beta", default=1.0, show_default=True
+    )(function)
     return function
 
 
@@ -118,6 +142,12 @@ def distrib(
     bf_group2_beta,
     bf_null_alpha,
     bf_null_beta,
+    posterior_linked_family,
+    posterior_linked_alpha,
+    posterior_linked_beta,
+    posterior_null_family,
+    posterior_null_alpha,
+    posterior_null_beta,
 ):
     """Compute marker distribution between two groups."""
     g1, g2 = _parse_groups(groups)
@@ -142,6 +172,12 @@ def distrib(
         bf_group2_beta=bf_group2_beta,
         bf_null_alpha=bf_null_alpha,
         bf_null_beta=bf_null_beta,
+        posterior_linked_family=posterior_linked_family,
+        posterior_linked_alpha=posterior_linked_alpha,
+        posterior_linked_beta=posterior_linked_beta,
+        posterior_null_family=posterior_null_family,
+        posterior_null_alpha=posterior_null_alpha,
+        posterior_null_beta=posterior_null_beta,
     )
     click.echo(f"Wrote {output_file}")
 
@@ -192,6 +228,12 @@ def signif(
     bf_group2_beta,
     bf_null_alpha,
     bf_null_beta,
+    posterior_linked_family,
+    posterior_linked_alpha,
+    posterior_linked_beta,
+    posterior_null_family,
+    posterior_null_alpha,
+    posterior_null_beta,
 ):
     """Extract markers significantly associated with a group."""
     g1, g2 = _parse_groups(groups)
@@ -217,6 +259,12 @@ def signif(
         bf_group2_beta=bf_group2_beta,
         bf_null_alpha=bf_null_alpha,
         bf_null_beta=bf_null_beta,
+        posterior_linked_family=posterior_linked_family,
+        posterior_linked_alpha=posterior_linked_alpha,
+        posterior_linked_beta=posterior_linked_beta,
+        posterior_null_family=posterior_null_family,
+        posterior_null_alpha=posterior_null_alpha,
+        posterior_null_beta=posterior_null_beta,
     )
     click.echo(f"Wrote {output_file}")
 
@@ -249,6 +297,12 @@ def triage(
     bf_group2_beta,
     bf_null_alpha,
     bf_null_beta,
+    posterior_linked_family,
+    posterior_linked_alpha,
+    posterior_linked_beta,
+    posterior_null_family,
+    posterior_null_alpha,
+    posterior_null_beta,
     groups,
 ):
     """Rank strict and Bayesian marker candidates for biological follow-up."""
@@ -271,6 +325,12 @@ def triage(
         bf_group2_beta=bf_group2_beta,
         bf_null_alpha=bf_null_alpha,
         bf_null_beta=bf_null_beta,
+        posterior_linked_family=posterior_linked_family,
+        posterior_linked_alpha=posterior_linked_alpha,
+        posterior_linked_beta=posterior_linked_beta,
+        posterior_null_family=posterior_null_family,
+        posterior_null_alpha=posterior_null_alpha,
+        posterior_null_beta=posterior_null_beta,
         group1=g1,
         group2=g2,
     )

@@ -30,6 +30,12 @@ class TriageParams:
     bf_group2_beta: float = 1.0
     bf_null_alpha: float = 1.0
     bf_null_beta: float = 1.0
+    posterior_linked_family: Literal["fixed", "beta"] = "fixed"
+    posterior_linked_alpha: float = 1.0
+    posterior_linked_beta: float = 1.0
+    posterior_null_family: Literal["fixed", "beta"] = "fixed"
+    posterior_null_alpha: float = 1.0
+    posterior_null_beta: float = 1.0
     correction: Literal["bonferroni", "fdr", "none"] = "bonferroni"
     test: Literal["chisq", "fisher", "gtest"] = "chisq"
     output_fasta: bool = False

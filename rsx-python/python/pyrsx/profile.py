@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import TypeAliasType
 
 try:
@@ -43,12 +43,59 @@ class BayesFactorProfile(StrictProfileModel):
     null: BetaPriorProfile = Field(default_factory=BetaPriorProfile)
 
 
+class FixedPrevalencePriorProfile(StrictProfileModel):
+    """A fixed marker-prevalence probability."""
+
+    family: Literal["fixed"]
+    probability: float = Field(gt=0.0, lt=1.0)
+
+
+class BetaPrevalencePriorProfile(StrictProfileModel):
+    """A Beta prior integrated over marker prevalence."""
+
+    family: Literal["beta"]
+    alpha: float = Field(gt=0.0)
+    beta: float = Field(gt=0.0)
+
+
+PrevalencePriorProfile = TypeAliasType(
+    "PrevalencePriorProfile",
+    Annotated[
+        Union[FixedPrevalencePriorProfile, BetaPrevalencePriorProfile],
+        Field(discriminator="family"),
+    ],
+)
+
+
+class PosteriorProfile(StrictProfileModel):
+    """Prevalence models for linked and null posterior hypotheses."""
+
+    linked: PrevalencePriorProfile
+    null: PrevalencePriorProfile
+
+
 class DirectionalModelProfile(StrictProfileModel):
     linkage_prior: float = Field(gt=0.0, lt=1.0)
     linked_prevalence: float = Field(gt=0.0, lt=1.0)
     null_prevalence: float = Field(gt=0.0, lt=1.0)
     group1_linked_weight: float = Field(gt=0.0, lt=1.0)
+    posterior: Optional[PosteriorProfile] = None
     bayes_factor: BayesFactorProfile = Field(default_factory=BayesFactorProfile)
+
+    @model_validator(mode="after")
+    def hydrate_legacy_fixed_posterior(self) -> "DirectionalModelProfile":
+        """Resolve legacy prevalence fields into an explicit posterior model."""
+
+        if self.posterior is None:
+            self.posterior = PosteriorProfile(
+                linked=FixedPrevalencePriorProfile(
+                    family="fixed", probability=self.linked_prevalence
+                ),
+                null=FixedPrevalencePriorProfile(
+                    family="fixed", probability=self.null_prevalence
+                ),
+            )
+        return self
 
 
 class DistribProfile(StrictProfileModel):
@@ -199,7 +246,11 @@ def parse_run_profile_toml(text: str) -> RunProfile:
 __all__ = [
     "BayesFactorProfile",
     "BetaPriorProfile",
+    "BetaPrevalencePriorProfile",
     "DirectionalModelProfile",
+    "FixedPrevalencePriorProfile",
+    "PosteriorProfile",
+    "PrevalencePriorProfile",
     "RunCommand",
     "RunProfile",
     "parse_run_profile_toml",
