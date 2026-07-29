@@ -49,6 +49,7 @@ from .pyrsx import (  # noqa: F401
 from .api.markers import MarkerTable  # noqa: F401
 from .api.params import TriageParams  # noqa: F401
 from .api.results import PcaResult, TableResult, TriageResult  # noqa: F401
+from .profile import RunCommand, RunProfile, parse_run_profile_toml  # noqa: F401
 
 __all__ = [
     # Low-level (for compatibility)
@@ -75,4 +76,7 @@ __all__ = [
     "TriageParams",
     "PcaResult",
     "TableResult",
+    "RunCommand",
+    "RunProfile",
+    "parse_run_profile_toml",
 ]
