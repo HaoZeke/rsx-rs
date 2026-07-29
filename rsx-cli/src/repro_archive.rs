@@ -33,6 +33,7 @@ struct RunManifest {
     manifest_version: u32,
     status: String,
     created_before_execution: bool,
+    profile_resolved: bool,
     command: Vec<String>,
     profile_name: String,
     profile_sha256: String,
@@ -63,9 +64,6 @@ pub fn write_archive(
     status: ArchiveStatus<'_>,
 ) -> Result<(), Box<dyn Error>> {
     let hydrated_toml = hydrated.to_toml()?;
-    let executable_path = std::env::current_exe()?;
-    let executable = fs::read(&executable_path)?;
-    let executable_sha256 = sha256(&executable);
 
     let (status_name, error_category, error_message) = match status {
         ArchiveStatus::Started => ("started", None, None),
@@ -80,6 +78,7 @@ pub fn write_archive(
         manifest_version: 1,
         status: status_name.to_owned(),
         created_before_execution: true,
+        profile_resolved: true,
         command: std::env::args().collect(),
         profile_name: hydrated.profile_name.clone(),
         profile_sha256: sha256(hydrated_toml.as_bytes()),
@@ -88,6 +87,51 @@ pub fn write_archive(
         error_category,
         error_message,
     };
+    let mut members = common_members()?;
+    members.insert("profile.hydrated.toml".into(), hydrated_toml.into_bytes());
+    members.insert(
+        "profile.input.toml".into(),
+        input_profile.as_bytes().to_vec(),
+    );
+    members.insert(
+        "run-manifest.toml".into(),
+        toml::to_string_pretty(&run_manifest)?.into_bytes(),
+    );
+    finish_archive(destination, members)
+}
+
+pub fn write_resolution_failure(
+    destination: &Path,
+    input_profile: &str,
+    error: &str,
+) -> Result<(), Box<dyn Error>> {
+    let run_manifest = RunManifest {
+        manifest_version: 1,
+        status: "resolution-failed".to_owned(),
+        created_before_execution: true,
+        profile_resolved: false,
+        command: std::env::args().collect(),
+        profile_name: "unresolved".to_owned(),
+        profile_sha256: sha256(input_profile.as_bytes()),
+        working_directory: std::env::current_dir()?.to_string_lossy().into_owned(),
+        environment: allowed_environment(),
+        error_category: Some("configuration".to_owned()),
+        error_message: Some(error.to_owned()),
+    };
+    let mut members = common_members()?;
+    members.insert(
+        "profile.input.toml".into(),
+        input_profile.as_bytes().to_vec(),
+    );
+    members.insert(
+        "run-manifest.toml".into(),
+        toml::to_string_pretty(&run_manifest)?.into_bytes(),
+    );
+    finish_archive(destination, members)
+}
+
+fn common_members() -> Result<BTreeMap<String, Vec<u8>>, Box<dyn Error>> {
+    let executable = fs::read(std::env::current_exe()?)?;
     let build_manifest = BuildManifest {
         manifest_version: 1,
         rsx_version: env!("CARGO_PKG_VERSION"),
@@ -96,11 +140,10 @@ pub fn write_archive(
         rustc: env!("RSX_RUSTC_VERSION"),
         target: env!("RSX_BUILD_TARGET"),
         enabled_features: enabled_features(),
-        executable_sha256,
+        executable_sha256: sha256(&executable),
         sbom_format: "CycloneDX 1.5",
         run_profile_schema: "run-profile-v1.schema.json",
     };
-
     let mut members = BTreeMap::<String, Vec<u8>>::new();
     members.insert("Cargo.lock".into(), CARGO_LOCK.to_vec());
     members.insert("CITATION.cff".into(), CITATION.to_vec());
@@ -112,21 +155,18 @@ pub fn write_archive(
         toml::to_string_pretty(&build_manifest)?.into_bytes(),
     );
     members.insert("pixi.lock".into(), PIXI_LOCK.to_vec());
-    members.insert("profile.hydrated.toml".into(), hydrated_toml.into_bytes());
-    members.insert(
-        "profile.input.toml".into(),
-        input_profile.as_bytes().to_vec(),
-    );
-    members.insert(
-        "run-manifest.toml".into(),
-        toml::to_string_pretty(&run_manifest)?.into_bytes(),
-    );
     members.insert(
         "run-profile-v1.schema.json".into(),
         RUN_PROFILE_SCHEMA.to_vec(),
     );
     members.insert("sbom.cdx.json".into(), cyclonedx_sbom()?);
+    Ok(members)
+}
 
+fn finish_archive(
+    destination: &Path,
+    mut members: BTreeMap<String, Vec<u8>>,
+) -> Result<(), Box<dyn Error>> {
     let mut checksums = String::new();
     for (name, contents) in &members {
         checksums.push_str(&format!("{}  {name}\n", sha256(contents)));

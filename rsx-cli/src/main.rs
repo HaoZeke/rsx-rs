@@ -360,16 +360,27 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle --version / -V early so it works even with required subcommands
     // (the derive version attr adds the flag; we short-circuit here for robustness).
-    let args: Vec<String> = std::env::args().collect();
-    if args
+    let raw_arguments: Vec<OsString> = std::env::args_os().collect();
+    if raw_arguments
         .iter()
-        .any(|a| a == "--version" || a == "-V" || a == "-v")
+        .map(|argument| argument.to_string_lossy())
+        .any(|argument| argument == "--version" || argument == "-V" || argument == "-v")
     {
         println!("rsx {}", env!("CARGO_PKG_VERSION"));
         std::process::exit(0);
     }
 
-    let cli = parse_cli_from(std::env::args_os())?;
+    let cli = match parse_cli_from(raw_arguments.clone()) {
+        Ok(cli) => cli,
+        Err(error) => {
+            if let Err(archive_error) =
+                capture_profile_resolution_failure(&raw_arguments, error.as_ref())
+            {
+                log::error!("could not create configuration-failure archive: {archive_error}");
+            }
+            return Err(error);
+        }
+    };
     let hydrated = resolved_run_profile(&cli)?;
     write_hydrated_profile(&hydrated)?;
     let input_profile = match &cli.profile {
@@ -701,6 +712,55 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     result
+}
+
+fn capture_profile_resolution_failure(
+    arguments: &[OsString],
+    error: &dyn std::error::Error,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let profile_path = option_value(arguments, "--profile").map(std::path::PathBuf::from);
+    let input_profile = match &profile_path {
+        Some(path) => fs::read_to_string(path).unwrap_or_default(),
+        None => String::new(),
+    };
+    let archive_path = option_value(arguments, "--reproducibility-archive")
+        .or_else(|| archive_path_from_loose_profile(&input_profile));
+    if let Some(path) = archive_path {
+        repro_archive::write_resolution_failure(
+            Path::new(&path),
+            &input_profile,
+            &error.to_string(),
+        )?;
+    }
+    Ok(())
+}
+
+fn option_value(arguments: &[OsString], name: &str) -> Option<String> {
+    let prefix = format!("{name}=");
+    let mut index = 1;
+    while index < arguments.len() {
+        let argument = arguments[index].to_string_lossy();
+        if argument == name {
+            return arguments
+                .get(index + 1)
+                .map(|value| value.to_string_lossy().into_owned());
+        }
+        if let Some(value) = argument.strip_prefix(&prefix) {
+            if !value.is_empty() {
+                return Some(value.to_owned());
+            }
+        }
+        index += 1;
+    }
+    None
+}
+
+fn archive_path_from_loose_profile(input_profile: &str) -> Option<String> {
+    toml::from_str::<toml::Value>(input_profile)
+        .ok()?
+        .get("reproducibility_archive")?
+        .as_str()
+        .map(str::to_owned)
 }
 
 fn parse_cli_from<I>(arguments: I) -> Result<Cli, Box<dyn std::error::Error>>
