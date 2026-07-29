@@ -181,11 +181,20 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
                 write_marker_bayes_row(
                     &mut output,
                     marker,
-                    g1,
-                    g2,
-                    total_g1,
-                    total_g2,
-                    &params.bayes_model,
+                    stats::bayes_factor_2x2_with_validated_model(
+                        g1,
+                        g2,
+                        total_g1,
+                        total_g2,
+                        &params.bayes_model.bayes_factor,
+                    ),
+                    stats::posterior_sex_linked_with_model(
+                        g1,
+                        g2,
+                        total_g1,
+                        total_g2,
+                        &params.bayes_model,
+                    ),
                 )
             } else {
                 marker.write_as_table(&mut output)
@@ -267,11 +276,20 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
             write_marker_bayes_row(
                 &mut output,
                 marker,
-                g1,
-                g2,
-                total_g1,
-                total_g2,
-                &params.bayes_model,
+                stats::bayes_factor_2x2_with_validated_model(
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    &params.bayes_model.bayes_factor,
+                ),
+                stats::posterior_sex_linked_with_model(
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    &params.bayes_model,
+                ),
             )
         } else {
             marker.write_as_table(&mut output)
@@ -315,6 +333,20 @@ fn run_cuda<S: MarkerStream>(
     let cuda_result =
         compute_chi_squared_batch_with_metrics(PValueBackend::Cuda, &counts, total_g1, total_g2)?;
     let p_values = cuda_result.p_values.try_as_slice()?;
+
+    // The Bayesian columns are functions of the same counts, so the device
+    // evaluates them in the same pass rather than falling back per surviving row.
+    let bayes_evidence = if params.output_bayes {
+        Some(crate::compute_backend::compute_bayes_evidence_batch(
+            PValueBackend::Cuda,
+            &counts,
+            total_g1,
+            total_g2,
+            &params.bayes_model,
+        )?)
+    } else {
+        None
+    };
 
     let corrected: Option<Vec<f64>> = match params.correction {
         CorrectionMethod::Fdr => Some(stats::benjamini_hochberg(p_values)),
@@ -365,7 +397,6 @@ fn run_cuda<S: MarkerStream>(
             return;
         }
 
-        let association = counts[index - 1];
         let p_corrected = match &corrected {
             Some(q_values) => q_values[index - 1],
             None => stats::bonferroni_correct(p, effective_n_markers),
@@ -376,14 +407,14 @@ fn run_cuda<S: MarkerStream>(
             marker.p_corrected = p_corrected;
             marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, fasta_groups)
         } else if params.output_bayes {
+            let (factors, posteriors) = bayes_evidence
+                .as_ref()
+                .expect("bayes evidence is batched whenever bayes output is requested");
             write_marker_bayes_row(
                 &mut output,
                 marker,
-                association.group1,
-                association.group2,
-                total_g1,
-                total_g2,
-                &params.bayes_model,
+                factors[index - 1],
+                posteriors[index - 1],
             )
         } else {
             marker.write_as_table(&mut output)
@@ -398,23 +429,17 @@ fn run_cuda<S: MarkerStream>(
     Ok(())
 }
 
+/// Write one row with evidence the caller already evaluated.
+///
+/// Taking the values keeps the device batch and the scalar path on the same
+/// writer instead of duplicating the model arithmetic per backend.
 fn write_marker_bayes_row<W: Write>(
     output: &mut W,
     marker: &crate::marker::Marker,
-    g1: u32,
-    g2: u32,
-    total_g1: u32,
-    total_g2: u32,
-    bayes_model: &stats::DirectionalModel,
+    bayes_factor: f64,
+    posterior: f64,
 ) -> std::io::Result<()> {
-    let bf = stats::bayes_factor_2x2_with_validated_model(
-        g1,
-        g2,
-        total_g1,
-        total_g2,
-        &bayes_model.bayes_factor,
-    );
-    let post = stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, bayes_model);
+    let (bf, post) = (bayes_factor, posterior);
     write!(output, "{}\t{}", marker.id, marker.sequence)?;
     for &d in &marker.individual_depths {
         write!(output, "\t{d}")?;
@@ -563,6 +588,47 @@ mod tests {
             body.contains("AAAAAAAA"),
             "FDR should keep strong marker: {body}"
         );
+    }
+
+    #[cfg(feature = "cuda")]
+    #[test]
+    fn signif_cuda_matches_cpu_bayes_columns() {
+        let dir = tempfile::tempdir().unwrap();
+        let (table, pop) = write_fixture(dir.path());
+        let cpu_out = dir.path().join("signif_bayes_cpu.tsv");
+        let cuda_out = dir.path().join("signif_bayes_cuda.tsv");
+        let params = |output: &std::path::Path| SignifParams {
+            markers_table_path: table.to_str().unwrap().to_string(),
+            popmap_file_path: pop.to_str().unwrap().to_string(),
+            output_file_path: output.to_str().unwrap().to_string(),
+            min_depth: 1,
+            signif_threshold: 1.0,
+            correction: CorrectionMethod::None,
+            test_method: TestMethod::ChiSquared,
+            output_fasta: false,
+            output_bayes: true,
+            bayes_model: stats::DirectionalModel::directional_screening_v1(),
+            group1: "M".into(),
+            group2: "F".into(),
+        };
+
+        run_with_backend(
+            &params(&cpu_out),
+            crate::compute_backend::PValueBackend::Cpu,
+        )
+        .unwrap();
+        run_with_backend(
+            &params(&cuda_out),
+            crate::compute_backend::PValueBackend::Cuda,
+        )
+        .unwrap();
+
+        let cpu = std::fs::read_to_string(&cpu_out).unwrap();
+        assert!(
+            cpu.lines().filter(|line| !line.starts_with('#')).count() > 1,
+            "a permissive threshold must emit rows carrying the Bayes columns"
+        );
+        assert_eq!(cpu, std::fs::read_to_string(&cuda_out).unwrap());
     }
 
     #[cfg(feature = "cuda")]
