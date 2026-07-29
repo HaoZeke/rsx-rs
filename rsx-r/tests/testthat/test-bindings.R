@@ -44,6 +44,20 @@ test_that("low-level commands error on missing paths", {
   expect_error(rsx_pca(miss, tempdir()), "rsx:")
 })
 
+test_that("Bayesian R bindings accept the complete directional model", {
+  miss <- tempfile()
+  out <- tempfile()
+  model <- list(
+    prior_probability = 0.02,
+    linked_probability = 0.85,
+    null_prevalence = 0.4,
+    group1_linked_weight = 0.7
+  )
+  expect_error(do.call(rsx_distrib, c(list(miss, miss, out, output_bayes = TRUE), model)), "rsx:")
+  expect_error(do.call(rsx_signif, c(list(miss, miss, out, bayes = TRUE), model)), "rsx:")
+  expect_error(do.call(rsx_triage, c(list(miss, miss, out), model)), "rsx:")
+})
+
 test_that("high-level verbs error when inputs are missing", {
   tmp <- tempfile(fileext = ".tsv")
   writeLines("#Number of markers: 0\nid\tsequence", tmp)
