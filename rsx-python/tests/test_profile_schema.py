@@ -177,3 +177,25 @@ def test_checked_in_json_schema_matches_pydantic_model() -> None:
 def test_low_level_bindings_accept_complete_bayesian_model(call) -> None:
     with pytest.raises(RuntimeError):
         call()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: pyrsx.triage_to_arrow(
+            "missing.tsv",
+            "missing-popmap.tsv",
+            signif_threshold=0.123,
+            bayes_factor_threshold=456.0,
+        ),
+        lambda: pyrsx.triage_to_arrow_from_arrow(
+            b"not-arrow",
+            b"not-arrow",
+            signif_threshold=0.123,
+            bayes_factor_threshold=456.0,
+        ),
+    ],
+)
+def test_arrow_bindings_accept_all_triage_decision_thresholds(call) -> None:
+    with pytest.raises(RuntimeError):
+        call()

@@ -174,6 +174,49 @@ def test_triage_arrow_matches_path(fixture_frames):
     assert list(arrow_df.columns) == list(file_df.columns)
 
 
+def test_triage_forwards_all_decision_thresholds(monkeypatch, fixture_frames):
+    import pyarrow as pa
+
+    from pyrsx.api import markers as markers_module
+    from pyrsx.api.params import TriageParams
+
+    observed = {}
+
+    def capture_arrow(*args, **kwargs):
+        observed["arrow"] = kwargs
+        return pa.table({"id": []})
+
+    def capture_path(*args, **kwargs):
+        observed["path"] = kwargs
+
+    monkeypatch.setattr(pyrsx, "triage_to_arrow_from_arrow", capture_arrow)
+    monkeypatch.setattr(pyrsx, "triage", capture_path)
+    monkeypatch.setattr(
+        markers_module,
+        "_read_core_tsv",
+        lambda _: markers_module.to_narwhals(pa.table({"id": []})),
+    )
+
+    params = TriageParams(
+        signif_threshold=0.123,
+        bayes_factor_threshold=456.0,
+        group1="M",
+        group2="F",
+    )
+    MarkerTable.from_dataframe(fixture_frames["markers_df"]).triage(
+        popmap=fixture_frames["popmap_df"],
+        params=params,
+    )
+    MarkerTable.from_path(fixture_frames["table"]).triage(
+        popmap=fixture_frames["popmap"],
+        params=params,
+    )
+
+    for call in observed.values():
+        assert call["signif_threshold"] == 0.123
+        assert call["bayes_factor_threshold"] == 456.0
+
+
 def test_pca_arrow_matches_path(fixture_frames):
     arrow_res = MarkerTable.from_dataframe(fixture_frames["markers_df"]).pca(
         k=2, min_depth=1
