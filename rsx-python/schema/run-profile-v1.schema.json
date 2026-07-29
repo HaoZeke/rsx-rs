@@ -1,0 +1,742 @@
+{
+  "$defs": {
+    "DepthProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "depth",
+          "title": "Command",
+          "type": "string"
+        },
+        "markers_table": {
+          "title": "Markers Table",
+          "type": "string"
+        },
+        "min_frequency": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Frequency",
+          "type": "number"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "popmap": {
+          "title": "Popmap",
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "markers_table",
+        "popmap",
+        "output_file",
+        "min_frequency"
+      ],
+      "title": "DepthProfile",
+      "type": "object"
+    },
+    "DistribProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "distrib",
+          "title": "Command",
+          "type": "string"
+        },
+        "correction": {
+          "title": "Correction",
+          "type": "string"
+        },
+        "disable_correction": {
+          "title": "Disable Correction",
+          "type": "boolean"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Groups"
+        },
+        "markers_table": {
+          "title": "Markers Table",
+          "type": "string"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "output_bayes": {
+          "title": "Output Bayes",
+          "type": "boolean"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "popmap": {
+          "title": "Popmap",
+          "type": "string"
+        },
+        "signif_threshold": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Signif Threshold",
+          "type": "number"
+        },
+        "test_method": {
+          "title": "Test Method",
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "markers_table",
+        "popmap",
+        "output_file",
+        "min_depth",
+        "signif_threshold",
+        "disable_correction",
+        "correction",
+        "test_method",
+        "output_bayes"
+      ],
+      "title": "DistribProfile",
+      "type": "object"
+    },
+    "FreqProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "freq",
+          "title": "Command",
+          "type": "string"
+        },
+        "markers_table": {
+          "title": "Markers Table",
+          "type": "string"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "markers_table",
+        "output_file",
+        "min_depth"
+      ],
+      "title": "FreqProfile",
+      "type": "object"
+    },
+    "MapProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "map",
+          "title": "Command",
+          "type": "string"
+        },
+        "disable_correction": {
+          "title": "Disable Correction",
+          "type": "boolean"
+        },
+        "genome_file": {
+          "title": "Genome File",
+          "type": "string"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Groups"
+        },
+        "markers_file": {
+          "title": "Markers File",
+          "type": "string"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "min_frequency": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Frequency",
+          "type": "number"
+        },
+        "min_quality": {
+          "minimum": 0,
+          "title": "Min Quality",
+          "type": "integer"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "popmap": {
+          "title": "Popmap",
+          "type": "string"
+        },
+        "signif_threshold": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Signif Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "command",
+        "markers_file",
+        "output_file",
+        "popmap",
+        "genome_file",
+        "min_depth",
+        "min_quality",
+        "min_frequency",
+        "signif_threshold",
+        "disable_correction"
+      ],
+      "title": "MapProfile",
+      "type": "object"
+    },
+    "MergeProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "buffer_size": {
+          "minimum": 1,
+          "title": "Buffer Size",
+          "type": "integer"
+        },
+        "command": {
+          "const": "merge",
+          "title": "Command",
+          "type": "string"
+        },
+        "input_files": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Input Files",
+          "type": "array"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "output_parquet": {
+          "title": "Output Parquet",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "command",
+        "input_files",
+        "output_file",
+        "buffer_size",
+        "output_parquet"
+      ],
+      "title": "MergeProfile",
+      "type": "object"
+    },
+    "PcaProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "pca",
+          "title": "Command",
+          "type": "string"
+        },
+        "components": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Components"
+        },
+        "markers_table": {
+          "title": "Markers Table",
+          "type": "string"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "output_dir": {
+          "title": "Output Dir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "markers_table",
+        "output_dir",
+        "min_depth"
+      ],
+      "title": "PcaProfile",
+      "type": "object"
+    },
+    "ProcessProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "process",
+          "title": "Command",
+          "type": "string"
+        },
+        "input_dir": {
+          "title": "Input Dir",
+          "type": "string"
+        },
+        "kmer_dedup": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kmer Dedup"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "threads": {
+          "minimum": 1,
+          "title": "Threads",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "command",
+        "input_dir",
+        "output_file",
+        "threads",
+        "min_depth"
+      ],
+      "title": "ProcessProfile",
+      "type": "object"
+    },
+    "RunCommand": {
+      "discriminator": {
+        "mapping": {
+          "depth": "#/$defs/DepthProfile",
+          "distrib": "#/$defs/DistribProfile",
+          "freq": "#/$defs/FreqProfile",
+          "map": "#/$defs/MapProfile",
+          "merge": "#/$defs/MergeProfile",
+          "pca": "#/$defs/PcaProfile",
+          "process": "#/$defs/ProcessProfile",
+          "signif": "#/$defs/SignifProfile",
+          "subset": "#/$defs/SubsetProfile",
+          "triage": "#/$defs/TriageProfile"
+        },
+        "propertyName": "command"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ProcessProfile"
+        },
+        {
+          "$ref": "#/$defs/DistribProfile"
+        },
+        {
+          "$ref": "#/$defs/SignifProfile"
+        },
+        {
+          "$ref": "#/$defs/TriageProfile"
+        },
+        {
+          "$ref": "#/$defs/FreqProfile"
+        },
+        {
+          "$ref": "#/$defs/DepthProfile"
+        },
+        {
+          "$ref": "#/$defs/MapProfile"
+        },
+        {
+          "$ref": "#/$defs/SubsetProfile"
+        },
+        {
+          "$ref": "#/$defs/MergeProfile"
+        },
+        {
+          "$ref": "#/$defs/PcaProfile"
+        }
+      ]
+    },
+    "SignifProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "title": "Backend",
+          "type": "string"
+        },
+        "command": {
+          "const": "signif",
+          "title": "Command",
+          "type": "string"
+        },
+        "correction": {
+          "title": "Correction",
+          "type": "string"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Groups"
+        },
+        "markers_table": {
+          "title": "Markers Table",
+          "type": "string"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "output_bayes": {
+          "title": "Output Bayes",
+          "type": "boolean"
+        },
+        "output_fasta": {
+          "title": "Output Fasta",
+          "type": "boolean"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "popmap": {
+          "title": "Popmap",
+          "type": "string"
+        },
+        "signif_threshold": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Signif Threshold",
+          "type": "number"
+        },
+        "test_method": {
+          "title": "Test Method",
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "markers_table",
+        "popmap",
+        "output_file",
+        "min_depth",
+        "signif_threshold",
+        "correction",
+        "test_method",
+        "backend",
+        "output_fasta",
+        "output_bayes"
+      ],
+      "title": "SignifProfile",
+      "type": "object"
+    },
+    "SubsetProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "subset",
+          "title": "Command",
+          "type": "string"
+        },
+        "disable_correction": {
+          "title": "Disable Correction",
+          "type": "boolean"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Groups"
+        },
+        "markers_table": {
+          "title": "Markers Table",
+          "type": "string"
+        },
+        "max_group1": {
+          "minimum": 0,
+          "title": "Max Group1",
+          "type": "integer"
+        },
+        "max_group2": {
+          "minimum": 0,
+          "title": "Max Group2",
+          "type": "integer"
+        },
+        "max_individuals": {
+          "minimum": 0,
+          "title": "Max Individuals",
+          "type": "integer"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "min_group1": {
+          "minimum": 0,
+          "title": "Min Group1",
+          "type": "integer"
+        },
+        "min_group2": {
+          "minimum": 0,
+          "title": "Min Group2",
+          "type": "integer"
+        },
+        "min_individuals": {
+          "minimum": 0,
+          "title": "Min Individuals",
+          "type": "integer"
+        },
+        "output_fasta": {
+          "title": "Output Fasta",
+          "type": "boolean"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "popmap": {
+          "title": "Popmap",
+          "type": "string"
+        },
+        "signif_threshold": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Signif Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "command",
+        "markers_table",
+        "popmap",
+        "output_file",
+        "min_depth",
+        "signif_threshold",
+        "disable_correction",
+        "output_fasta",
+        "min_group1",
+        "min_group2",
+        "max_group1",
+        "max_group2",
+        "min_individuals",
+        "max_individuals"
+      ],
+      "title": "SubsetProfile",
+      "type": "object"
+    },
+    "TriageProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "bayes_factor_threshold": {
+          "exclusiveMinimum": 0.0,
+          "title": "Bayes Factor Threshold",
+          "type": "number"
+        },
+        "command": {
+          "const": "triage",
+          "title": "Command",
+          "type": "string"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Groups"
+        },
+        "linked_probability": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Linked Probability",
+          "type": "number"
+        },
+        "markers_table": {
+          "title": "Markers Table",
+          "type": "string"
+        },
+        "min_depth": {
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Min Depth",
+          "type": "integer"
+        },
+        "output_file": {
+          "title": "Output File",
+          "type": "string"
+        },
+        "popmap": {
+          "title": "Popmap",
+          "type": "string"
+        },
+        "posterior_threshold": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Posterior Threshold",
+          "type": "number"
+        },
+        "prior_probability": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Prior Probability",
+          "type": "number"
+        },
+        "signif_threshold": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Signif Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "command",
+        "markers_table",
+        "popmap",
+        "output_file",
+        "min_depth",
+        "signif_threshold",
+        "posterior_threshold",
+        "bayes_factor_threshold",
+        "prior_probability",
+        "linked_probability"
+      ],
+      "title": "TriageProfile",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Schema-versioned, fully specified rsx invocation.",
+  "properties": {
+    "profile_name": {
+      "minLength": 1,
+      "title": "Profile Name",
+      "type": "string"
+    },
+    "reproducibility_archive": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reproducibility Archive"
+    },
+    "run": {
+      "$ref": "#/$defs/RunCommand"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "write_hydrated_profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Write Hydrated Profile"
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile_name",
+    "run"
+  ],
+  "title": "RunProfile",
+  "type": "object"
+}
