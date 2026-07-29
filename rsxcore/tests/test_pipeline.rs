@@ -207,6 +207,51 @@ fn write_sex_linked_panel(dir: &std::path::Path) -> (PathBuf, PathBuf) {
 }
 
 #[test]
+fn distrib_posterior_uses_the_configured_direction_weight() {
+    use rsx_core::stats::DirectionalModel;
+
+    let dir = test_dir().join("distrib_directional_model");
+    std::fs::create_dir_all(&dir).unwrap();
+    let (table, popmap) = write_sex_linked_panel(&dir);
+    let run = |name: &str, group1_linked_weight: f64| {
+        let output = dir.join(name);
+        rsx_core::commands::distrib::run(&rsx_core::commands::distrib::DistribParams {
+            markers_table_path: table.to_string_lossy().into_owned(),
+            popmap_file_path: popmap.to_string_lossy().into_owned(),
+            output_file_path: output.to_string_lossy().into_owned(),
+            min_depth: 1,
+            signif_threshold: 0.05,
+            correction: rsx_core::test_method::CorrectionMethod::None,
+            test_method: rsx_core::test_method::TestMethod::ChiSquared,
+            output_bayes: true,
+            bayes_model: DirectionalModel {
+                linkage_prior: 0.5,
+                linked_prevalence: 0.9,
+                null_prevalence: 0.3,
+                group1_linked_weight,
+            },
+            group1: "M".into(),
+            group2: "F".into(),
+        })
+        .unwrap();
+        let content = std::fs::read_to_string(output).unwrap();
+        content
+            .lines()
+            .find(|line| line.starts_with("8\t0\t"))
+            .unwrap()
+            .split('\t')
+            .nth(8)
+            .unwrap()
+            .parse::<f64>()
+            .unwrap()
+    };
+
+    let group1_weighted = run("group1.tsv", 0.99);
+    let group2_weighted = run("group2.tsv", 0.01);
+    assert!(group1_weighted > group2_weighted);
+}
+
+#[test]
 fn test_signif_command() {
     let dir = test_dir().join("signif");
     std::fs::create_dir_all(&dir).unwrap();
