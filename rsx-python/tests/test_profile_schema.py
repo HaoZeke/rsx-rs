@@ -62,12 +62,55 @@ def test_bayesian_commands_require_the_complete_directional_model() -> None:
                     "linked_prevalence": 0.9,
                     "null_prevalence": 0.4,
                     "group1_linked_weight": 0.75,
+                    "bayes_factor": {
+                        "alternative_group1": {"alpha": 8.0, "beta": 2.0},
+                        "alternative_group2": {"alpha": 2.0, "beta": 8.0},
+                        "null": {"alpha": 10.0, "beta": 10.0},
+                    },
                 },
             },
         }
     )
     assert profile.run.bayes_model.null_prevalence == 0.4
     assert profile.run.bayes_model.group1_linked_weight == 0.75
+    assert profile.run.bayes_model.bayes_factor.alternative_group1.alpha == 8.0
+
+    invalid = profile.model_dump()
+    invalid["run"]["bayes_model"]["bayes_factor"]["null"]["alpha"] = 0.0
+    with pytest.raises(ValidationError, match="greater than 0"):
+        RunProfile.model_validate(invalid)
+
+
+def test_legacy_directional_model_hydrates_uniform_beta_priors() -> None:
+    profile = RunProfile.model_validate(
+        {
+            "schema_version": 1,
+            "profile_name": "python-legacy-v1",
+            "run": {
+                "command": "triage",
+                "markers_table": "markers.tsv",
+                "popmap": "popmap.tsv",
+                "output_file": "triage.tsv",
+                "min_depth": 1,
+                "groups": ["M", "F"],
+                "signif_threshold": 0.05,
+                "posterior_threshold": 0.9,
+                "bayes_factor_threshold": 10.0,
+                "bayes_model": {
+                    "linkage_prior": 0.01,
+                    "linked_prevalence": 0.9,
+                    "null_prevalence": 0.5,
+                    "group1_linked_weight": 0.5,
+                },
+            },
+        }
+    )
+
+    priors = profile.run.bayes_model.bayes_factor
+    assert priors.alternative_group1.alpha == 1.0
+    assert priors.alternative_group2.beta == 1.0
+    assert priors.null.alpha == 1.0
+    assert "bayes_factor" in profile.model_dump()["run"]["bayes_model"]
 
 
 def test_checked_in_json_schema_matches_pydantic_model() -> None:
