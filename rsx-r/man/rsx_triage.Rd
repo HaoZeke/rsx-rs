@@ -14,6 +14,8 @@ rsx_triage(
   bayes_factor_threshold = 10,
   prior_probability = 0.01,
   linked_probability = 0.9,
+  null_prevalence = 0.5,
+  group1_linked_weight = 0.5,
   group1 = "M",
   group2 = "F"
 )
@@ -33,9 +35,13 @@ rsx_triage(
 
 \item{bayes_factor_threshold}{Bayes factor cutoff.}
 
-\item{prior_probability}{Prior probability of sex linkage.}
+\item{prior_probability}{Prior probability that a marker is sex-linked.}
 
-\item{linked_probability}{Probability model for a linked marker.}
+\item{linked_probability}{Expected marker prevalence in the linked group.}
+
+\item{null_prevalence}{Expected marker prevalence under the null model.}
+
+\item{group1_linked_weight}{Mixture weight for the group-1-linked direction.}
 
 \item{group1, group2}{Group labels to contrast (e.g. "M", "F").}
 }

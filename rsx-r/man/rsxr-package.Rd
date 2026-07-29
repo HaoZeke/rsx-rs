@@ -17,7 +17,6 @@ Useful links:
 \itemize{
   \item \url{https://github.com/HaoZeke/rsx-rs}
   \item \url{https://rsx.rgoswami.me}
-  \item \url{https://haozeke.github.io/rsx-rs/rsxr/}
   \item Report bugs at \url{https://github.com/HaoZeke/rsx-rs/issues}
 }
 
