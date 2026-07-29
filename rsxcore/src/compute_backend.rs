@@ -412,7 +412,7 @@ impl Drop for PooledPinnedResult {
 #[cfg(feature = "cuda")]
 fn cuda_module() -> Result<(&'static CachedCudaModule, f64), Box<dyn std::error::Error>> {
     use cudarc::driver::CudaContext;
-    use cudarc::nvrtc::compile_ptx;
+    use cudarc::nvrtc::compile_ptx_with_opts;
 
     if let Some(module) = CUDA_MODULE.get() {
         return Ok((module, 0.0));
@@ -420,7 +420,19 @@ fn cuda_module() -> Result<(&'static CachedCudaModule, f64), Box<dyn std::error:
 
     let started = Instant::now();
     let context = CudaContext::new(0)?;
-    let ptx = compile_ptx(CUDA_KERNEL_SOURCE)?;
+
+    // Compile for the device that will run it. The Gram kernel adds doubles
+    // atomically, which needs compute capability 6.0 or later, and nvrtc's
+    // default target is older than that on some toolkits.
+    let (major, minor) = context.compute_capability()?;
+    let architecture: &'static str = Box::leak(format!("compute_{major}{minor}").into_boxed_str());
+    let ptx = compile_ptx_with_opts(
+        CUDA_KERNEL_SOURCE,
+        cudarc::nvrtc::CompileOptions {
+            arch: Some(architecture),
+            ..Default::default()
+        },
+    )?;
     let module = context.load_module(ptx)?;
     let chi_squared = module.load_function("chi_squared_p_values")?;
     let fisher_exact = module.load_function("fisher_exact_p_values")?;
