@@ -37,9 +37,49 @@
       "title": "DepthProfile",
       "type": "object"
     },
+    "DirectionalModelProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "group1_linked_weight": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Group1 Linked Weight",
+          "type": "number"
+        },
+        "linkage_prior": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Linkage Prior",
+          "type": "number"
+        },
+        "linked_prevalence": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Linked Prevalence",
+          "type": "number"
+        },
+        "null_prevalence": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Null Prevalence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "linkage_prior",
+        "linked_prevalence",
+        "null_prevalence",
+        "group1_linked_weight"
+      ],
+      "title": "DirectionalModelProfile",
+      "type": "object"
+    },
     "DistribProfile": {
       "additionalProperties": false,
       "properties": {
+        "bayes_model": {
+          "$ref": "#/$defs/DirectionalModelProfile"
+        },
         "command": {
           "const": "distrib",
           "title": "Command",
@@ -111,7 +151,8 @@
         "disable_correction",
         "correction",
         "test_method",
-        "output_bayes"
+        "output_bayes",
+        "bayes_model"
       ],
       "title": "DistribProfile",
       "type": "object"
@@ -422,6 +463,9 @@
           "title": "Backend",
           "type": "string"
         },
+        "bayes_model": {
+          "$ref": "#/$defs/DirectionalModelProfile"
+        },
         "command": {
           "const": "signif",
           "title": "Command",
@@ -494,7 +538,8 @@
         "test_method",
         "backend",
         "output_fasta",
-        "output_bayes"
+        "output_bayes",
+        "bayes_model"
       ],
       "title": "SignifProfile",
       "type": "object"
@@ -612,6 +657,9 @@
           "title": "Bayes Factor Threshold",
           "type": "number"
         },
+        "bayes_model": {
+          "$ref": "#/$defs/DirectionalModelProfile"
+        },
         "command": {
           "const": "triage",
           "title": "Command",
@@ -631,12 +679,6 @@
           ],
           "default": null,
           "title": "Groups"
-        },
-        "linked_probability": {
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Linked Probability",
-          "type": "number"
         },
         "markers_table": {
           "title": "Markers Table",
@@ -662,12 +704,6 @@
           "title": "Posterior Threshold",
           "type": "number"
         },
-        "prior_probability": {
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Prior Probability",
-          "type": "number"
-        },
         "signif_threshold": {
           "exclusiveMaximum": 1.0,
           "exclusiveMinimum": 0.0,
@@ -684,8 +720,7 @@
         "signif_threshold",
         "posterior_threshold",
         "bayes_factor_threshold",
-        "prior_probability",
-        "linked_probability"
+        "bayes_model"
       ],
       "title": "TriageProfile",
       "type": "object"
