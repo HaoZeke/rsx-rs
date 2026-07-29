@@ -7,8 +7,9 @@
 .DS_Store
 
 # pixi
+# pixi.lock stays in git: rsx-cli embeds it with include_bytes! for the
+# reproducibility archive, so a clean clone cannot build without it.
 .pixi/
-pixi.lock
 
 # Build artifacts
 /rsxcore/include/rsx.h
