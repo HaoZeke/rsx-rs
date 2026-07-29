@@ -195,7 +195,7 @@ beta = 5.0
     let row = output.lines().nth(2).unwrap();
     let observed: f64 = row.split('\t').nth(15).unwrap().parse().unwrap();
 
-    assert_eq!(observed, format!("{expected:.4}").parse::<f64>().unwrap());
+    assert_eq!(observed, Cg(expected).to_string().parse::<f64>().unwrap());
     assert!(
         fs::read_to_string(hydrated_path)
             .unwrap()
