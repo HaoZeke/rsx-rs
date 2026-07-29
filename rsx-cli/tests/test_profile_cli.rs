@@ -3,8 +3,39 @@
 use std::fs;
 use std::io::Read;
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
 
 use rsx_core::run_profile::{CommandProfile, RunProfile};
+use sha2::{Digest, Sha256};
+
+fn write_markers_table(path: &std::path::Path) {
+    fs::write(
+        path,
+        "#Number of markers : 2\nid\tsequence\tind1\tind2\n0\tACGT\t4\t0\n1\tTGCA\t2\t3\n",
+    )
+    .unwrap();
+}
+
+fn read_archive_member(path: &std::path::Path, name: &str) -> Vec<u8> {
+    let mut archive = zip::ZipArchive::new(fs::File::open(path).unwrap()).unwrap();
+    let mut contents = Vec::new();
+    archive
+        .by_name(name)
+        .unwrap()
+        .read_to_end(&mut contents)
+        .unwrap();
+    contents
+}
+
+fn assert_archive_checksums(path: &std::path::Path) {
+    let checksum_manifest = String::from_utf8(read_archive_member(path, "SHA256SUMS")).unwrap();
+    for line in checksum_manifest.lines() {
+        let (expected, name) = line.split_once("  ").unwrap();
+        let actual = format!("{:x}", Sha256::digest(read_archive_member(path, name)));
+        assert_eq!(actual, expected, "checksum mismatch for {name}");
+    }
+}
 
 #[test]
 fn failed_analysis_keeps_the_hydrated_profile_written_before_execution() {
@@ -126,4 +157,112 @@ fn invalid_profile_syntax_still_creates_a_resolution_failure_archive() {
         .unwrap();
     assert!(manifest.contains("status = \"resolution-failed\""));
     assert!(manifest.contains("error_category = \"configuration\""));
+}
+
+#[test]
+fn successful_analysis_creates_a_completed_repeatable_archive() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile_path = directory.path().join("input.toml");
+    let archive_path = directory.path().join("completed.zip");
+    let markers_path = directory.path().join("markers.tsv");
+    let output_path = directory.path().join("freq.tsv");
+    write_markers_table(&markers_path);
+    fs::write(
+        &profile_path,
+        format!(
+            r#"
+schema_version = 1
+profile_name = "completed-v1"
+reproducibility_archive = "{}"
+
+[run]
+command = "freq"
+markers_table = "{}"
+output_file = "{}"
+min_depth = 1
+"#,
+            archive_path.display(),
+            markers_path.display(),
+            output_path.display(),
+        ),
+    )
+    .unwrap();
+
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_rsx"))
+            .arg("--profile")
+            .arg(&profile_path)
+            .env("SOURCE_DATE_EPOCH", "0")
+            .status()
+            .unwrap()
+    };
+    assert!(run().success());
+    let first = fs::read(&archive_path).unwrap();
+    assert!(
+        String::from_utf8(read_archive_member(&archive_path, "run-manifest.toml"))
+            .unwrap()
+            .contains("status = \"completed\"")
+    );
+    assert_archive_checksums(&archive_path);
+
+    assert!(run().success());
+    assert_eq!(fs::read(&archive_path).unwrap(), first);
+}
+
+#[cfg(unix)]
+#[test]
+fn unhandled_termination_leaves_the_started_archive() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile_path = directory.path().join("input.toml");
+    let archive_path = directory.path().join("interrupted.zip");
+    let markers_path = directory.path().join("markers.tsv");
+    let output_fifo = directory.path().join("blocked-output.tsv");
+    write_markers_table(&markers_path);
+    assert!(Command::new("mkfifo")
+        .arg(&output_fifo)
+        .status()
+        .unwrap()
+        .success());
+    fs::write(
+        &profile_path,
+        format!(
+            r#"
+schema_version = 1
+profile_name = "interrupted-v1"
+reproducibility_archive = "{}"
+
+[run]
+command = "freq"
+markers_table = "{}"
+output_file = "{}"
+min_depth = 1
+"#,
+            archive_path.display(),
+            markers_path.display(),
+            output_fifo.display(),
+        ),
+    )
+    .unwrap();
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rsx"))
+        .arg("--profile")
+        .arg(&profile_path)
+        .spawn()
+        .unwrap();
+    for _ in 0..400 {
+        if archive_path.exists() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    assert!(archive_path.exists(), "initial archive was not written");
+    child.kill().unwrap();
+    let status = child.wait().unwrap();
+    assert!(!status.success());
+
+    let manifest =
+        String::from_utf8(read_archive_member(&archive_path, "run-manifest.toml")).unwrap();
+    assert!(manifest.contains("status = \"started\""));
+    assert!(manifest.contains("created_before_execution = true"));
+    assert_archive_checksums(&archive_path);
 }
