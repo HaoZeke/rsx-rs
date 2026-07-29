@@ -31,6 +31,7 @@ pub mod kmer;
 pub mod marker;
 pub mod markers_table;
 pub mod popmap;
+pub mod run_profile;
 pub mod source;
 pub mod stats;
 pub mod status;
