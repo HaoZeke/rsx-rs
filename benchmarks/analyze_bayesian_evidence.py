@@ -42,6 +42,28 @@ class DistribCell:
     markers: int
 
 
+@dataclass(frozen=True)
+class PrevalencePrior:
+    """Fixed or Beta prevalence family matching ``rsxcore::PrevalencePrior``."""
+
+    family: str
+    probability: float | None = None
+    alpha: float | None = None
+    beta_shape: float | None = None
+
+    @classmethod
+    def fixed(cls, probability: float) -> "PrevalencePrior":
+        if not math.isfinite(probability) or not 0.0 < probability < 1.0:
+            raise ValueError("fixed prevalence probability must be strictly between zero and one")
+        return cls(family="fixed", probability=probability)
+
+    @classmethod
+    def beta(cls, alpha: float, beta: float) -> "PrevalencePrior":
+        if not math.isfinite(alpha) or not math.isfinite(beta) or alpha <= 0.0 or beta <= 0.0:
+            raise ValueError("Beta prevalence shapes must be finite and greater than zero")
+        return cls(family="beta", alpha=alpha, beta_shape=beta)
+
+
 def parse_min_depths(value: str) -> list[int]:
     depths = [int(item) for item in value.split(",") if item.strip()]
     if not depths:
@@ -101,25 +123,71 @@ def bayes_factor_2x2(n_g1: int, n_g2: int, total_g1: int, total_g2: int) -> floa
     return math.exp(log_h1 - log_h0)
 
 
-def binom_logpmf(k: int, n: int, p: float) -> float:
-    if p <= 0.0 or p >= 1.0:
-        if (p <= 0.0 and k == 0) or (p >= 1.0 and k == n):
-            return 0.0
-        return -math.inf
-    return (
-        math.lgamma(n + 1)
-        - math.lgamma(k + 1)
-        - math.lgamma(n - k + 1)
-        + k * math.log(p)
-        + (n - k) * math.log(1.0 - p)
-    )
-
-
 def logsumexp2(a: float, b: float) -> float:
     max_value = max(a, b)
     if math.isinf(max_value):
         return max_value
     return max_value + math.log(math.exp(a - max_value) + math.exp(b - max_value))
+
+
+def log_prevalence_marginal(k: int, n: int, prior: PrevalencePrior) -> float:
+    if prior.family == "fixed":
+        probability = prior.probability
+        if probability is None:
+            raise ValueError("fixed prevalence family requires probability")
+        return k * math.log(probability) + (n - k) * math.log1p(-probability)
+    if prior.family == "beta":
+        if prior.alpha is None or prior.beta_shape is None:
+            raise ValueError("Beta prevalence family requires alpha and beta")
+        return (
+            math.lgamma(k + prior.alpha)
+            + math.lgamma(n - k + prior.beta_shape)
+            - math.lgamma(n + prior.alpha + prior.beta_shape)
+            - math.lgamma(prior.alpha)
+            - math.lgamma(prior.beta_shape)
+            + math.lgamma(prior.alpha + prior.beta_shape)
+        )
+    raise ValueError(f"unsupported prevalence family: {prior.family}")
+
+
+def posterior_sex_linked_with_model(
+    n_g1: int,
+    n_g2: int,
+    total_g1: int,
+    total_g2: int,
+    *,
+    linkage_prior: float,
+    group1_linked_weight: float,
+    linked: PrevalencePrior,
+    null: PrevalencePrior,
+) -> float:
+    """Evaluate the directional model used by the Rust implementation."""
+
+    if not 0 <= n_g1 <= total_g1 or not 0 <= n_g2 <= total_g2:
+        raise ValueError("marker counts must lie within their group totals")
+    if not math.isfinite(linkage_prior) or not 0.0 < linkage_prior < 1.0:
+        raise ValueError("linkage_prior must be strictly between zero and one")
+    if not math.isfinite(group1_linked_weight) or not 0.0 < group1_linked_weight < 1.0:
+        raise ValueError("group1_linked_weight must be strictly between zero and one")
+
+    linked_total = total_g1 + total_g2
+    ll_g1_linked = log_prevalence_marginal(
+        n_g1 + (total_g2 - n_g2), linked_total, linked
+    )
+    ll_g2_linked = log_prevalence_marginal(
+        (total_g1 - n_g1) + n_g2, linked_total, linked
+    )
+    ll_linked = logsumexp2(
+        ll_g1_linked + math.log(group1_linked_weight),
+        ll_g2_linked + math.log1p(-group1_linked_weight),
+    )
+    ll_null = log_prevalence_marginal(n_g1 + n_g2, linked_total, null)
+    log_odds = ll_linked - ll_null + math.log(linkage_prior / (1.0 - linkage_prior))
+    if log_odds > 20.0:
+        return 1.0
+    if log_odds < -20.0:
+        return 0.0
+    return 1.0 / (1.0 + math.exp(-log_odds))
 
 
 def posterior_sex_linked(
@@ -130,16 +198,16 @@ def posterior_sex_linked(
     pi: float,
     p_sex: float,
 ) -> float:
-    ll_g1_linked = binom_logpmf(n_g1, total_g1, p_sex) + binom_logpmf(n_g2, total_g2, 1.0 - p_sex)
-    ll_g2_linked = binom_logpmf(n_g1, total_g1, 1.0 - p_sex) + binom_logpmf(n_g2, total_g2, p_sex)
-    ll_linked = logsumexp2(ll_g1_linked, ll_g2_linked) - math.log(2.0)
-    ll_null = binom_logpmf(n_g1, total_g1, 0.5) + binom_logpmf(n_g2, total_g2, 0.5)
-    log_odds = ll_linked - ll_null + math.log(pi / (1.0 - pi))
-    if log_odds > 20.0:
-        return 1.0
-    if log_odds < -20.0:
-        return 0.0
-    return 1.0 / (1.0 + math.exp(-log_odds))
+    return posterior_sex_linked_with_model(
+        n_g1,
+        n_g2,
+        total_g1,
+        total_g2,
+        linkage_prior=pi,
+        group1_linked_weight=0.5,
+        linked=PrevalencePrior.fixed(p_sex),
+        null=PrevalencePrior.fixed(0.5),
+    )
 
 
 def analyze_distrib(

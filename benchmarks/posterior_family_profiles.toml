@@ -1,0 +1,36 @@
+threshold = 0.9
+
+[[profile]]
+name = "fixed-default"
+linkage_prior = 0.01
+group1_linked_weight = 0.5
+linked = { family = "fixed", probability = 0.9 }
+null = { family = "fixed", probability = 0.5 }
+
+[[profile]]
+name = "fixed-dropout-20pct"
+linkage_prior = 0.01
+group1_linked_weight = 0.5
+linked = { family = "fixed", probability = 0.8 }
+null = { family = "fixed", probability = 0.5 }
+
+[[profile]]
+name = "beta-concentrated"
+linkage_prior = 0.01
+group1_linked_weight = 0.5
+linked = { family = "beta", alpha = 9.0, beta = 1.0 }
+null = { family = "beta", alpha = 5.0, beta = 5.0 }
+
+[[profile]]
+name = "beta-moderate"
+linkage_prior = 0.01
+group1_linked_weight = 0.5
+linked = { family = "beta", alpha = 4.0, beta = 1.0 }
+null = { family = "beta", alpha = 2.0, beta = 2.0 }
+
+[[profile]]
+name = "beta-symmetric"
+linkage_prior = 0.01
+group1_linked_weight = 0.5
+linked = { family = "beta", alpha = 1.0, beta = 1.0 }
+null = { family = "beta", alpha = 1.0, beta = 1.0 }
