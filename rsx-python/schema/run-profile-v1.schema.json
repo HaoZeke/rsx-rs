@@ -1,5 +1,42 @@
 {
   "$defs": {
+    "BayesFactorProfile": {
+      "additionalProperties": false,
+      "description": "Priors for separate group prevalences and the shared null prevalence.",
+      "properties": {
+        "alternative_group1": {
+          "$ref": "#/$defs/BetaPriorProfile"
+        },
+        "alternative_group2": {
+          "$ref": "#/$defs/BetaPriorProfile"
+        },
+        "null": {
+          "$ref": "#/$defs/BetaPriorProfile"
+        }
+      },
+      "title": "BayesFactorProfile",
+      "type": "object"
+    },
+    "BetaPriorProfile": {
+      "additionalProperties": false,
+      "description": "Positive shape parameters for a Beta distribution.",
+      "properties": {
+        "alpha": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "beta": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Beta",
+          "type": "number"
+        }
+      },
+      "title": "BetaPriorProfile",
+      "type": "object"
+    },
     "DepthProfile": {
       "additionalProperties": false,
       "properties": {
@@ -40,6 +77,9 @@
     "DirectionalModelProfile": {
       "additionalProperties": false,
       "properties": {
+        "bayes_factor": {
+          "$ref": "#/$defs/BayesFactorProfile"
+        },
         "group1_linked_weight": {
           "exclusiveMaximum": 1.0,
           "exclusiveMinimum": 0.0,

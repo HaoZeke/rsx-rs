@@ -28,11 +28,27 @@ class ProcessProfile(StrictProfileModel):
     kmer_dedup: Optional[int] = Field(default=None, ge=1)
 
 
+class BetaPriorProfile(StrictProfileModel):
+    """Positive shape parameters for a Beta distribution."""
+
+    alpha: float = Field(default=1.0, gt=0.0)
+    beta: float = Field(default=1.0, gt=0.0)
+
+
+class BayesFactorProfile(StrictProfileModel):
+    """Priors for separate group prevalences and the shared null prevalence."""
+
+    alternative_group1: BetaPriorProfile = Field(default_factory=BetaPriorProfile)
+    alternative_group2: BetaPriorProfile = Field(default_factory=BetaPriorProfile)
+    null: BetaPriorProfile = Field(default_factory=BetaPriorProfile)
+
+
 class DirectionalModelProfile(StrictProfileModel):
     linkage_prior: float = Field(gt=0.0, lt=1.0)
     linked_prevalence: float = Field(gt=0.0, lt=1.0)
     null_prevalence: float = Field(gt=0.0, lt=1.0)
     group1_linked_weight: float = Field(gt=0.0, lt=1.0)
+    bayes_factor: BayesFactorProfile = Field(default_factory=BayesFactorProfile)
 
 
 class DistribProfile(StrictProfileModel):
@@ -179,6 +195,9 @@ def parse_run_profile_toml(text: str) -> RunProfile:
 
 
 __all__ = [
+    "BayesFactorProfile",
+    "BetaPriorProfile",
+    "DirectionalModelProfile",
     "RunCommand",
     "RunProfile",
     "parse_run_profile_toml",
