@@ -5,13 +5,13 @@
 
 use crate::bitset::GroupMask;
 use crate::compute_backend::{
-    compute_chi_squared_batch_with_metrics, AssociationCounts, PValueBackend,
+    AssociationCounts, PValueBackend, compute_chi_squared_batch_with_metrics,
 };
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
-use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
+use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
 use std::io::Write;
 use std::path::Path;
 

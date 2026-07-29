@@ -21,8 +21,8 @@
 //! All commands are designed to run with O(n_individuals) or bounded temporary
 //! memory even on 50 GB+ tables.
 
-pub mod bitset;
 pub mod bayes_profile;
+pub mod bitset;
 pub mod c_api;
 pub mod commands;
 pub mod compute_backend;

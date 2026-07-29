@@ -12,7 +12,7 @@ use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
 use crate::stats::Cg;
-use crate::test_method::{compute_p, TestMethod};
+use crate::test_method::{TestMethod, compute_p};
 use std::io::Write;
 use std::path::Path;
 

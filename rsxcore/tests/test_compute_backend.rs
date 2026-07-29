@@ -3,7 +3,7 @@
 
 #[cfg(feature = "cuda")]
 use rsx_core::compute_backend::compute_chi_squared_batch_with_metrics;
-use rsx_core::compute_backend::{compute_chi_squared_batch, AssociationCounts, PValueBackend};
+use rsx_core::compute_backend::{AssociationCounts, PValueBackend, compute_chi_squared_batch};
 
 #[test]
 fn backend_names_are_explicit() {

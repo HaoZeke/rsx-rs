@@ -361,9 +361,11 @@ mod tests {
         );
 
         let error = write_zip_atomic(&destination, &members).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("checksum mismatch for payload.txt"));
+        assert!(
+            error
+                .to_string()
+                .contains("checksum mismatch for payload.txt")
+        );
         assert!(!destination.exists());
     }
 }
