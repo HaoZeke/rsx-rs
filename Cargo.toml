@@ -13,6 +13,9 @@ repository = "https://github.com/HaoZeke/rsx-rs"
 lto = "thin"
 codegen-units = 1
 
+[profile.test]
+debug = 0
+
 # cargo-dist builds (cross-platform, no -C target-cpu=native)
 [profile.dist]
 inherits = "release"
