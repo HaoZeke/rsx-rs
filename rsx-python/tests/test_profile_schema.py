@@ -39,6 +39,36 @@ def test_process_profile_is_strict_and_command_discriminated() -> None:
         RunProfile.model_validate(invalid)
 
 
+def test_bayesian_commands_require_the_complete_directional_model() -> None:
+    profile = RunProfile.model_validate(
+        {
+            "schema_version": 1,
+            "profile_name": "python-distrib-v1",
+            "run": {
+                "command": "distrib",
+                "markers_table": "markers.tsv",
+                "popmap": "popmap.tsv",
+                "output_file": "distrib.tsv",
+                "min_depth": 1,
+                "groups": ["M", "F"],
+                "signif_threshold": 0.05,
+                "disable_correction": False,
+                "correction": "bonferroni",
+                "test_method": "chisq",
+                "output_bayes": True,
+                "bayes_model": {
+                    "linkage_prior": 0.01,
+                    "linked_prevalence": 0.9,
+                    "null_prevalence": 0.4,
+                    "group1_linked_weight": 0.75,
+                },
+            },
+        }
+    )
+    assert profile.run.bayes_model.null_prevalence == 0.4
+    assert profile.run.bayes_model.group1_linked_weight == 0.75
+
+
 def test_checked_in_json_schema_matches_pydantic_model() -> None:
     schema_path = Path(__file__).parents[1] / "schema" / "run-profile-v1.schema.json"
     checked_in = json.loads(schema_path.read_text(encoding="utf-8"))
