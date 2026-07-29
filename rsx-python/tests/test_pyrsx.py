@@ -34,8 +34,7 @@ def test_data(tmp_path):
     for name in ["ind1", "ind2", "ind3", "ind4", "ind5"]:
         fq = reads_dir / f"{name}.fq"
         fq.write_text(
-            f"@r1\nATCGATCGATCG\n+\nIIIIIIIIIIII\n"
-            f"@r2\nGGGGAAAA\n+\nIIIIIIII\n"
+            f"@r1\nATCGATCGATCG\n+\nIIIIIIIIIIII\n@r2\nGGGGAAAA\n+\nIIIIIIII\n"
         )
 
     return {
@@ -77,8 +76,7 @@ def test_signif_default(test_data):
     """signif with default settings."""
     out = os.path.join(test_data["tmp"], "signif.tsv")
     pyrsx.signif(
-        test_data["table"], test_data["popmap"], out,
-        min_depth=1, correction="none"
+        test_data["table"], test_data["popmap"], out, min_depth=1, correction="none"
     )
     assert os.path.exists(out)
 
@@ -87,8 +85,12 @@ def test_signif_fisher_fdr(test_data):
     """signif with Fisher test + FDR correction."""
     out = os.path.join(test_data["tmp"], "signif_fisher.tsv")
     pyrsx.signif(
-        test_data["table"], test_data["popmap"], out,
-        min_depth=1, test="fisher", correction="fdr"
+        test_data["table"],
+        test_data["popmap"],
+        out,
+        min_depth=1,
+        test="fisher",
+        correction="fdr",
     )
     assert os.path.exists(out)
 
@@ -97,8 +99,12 @@ def test_signif_bayes(test_data):
     """signif with Bayesian output."""
     out = os.path.join(test_data["tmp"], "signif_bayes.tsv")
     pyrsx.signif(
-        test_data["table"], test_data["popmap"], out,
-        min_depth=1, correction="none", bayes=True
+        test_data["table"],
+        test_data["popmap"],
+        out,
+        min_depth=1,
+        correction="none",
+        bayes=True,
     )
     assert os.path.exists(out)
     with open(out) as f:
@@ -178,10 +184,7 @@ def test_invalid_test_method(test_data):
     """Invalid test method should raise error."""
     out = os.path.join(test_data["tmp"], "bad.tsv")
     with pytest.raises(RuntimeError, match="Unknown test method"):
-        pyrsx.signif(
-            test_data["table"], test_data["popmap"], out,
-            test="invalid_test"
-        )
+        pyrsx.signif(test_data["table"], test_data["popmap"], out, test="invalid_test")
 
 
 def test_invalid_correction(test_data):
@@ -189,12 +192,12 @@ def test_invalid_correction(test_data):
     out = os.path.join(test_data["tmp"], "bad.tsv")
     with pytest.raises(RuntimeError, match="Unknown correction"):
         pyrsx.signif(
-            test_data["table"], test_data["popmap"], out,
-            correction="invalid_corr"
+            test_data["table"], test_data["popmap"], out, correction="invalid_corr"
         )
 
 
 # === CLI tests ===
+
 
 def test_cli_help():
     """CLI --help should show all commands."""
@@ -211,9 +214,18 @@ def test_cli_freq(test_data):
     """CLI freq command should work."""
     runner = CliRunner()
     out = os.path.join(test_data["tmp"], "cli_freq.tsv")
-    result = runner.invoke(main, [
-        "freq", "-t", test_data["table"], "-o", out, "-d", "1",
-    ])
+    result = runner.invoke(
+        main,
+        [
+            "freq",
+            "-t",
+            test_data["table"],
+            "-o",
+            out,
+            "-d",
+            "1",
+        ],
+    )
     assert result.exit_code == 0, result.output
     assert os.path.exists(out)
 
@@ -222,15 +234,23 @@ def test_cli_signif_bayes(test_data):
     """CLI signif with --bayes and --test fisher."""
     runner = CliRunner()
     out = os.path.join(test_data["tmp"], "cli_signif.tsv")
-    result = runner.invoke(main, [
-        "signif",
-        "-t", test_data["table"],
-        "-p", test_data["popmap"],
-        "-o", out,
-        "--correction", "none",
-        "--test", "fisher",
-        "--bayes",
-    ])
+    result = runner.invoke(
+        main,
+        [
+            "signif",
+            "-t",
+            test_data["table"],
+            "-p",
+            test_data["popmap"],
+            "-o",
+            out,
+            "--correction",
+            "none",
+            "--test",
+            "fisher",
+            "--bayes",
+        ],
+    )
     assert result.exit_code == 0, result.output
     assert os.path.exists(out)
 
@@ -239,13 +259,32 @@ def test_cli_triage(test_data):
     """CLI triage command."""
     runner = CliRunner()
     out = os.path.join(test_data["tmp"], "cli_triage.tsv")
-    result = runner.invoke(main, [
-        "triage",
-        "-t", test_data["table"],
-        "-p", test_data["popmap"],
-        "-o", out,
-        "-G", "M,F",
-    ])
+    result = runner.invoke(
+        main,
+        [
+            "triage",
+            "-t",
+            test_data["table"],
+            "-p",
+            test_data["popmap"],
+            "-o",
+            out,
+            "-G",
+            "M,F",
+            "--bf-group1-alpha",
+            "8",
+            "--bf-group1-beta",
+            "2",
+            "--bf-group2-alpha",
+            "2",
+            "--bf-group2-beta",
+            "8",
+            "--bf-null-alpha",
+            "10",
+            "--bf-null-beta",
+            "10",
+        ],
+    )
     assert result.exit_code == 0, result.output
     assert os.path.exists(out)
 
@@ -254,9 +293,18 @@ def test_cli_pca(test_data):
     """CLI pca command."""
     runner = CliRunner()
     out_dir = os.path.join(test_data["tmp"], "cli_pca")
-    result = runner.invoke(main, [
-        "pca", "-t", test_data["table"], "-o", out_dir, "-r", "3",
-    ])
+    result = runner.invoke(
+        main,
+        [
+            "pca",
+            "-t",
+            test_data["table"],
+            "-o",
+            out_dir,
+            "-r",
+            "3",
+        ],
+    )
     assert result.exit_code == 0, result.output
     assert os.path.exists(os.path.join(out_dir, "eigenvalues.tsv"))
 
@@ -264,6 +312,7 @@ def test_cli_pca(test_data):
 # ------------------------------------------------------------------
 # High-level Python API tests (thin callers over the real Rust Arrow path)
 # ------------------------------------------------------------------
+
 
 def test_highlevel_triage_via_marker_table():
     """High-level MarkerTable.triage should return a TriageResult backed by narwhals
@@ -295,7 +344,20 @@ def test_highlevel_triage_via_marker_table():
         from pyrsx.api.params import TriageParams
 
         mt = MarkerTable.from_path(str(table))
-        p = TriageParams(group1="M", group2="F", prior=0.01, linked_prob=0.9)
+        p = TriageParams(
+            group1="M",
+            group2="F",
+            prior=0.01,
+            linked_prob=0.9,
+            null_prevalence=0.4,
+            group1_linked_weight=0.7,
+            bf_group1_alpha=8.0,
+            bf_group1_beta=2.0,
+            bf_group2_alpha=2.0,
+            bf_group2_beta=8.0,
+            bf_null_alpha=10.0,
+            bf_null_beta=10.0,
+        )
         result = mt.triage(popmap=str(pop), params=p)
 
         # The result must be a TriageResult with a narwhals-backed df
@@ -304,11 +366,19 @@ def test_highlevel_triage_via_marker_table():
 
         # Must have produced the biological calls we expect from the decision logic
         classes = result.df["Candidate_Class"].to_list()
-        assert any("strict" in str(c) or "posterior" in str(c) or "M-biased" in str(c) or "F-biased" in str(c) for c in classes)
+        assert any(
+            "strict" in str(c)
+            or "posterior" in str(c)
+            or "M-biased" in str(c)
+            or "F-biased" in str(c)
+            for c in classes
+        )
 
         # Provenance must be round-tripped
         assert result.params is not None
         assert result.params.group1 == "M"
+        assert result.params.bf_group1_alpha == 8.0
+        assert result.params.bf_null_beta == 10.0
 
 
 def test_pca_to_arrow_lowlevel(test_data):
@@ -338,6 +408,7 @@ def test_pca_to_arrow_lowlevel(test_data):
 # (verifies backend-agnostic narwhals results for commands that use
 # the core TSV read helper instead of pure Arrow output).
 # ------------------------------------------------------------------
+
 
 def test_highlevel_freq_via_marker_table_path():
     """Path-backed MarkerTable.freq must return TableResult with narwhals df,
@@ -381,11 +452,7 @@ def test_marker_table_path_introspection_without_metadata():
 
     with tempfile.TemporaryDirectory() as tmp:
         table = Path(tmp) / "markers.tsv"
-        table.write_text(
-            "id\tsequence\tind1\tind2\n"
-            "0\tALL\t10\t10\n"
-            "1\tMONLY\t10\t0\n"
-        )
+        table.write_text("id\tsequence\tind1\tind2\n0\tALL\t10\t10\n1\tMONLY\t10\t0\n")
 
         from pyrsx.api.markers import MarkerTable
 
