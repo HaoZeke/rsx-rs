@@ -46,6 +46,10 @@ rsx_freq <- function(table_path, output_file, min_depth = 1L) {
 #' @param correction Multiple-testing correction: "bonferroni", "fdr", "none".
 #' @param test Statistical test: "chisq", "fisher", "gtest".
 #' @param output_bayes Also emit Bayesian columns.
+#' @param prior_probability Prior probability that a marker is sex-linked.
+#' @param linked_probability Expected marker prevalence in the linked group.
+#' @param null_prevalence Expected marker prevalence under the null model.
+#' @param group1_linked_weight Mixture weight for the group-1-linked direction.
 #' @return The output path, invisibly.
 #' @export
 #' @examples
@@ -57,10 +61,16 @@ rsx_distrib <- function(table_path, popmap_path, output_file,
                         min_depth = 1L, signif_threshold = 0.05,
                         group1 = "", group2 = "",
                         correction = "bonferroni", test = "chisq",
-                        output_bayes = FALSE) {
+                        output_bayes = FALSE,
+                        prior_probability = 0.01,
+                        linked_probability = 0.9,
+                        null_prevalence = 0.5,
+                        group1_linked_weight = 0.5) {
   .Call(C_rsx_distrib, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
-        group1, group2, correction, test, as.logical(output_bayes))
+        group1, group2, correction, test, as.logical(output_bayes),
+        as.numeric(prior_probability), as.numeric(linked_probability),
+        as.numeric(null_prevalence), as.numeric(group1_linked_weight))
   invisible(output_file)
 }
 
@@ -80,11 +90,17 @@ rsx_signif <- function(table_path, popmap_path, output_file,
                        min_depth = 1L, signif_threshold = 0.05,
                        group1 = "", group2 = "",
                        correction = "bonferroni", test = "chisq",
-                       output_fasta = FALSE, bayes = FALSE) {
+                       output_fasta = FALSE, bayes = FALSE,
+                       prior_probability = 0.01,
+                       linked_probability = 0.9,
+                       null_prevalence = 0.5,
+                       group1_linked_weight = 0.5) {
   .Call(C_rsx_signif, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         group1, group2, correction, test,
-        as.logical(output_fasta), as.logical(bayes))
+        as.logical(output_fasta), as.logical(bayes),
+        as.numeric(prior_probability), as.numeric(linked_probability),
+        as.numeric(null_prevalence), as.numeric(group1_linked_weight))
   invisible(output_file)
 }
 
@@ -93,8 +109,6 @@ rsx_signif <- function(table_path, popmap_path, output_file,
 #' @inheritParams rsx_distrib
 #' @param posterior_threshold Posterior probability cutoff.
 #' @param bayes_factor_threshold Bayes factor cutoff.
-#' @param prior_probability Prior probability of sex linkage.
-#' @param linked_probability Probability model for a linked marker.
 #' @return The output path, invisibly.
 #' @export
 #' @examples
@@ -108,11 +122,14 @@ rsx_triage <- function(table_path, popmap_path, output_file,
                        bayes_factor_threshold = 10.0,
                        prior_probability = 0.01,
                        linked_probability = 0.9,
+                       null_prevalence = 0.5,
+                       group1_linked_weight = 0.5,
                        group1 = "M", group2 = "F") {
   .Call(C_rsx_triage, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         as.numeric(posterior_threshold), as.numeric(bayes_factor_threshold),
         as.numeric(prior_probability), as.numeric(linked_probability),
+        as.numeric(null_prevalence), as.numeric(group1_linked_weight),
         group1, group2)
   invisible(output_file)
 }

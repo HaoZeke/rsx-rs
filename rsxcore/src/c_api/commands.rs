@@ -26,6 +26,33 @@ unsafe fn parse_test(ptr: *const c_char) -> Result<TestMethod, rsx_status_t> {
     })
 }
 
+fn directional_model(
+    linkage_prior: f64,
+    linked_prevalence: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
+) -> Result<crate::stats::DirectionalModel, rsx_status_t> {
+    for (name, value) in [
+        ("prior_probability", linkage_prior),
+        ("linked_probability", linked_prevalence),
+        ("null_prevalence", null_prevalence),
+        ("group1_linked_weight", group1_linked_weight),
+    ] {
+        if !value.is_finite() || value <= 0.0 || value >= 1.0 {
+            set_last_error(&format!(
+                "{name} must be finite and strictly between zero and one"
+            ));
+            return Err(rsx_status_t::RSX_INVALID_PARAMETER);
+        }
+    }
+    Ok(crate::stats::DirectionalModel {
+        linkage_prior,
+        linked_prevalence,
+        null_prevalence,
+        group1_linked_weight,
+    })
+}
+
 /// Helper to convert a C string pointer to a Rust string, returning error on null
 /// or invalid UTF-8 (never invents an empty string for bad encodings).
 pub(crate) unsafe fn cstr_to_string(
@@ -137,6 +164,10 @@ pub unsafe extern "C" fn rsx_distrib(
     correction: *const c_char,
     test: *const c_char,
     output_bayes: bool,
+    prior_probability: f64,
+    linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
 ) -> rsx_status_t {
     catch_unwind(|| {
         let table_path = match unsafe { cstr_to_string(table_path, "table_path") } {
@@ -167,6 +198,15 @@ pub unsafe extern "C" fn rsx_distrib(
             Ok(t) => t,
             Err(e) => return e,
         };
+        let bayes_model = match directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        ) {
+            Ok(model) => model,
+            Err(error) => return error,
+        };
 
         let params = crate::commands::distrib::DistribParams {
             markers_table_path: table_path,
@@ -177,7 +217,7 @@ pub unsafe extern "C" fn rsx_distrib(
             correction,
             test_method,
             output_bayes,
-            bayes_model: crate::stats::DirectionalModel::directional_screening_v1(),
+            bayes_model,
             group1,
             group2,
         };
@@ -210,6 +250,10 @@ pub unsafe extern "C" fn rsx_signif(
     test: *const c_char,
     output_fasta: bool,
     output_bayes: bool,
+    prior_probability: f64,
+    linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
 ) -> rsx_status_t {
     catch_unwind(|| {
         let table_path = match unsafe { cstr_to_string(table_path, "table_path") } {
@@ -240,6 +284,15 @@ pub unsafe extern "C" fn rsx_signif(
             Ok(t) => t,
             Err(e) => return e,
         };
+        let bayes_model = match directional_model(
+            prior_probability,
+            linked_probability,
+            null_prevalence,
+            group1_linked_weight,
+        ) {
+            Ok(model) => model,
+            Err(error) => return error,
+        };
 
         let params = crate::commands::signif::SignifParams {
             markers_table_path: table_path,
@@ -251,7 +304,7 @@ pub unsafe extern "C" fn rsx_signif(
             test_method,
             output_fasta,
             output_bayes,
-            bayes_model: crate::stats::DirectionalModel::directional_screening_v1(),
+            bayes_model,
             group1,
             group2,
         };
@@ -282,6 +335,8 @@ pub unsafe extern "C" fn rsx_triage(
     bayes_factor_threshold: f64,
     prior_probability: f64,
     linked_probability: f64,
+    null_prevalence: f64,
+    group1_linked_weight: f64,
     group1: *const c_char,
     group2: *const c_char,
 ) -> rsx_status_t {
@@ -315,11 +370,14 @@ pub unsafe extern "C" fn rsx_triage(
             signif_threshold,
             posterior_threshold,
             bayes_factor_threshold,
-            bayes_model: crate::stats::DirectionalModel {
-                linkage_prior: prior_probability,
-                linked_prevalence: linked_probability,
-                null_prevalence: 0.5,
-                group1_linked_weight: 0.5,
+            bayes_model: match directional_model(
+                prior_probability,
+                linked_probability,
+                null_prevalence,
+                group1_linked_weight,
+            ) {
+                Ok(model) => model,
+                Err(error) => return error,
             },
             group1,
             group2,

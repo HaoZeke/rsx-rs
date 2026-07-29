@@ -106,7 +106,11 @@ enum rsx_status_t rsx_distrib(const char *table_path,
                               const char *group2,
                               const char *correction,
                               const char *test,
-                              bool output_bayes);
+                              bool output_bayes,
+                              double prior_probability,
+                              double linked_probability,
+                              double null_prevalence,
+                              double group1_linked_weight);
 
 /**
  * Run the `signif` command.
@@ -124,7 +128,11 @@ enum rsx_status_t rsx_signif(const char *table_path,
                              const char *correction,
                              const char *test,
                              bool output_fasta,
-                             bool output_bayes);
+                             bool output_bayes,
+                             double prior_probability,
+                             double linked_probability,
+                             double null_prevalence,
+                             double group1_linked_weight);
 
 /**
  * Run the `triage` command.
@@ -141,6 +149,8 @@ enum rsx_status_t rsx_triage(const char *table_path,
                              double bayes_factor_threshold,
                              double prior_probability,
                              double linked_probability,
+                             double null_prevalence,
+                             double group1_linked_weight,
                              const char *group1,
                              const char *group2);
 
