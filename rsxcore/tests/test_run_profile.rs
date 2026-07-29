@@ -1,6 +1,7 @@
 // GPL-3.0-or-later
 
-use rsx_core::run_profile::RunProfile;
+use rsx_core::run_profile::{CommandProfile, RunProfile};
+use rsx_core::stats::{bayes_factor_2x2, bayes_factor_2x2_with_model};
 
 const PROFILE_HEADER: &str = r#"
 schema_version = 1
@@ -193,4 +194,75 @@ fn run_profile_rejects_unknown_command_fields() {
     );
     let error = RunProfile::parse_toml(&input).unwrap_err();
     assert!(error.to_string().contains("hidden_default"));
+}
+
+#[test]
+fn run_profile_hydrates_explicit_beta_priors_for_bayesian_commands() {
+    let input = format!(
+        r#"{PROFILE_HEADER}
+[run]
+command = "triage"
+markers_table = "markers.tsv"
+popmap = "popmap.tsv"
+output_file = "triage.tsv"
+min_depth = 1
+groups = ["M", "F"]
+signif_threshold = 0.05
+posterior_threshold = 0.9
+bayes_factor_threshold = 10.0
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
+
+[run.bayes_model.bayes_factor.alternative_group1]
+alpha = 8.0
+beta = 2.0
+
+[run.bayes_model.bayes_factor.alternative_group2]
+alpha = 2.0
+beta = 8.0
+
+[run.bayes_model.bayes_factor.null]
+alpha = 10.0
+beta = 10.0
+"#
+    );
+    let profile = RunProfile::parse_toml(&input).unwrap();
+    let model = match &profile.run {
+        CommandProfile::Triage(run) => run.bayes_model.to_runtime().unwrap(),
+        _ => panic!("triage profile changed command variants"),
+    };
+    let configured = bayes_factor_2x2_with_model(9, 1, 10, 10, &model.bayes_factor).unwrap();
+    assert!(configured > bayes_factor_2x2(9, 1, 10, 10));
+}
+
+#[test]
+fn legacy_directional_profile_serializes_its_uniform_prior_defaults() {
+    let body = r#"
+[run]
+command = "triage"
+markers_table = "markers.tsv"
+popmap = "popmap.tsv"
+output_file = "triage.tsv"
+min_depth = 1
+groups = ["M", "F"]
+signif_threshold = 0.05
+posterior_threshold = 0.9
+bayes_factor_threshold = 10.0
+
+[run.bayes_model]
+linkage_prior = 0.01
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
+"#;
+    let profile = RunProfile::parse_toml(&format!("{PROFILE_HEADER}{body}")).unwrap();
+    let hydrated = profile.to_toml().unwrap();
+
+    assert!(hydrated.contains("[run.bayes_model.bayes_factor.alternative_group1]"));
+    assert!(hydrated.contains("alpha = 1.0"));
+    assert!(hydrated.contains("beta = 1.0"));
 }
