@@ -483,6 +483,18 @@ pub struct DirectionalModel {
     pub group1_linked_weight: f64,
 }
 
+impl DirectionalModel {
+    /// Stable parameters for the version-1 directional screening profile.
+    pub const fn directional_screening_v1() -> Self {
+        Self {
+            linkage_prior: 0.01,
+            linked_prevalence: 0.9,
+            null_prevalence: 0.5,
+            group1_linked_weight: 0.5,
+        }
+    }
+}
+
 /// Posterior probability under the compatibility parameter surface.
 ///
 /// Calculation paths that expose the complete model use

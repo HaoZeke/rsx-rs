@@ -153,6 +153,7 @@ fn test_distrib_command() {
         correction: rsx_core::test_method::CorrectionMethod::Bonferroni,
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: String::new(),
         group2: String::new(),
     })
@@ -467,6 +468,7 @@ fn test_map_command() {
         correction: rsx_core::test_method::CorrectionMethod::Bonferroni,
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: String::new(),
         group2: String::new(),
     })
@@ -549,6 +551,7 @@ fn test_full_pipeline() {
         correction: rsx_core::test_method::CorrectionMethod::Bonferroni,
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: String::new(),
         group2: String::new(),
     })

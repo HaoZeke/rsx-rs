@@ -23,6 +23,7 @@ pub struct DistribParams {
     pub correction: CorrectionMethod,
     pub test_method: TestMethod,
     pub output_bayes: bool,
+    pub bayes_model: stats::DirectionalModel,
     pub group1: String,
     pub group2: String,
 }
@@ -184,7 +185,13 @@ pub fn run_with_source<S: MarkerStream>(
         )?;
         if params.output_bayes {
             let bf = stats::bayes_factor_2x2(g, h, total_g1, total_g2);
-            let post = stats::posterior_sex_linked(g, h, total_g1, total_g2, 0.01, 0.9);
+            let post = stats::posterior_sex_linked_with_model(
+                g,
+                h,
+                total_g1,
+                total_g2,
+                &params.bayes_model,
+            );
             writeln!(output, "\t{:.4}\t{:.4}", bf, post)?;
         } else {
             writeln!(output)?;

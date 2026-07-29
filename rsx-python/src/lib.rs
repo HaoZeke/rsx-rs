@@ -104,6 +104,7 @@ fn distrib(
         correction: corr,
         test_method: tm,
         output_bayes: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: group1.to_string(),
         group2: group2.to_string(),
     })
@@ -754,6 +755,7 @@ fn distrib_from_arrow(
         correction: corr,
         test_method: tm,
         output_bayes: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: group1.to_string(),
         group2: group2.to_string(),
     };

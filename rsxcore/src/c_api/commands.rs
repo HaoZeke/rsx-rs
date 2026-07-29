@@ -177,6 +177,7 @@ pub unsafe extern "C" fn rsx_distrib(
             correction,
             test_method,
             output_bayes,
+            bayes_model: crate::stats::DirectionalModel::directional_screening_v1(),
             group1,
             group2,
         };

@@ -397,6 +397,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 correction: corr,
                 test_method: test,
                 output_bayes,
+                bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
                 group1: g1,
                 group2: g2,
             })

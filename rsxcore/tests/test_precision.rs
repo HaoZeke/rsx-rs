@@ -545,6 +545,7 @@ fn test_distrib_exact_output() {
         correction: rsx_core::test_method::CorrectionMethod::Bonferroni,
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: "M".to_string(),
         group2: "F".to_string(),
     })
@@ -614,6 +615,7 @@ fn test_distrib_fdr_uses_marker_multiplicity() {
         correction: rsx_core::test_method::CorrectionMethod::Fdr,
         test_method: rsx_core::test_method::TestMethod::ChiSquared,
         output_bayes: false,
+        bayes_model: rsx_core::stats::DirectionalModel::directional_screening_v1(),
         group1: "M".to_string(),
         group2: "F".to_string(),
     })
