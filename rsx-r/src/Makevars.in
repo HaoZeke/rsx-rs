@@ -2,7 +2,8 @@ VENDORING = @VENDORING@
 OFFLINE_OPTION = @OFFLINE_OPTION@
 CARGO_BUILD = @CARGO_BUILD@
 
-LIBDIR = ./rust/target/release
+RUST_TARGET_DIR = $(CURDIR)/rust/target
+LIBDIR = $(RUST_TARGET_DIR)/release
 STATLIB = $(LIBDIR)/librsxr.a
 
 PKG_CPPFLAGS = -I.
@@ -24,14 +25,14 @@ $(STATLIB):
 	# CRAN policy: build with at most 2 jobs, no network, inside the package.
 	# cargo-auditable embeds the dependency SBOM when available (configure
 	# falls back to plain `cargo build`).
-	@BEFORE_CARGO_BUILD@ cd ./rust && $(CARGO_BUILD) --jobs 2 --lib --release $(OFFLINE_OPTION)
+	@BEFORE_CARGO_BUILD@ export CARGO_TARGET_DIR="$(RUST_TARGET_DIR)" && cd ./rust && $(CARGO_BUILD) --jobs 2 --lib --release $(OFFLINE_OPTION)
 
 clean_intermediate: $(SHLIB)
 	# Drop the static archive and cargo build tree so R CMD check does not
 	# scan vendored C sources under target/ (newline NOTEs, huge tarballs).
-	rm -Rf $(STATLIB) ./rust/.cargo ./rust/target
+	rm -Rf $(STATLIB) ./rust/.cargo $(RUST_TARGET_DIR)
 
 clean:
-	rm -Rf $(SHLIB) $(OBJECTS) ./rust/.cargo ./rust/vendor ./rust/target
+	rm -Rf $(SHLIB) $(OBJECTS) ./rust/.cargo ./rust/vendor $(RUST_TARGET_DIR)
 
 .PHONY: all clean_intermediate clean
