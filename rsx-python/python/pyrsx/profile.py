@@ -28,6 +28,13 @@ class ProcessProfile(StrictProfileModel):
     kmer_dedup: Optional[int] = Field(default=None, ge=1)
 
 
+class DirectionalModelProfile(StrictProfileModel):
+    linkage_prior: float = Field(gt=0.0, lt=1.0)
+    linked_prevalence: float = Field(gt=0.0, lt=1.0)
+    null_prevalence: float = Field(gt=0.0, lt=1.0)
+    group1_linked_weight: float = Field(gt=0.0, lt=1.0)
+
+
 class DistribProfile(StrictProfileModel):
     command: Literal["distrib"]
     markers_table: str
@@ -40,6 +47,7 @@ class DistribProfile(StrictProfileModel):
     correction: str
     test_method: str
     output_bayes: bool
+    bayes_model: DirectionalModelProfile
 
 
 class SignifProfile(StrictProfileModel):
@@ -55,6 +63,7 @@ class SignifProfile(StrictProfileModel):
     backend: str
     output_fasta: bool
     output_bayes: bool
+    bayes_model: DirectionalModelProfile
 
 
 class TriageProfile(StrictProfileModel):
@@ -67,8 +76,7 @@ class TriageProfile(StrictProfileModel):
     signif_threshold: float = Field(gt=0.0, lt=1.0)
     posterior_threshold: float = Field(gt=0.0, lt=1.0)
     bayes_factor_threshold: float = Field(gt=0.0)
-    prior_probability: float = Field(gt=0.0, lt=1.0)
-    linked_probability: float = Field(gt=0.0, lt=1.0)
+    bayes_model: DirectionalModelProfile
 
 
 class FreqProfile(StrictProfileModel):
