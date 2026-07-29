@@ -12,7 +12,7 @@
 use std::io;
 use std::sync::Arc;
 
-use arrow::array::Array;
+use arrow::array::{Array, UInt16Array};
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
 
@@ -195,19 +195,41 @@ impl MarkerStream for ArrowMarkerSource {
             if n_rows == 0 {
                 continue;
             }
-            // Borrow depth columns once per batch (tensor tile).
-            let depth_cols: Vec<&dyn Array> =
-                (0..n_ind).map(|i| batch.column(i + 2).as_ref()).collect();
-            for row in 0..n_rows {
-                let mut present = 0u32;
-                for col in &depth_cols {
-                    let d = array_value_as_u16(*col, row);
-                    if d >= min_depth {
-                        present += 1;
+
+            let typed_depth_cols: Option<Vec<&UInt16Array>> = (0..n_ind)
+                .map(|i| {
+                    batch
+                        .column(i + 2)
+                        .as_any()
+                        .downcast_ref::<UInt16Array>()
+                        .filter(|column| column.null_count() == 0)
+                })
+                .collect();
+
+            if let Some(depth_cols) = typed_depth_cols {
+                // Canonical marker tables store u16 depths without nulls. Walk
+                // each Arrow value buffer contiguously and accumulate one
+                // presence count per row, avoiding a type dispatch per cell.
+                let mut row_counts = vec![0u16; n_rows];
+                for column in depth_cols {
+                    for (count, depth) in row_counts.iter_mut().zip(column.values().iter()) {
+                        *count += u16::from(*depth >= min_depth);
                     }
                 }
-                if present as usize <= n_ind {
+                for present in row_counts {
                     frequency[present as usize] += 1;
+                }
+            } else {
+                // Mixed, nullable, and non-u16 inputs retain the saturating
+                // conversion contract shared with Marker materialisation.
+                let depth_cols: Vec<&dyn Array> =
+                    (0..n_ind).map(|i| batch.column(i + 2).as_ref()).collect();
+                for row in 0..n_rows {
+                    let present = depth_cols
+                        .iter()
+                        .filter(|column| array_value_as_u16(**column, row) >= min_depth)
+                        .count();
+                    frequency[present] += 1;
                 }
             }
         }
