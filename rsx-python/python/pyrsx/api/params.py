@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 
@@ -22,6 +22,14 @@ class TriageParams:
     bayes_factor_threshold: float = 10.0
     prior: float = 0.01
     linked_prob: float = 0.9
+    null_prevalence: float = 0.5
+    group1_linked_weight: float = 0.5
+    bf_group1_alpha: float = 1.0
+    bf_group1_beta: float = 1.0
+    bf_group2_alpha: float = 1.0
+    bf_group2_beta: float = 1.0
+    bf_null_alpha: float = 1.0
+    bf_null_beta: float = 1.0
     correction: Literal["bonferroni", "fdr", "none"] = "bonferroni"
     test: Literal["chisq", "fisher", "gtest"] = "chisq"
     output_fasta: bool = False

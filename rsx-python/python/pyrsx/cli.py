@@ -12,6 +12,26 @@ from . import signif as _signif
 from . import triage as _triage
 
 
+def bayes_model_options(function):
+    """Attach the complete Bayesian model surface to a Click command."""
+
+    specifications = (
+        ("--prior-probability", 0.01),
+        ("--linked-probability", 0.9),
+        ("--null-prevalence", 0.5),
+        ("--group1-linked-weight", 0.5),
+        ("--bf-group1-alpha", 1.0),
+        ("--bf-group1-beta", 1.0),
+        ("--bf-group2-alpha", 1.0),
+        ("--bf-group2-beta", 1.0),
+        ("--bf-null-alpha", 1.0),
+        ("--bf-null-beta", 1.0),
+    )
+    for name, default in reversed(specifications):
+        function = click.option(name, default=default, show_default=True)(function)
+    return function
+
+
 @click.group()
 @click.version_option(package_name="pyrsx")
 def main():
@@ -76,6 +96,8 @@ def process(input_dir, output_file, threads, min_depth, kmer_dedup):
     show_default=True,
     type=click.Choice(["chisq", "fisher", "gtest"]),
 )
+@click.option("--bayes", is_flag=True, help="Add Bayes Factor + posterior columns.")
+@bayes_model_options
 def distrib(
     markers_table,
     popmap,
@@ -85,6 +107,17 @@ def distrib(
     groups,
     correction,
     test_method,
+    bayes,
+    prior_probability,
+    linked_probability,
+    null_prevalence,
+    group1_linked_weight,
+    bf_group1_alpha,
+    bf_group1_beta,
+    bf_group2_alpha,
+    bf_group2_beta,
+    bf_null_alpha,
+    bf_null_beta,
 ):
     """Compute marker distribution between two groups."""
     g1, g2 = _parse_groups(groups)
@@ -98,6 +131,17 @@ def distrib(
         group2=g2,
         correction=correction,
         test=test_method,
+        bayes=bayes,
+        prior_probability=prior_probability,
+        linked_probability=linked_probability,
+        null_prevalence=null_prevalence,
+        group1_linked_weight=group1_linked_weight,
+        bf_group1_alpha=bf_group1_alpha,
+        bf_group1_beta=bf_group1_beta,
+        bf_group2_alpha=bf_group2_alpha,
+        bf_group2_beta=bf_group2_beta,
+        bf_null_alpha=bf_null_alpha,
+        bf_null_beta=bf_null_beta,
     )
     click.echo(f"Wrote {output_file}")
 
@@ -126,6 +170,7 @@ def distrib(
     "-a", "--output-fasta", is_flag=True, help="Output FASTA instead of table."
 )
 @click.option("--bayes", is_flag=True, help="Add Bayes Factor + posterior columns.")
+@bayes_model_options
 def signif(
     markers_table,
     popmap,
@@ -137,6 +182,16 @@ def signif(
     test_method,
     output_fasta,
     bayes,
+    prior_probability,
+    linked_probability,
+    null_prevalence,
+    group1_linked_weight,
+    bf_group1_alpha,
+    bf_group1_beta,
+    bf_group2_alpha,
+    bf_group2_beta,
+    bf_null_alpha,
+    bf_null_beta,
 ):
     """Extract markers significantly associated with a group."""
     g1, g2 = _parse_groups(groups)
@@ -152,6 +207,16 @@ def signif(
         test=test_method,
         output_fasta=output_fasta,
         bayes=bayes,
+        prior_probability=prior_probability,
+        linked_probability=linked_probability,
+        null_prevalence=null_prevalence,
+        group1_linked_weight=group1_linked_weight,
+        bf_group1_alpha=bf_group1_alpha,
+        bf_group1_beta=bf_group1_beta,
+        bf_group2_alpha=bf_group2_alpha,
+        bf_group2_beta=bf_group2_beta,
+        bf_null_alpha=bf_null_alpha,
+        bf_null_beta=bf_null_beta,
     )
     click.echo(f"Wrote {output_file}")
 
@@ -164,9 +229,8 @@ def signif(
 @click.option("-S", "--signif-threshold", default=0.05, show_default=True)
 @click.option("--posterior-threshold", default=0.9, show_default=True)
 @click.option("--bayes-factor-threshold", default=10.0, show_default=True)
-@click.option("--prior-probability", default=0.01, show_default=True)
-@click.option("--linked-probability", default=0.9, show_default=True)
 @click.option("-G", "--groups", default="")
+@bayes_model_options
 def triage(
     markers_table,
     popmap,
@@ -177,6 +241,14 @@ def triage(
     bayes_factor_threshold,
     prior_probability,
     linked_probability,
+    null_prevalence,
+    group1_linked_weight,
+    bf_group1_alpha,
+    bf_group1_beta,
+    bf_group2_alpha,
+    bf_group2_beta,
+    bf_null_alpha,
+    bf_null_beta,
     groups,
 ):
     """Rank strict and Bayesian marker candidates for biological follow-up."""
@@ -191,6 +263,14 @@ def triage(
         bayes_factor_threshold=bayes_factor_threshold,
         prior_probability=prior_probability,
         linked_probability=linked_probability,
+        null_prevalence=null_prevalence,
+        group1_linked_weight=group1_linked_weight,
+        bf_group1_alpha=bf_group1_alpha,
+        bf_group1_beta=bf_group1_beta,
+        bf_group2_alpha=bf_group2_alpha,
+        bf_group2_beta=bf_group2_beta,
+        bf_null_alpha=bf_null_alpha,
+        bf_null_beta=bf_null_beta,
         group1=g1,
         group2=g2,
     )

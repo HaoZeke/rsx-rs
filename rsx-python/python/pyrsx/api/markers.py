@@ -13,11 +13,8 @@ from pyrsx._adapters import from_narwhals, is_dataframe_like, to_narwhals
 if TYPE_CHECKING:
     from .params import TriageParams
     from .results import (
-        DepthResult,
-        DistribResult,
-        FreqResult,
         PcaResult,
-        SignifResult,
+        TableResult,
         TriageResult,
     )
 
@@ -106,7 +103,6 @@ def _arrow_bytes_from(obj: Any) -> bytes:
     A str/Path is read as a TSV (`individual\tgroup` for popmaps,
     `id\tsequence\t...` for markers) and converted via pyarrow.csv.
     """
-    import pyarrow as pa
     import pyarrow.csv as pa_csv
 
     if is_dataframe_like(obj):
@@ -340,6 +336,14 @@ class MarkerTable:
                 posterior_threshold=p.posterior_threshold,
                 prior_probability=p.prior,
                 linked_probability=p.linked_prob,
+                null_prevalence=p.null_prevalence,
+                group1_linked_weight=p.group1_linked_weight,
+                bf_group1_alpha=p.bf_group1_alpha,
+                bf_group1_beta=p.bf_group1_beta,
+                bf_group2_alpha=p.bf_group2_alpha,
+                bf_group2_beta=p.bf_group2_beta,
+                bf_null_alpha=p.bf_null_alpha,
+                bf_null_beta=p.bf_null_beta,
                 group1=p.group1,
                 group2=p.group2,
             )
@@ -361,6 +365,14 @@ class MarkerTable:
                 bayes_factor_threshold=p.bayes_factor_threshold,
                 prior_probability=p.prior,
                 linked_probability=p.linked_prob,
+                null_prevalence=p.null_prevalence,
+                group1_linked_weight=p.group1_linked_weight,
+                bf_group1_alpha=p.bf_group1_alpha,
+                bf_group1_beta=p.bf_group1_beta,
+                bf_group2_alpha=p.bf_group2_alpha,
+                bf_group2_beta=p.bf_group2_beta,
+                bf_null_alpha=p.bf_null_alpha,
+                bf_null_beta=p.bf_null_beta,
                 group1=p.group1,
                 group2=p.group2,
             )
