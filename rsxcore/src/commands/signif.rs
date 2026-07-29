@@ -4,9 +4,7 @@
 //! `signif` command: extract markers significantly associated with a group.
 
 use crate::bitset::GroupMask;
-use crate::compute_backend::{
-    AssociationCounts, PValueBackend, compute_chi_squared_batch_with_metrics,
-};
+use crate::compute_backend::{AssociationCounts, PValueBackend};
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
@@ -107,12 +105,6 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
     ];
 
     if matches!(backend, PValueBackend::Cuda) {
-        if !matches!(params.test_method, TestMethod::ChiSquared) {
-            return Err(format!(
-                "signif: --backend cuda supports --test chisq; selected test is {test_name}"
-            )
-            .into());
-        }
         return run_cuda(
             source,
             params,
@@ -330,8 +322,13 @@ fn run_cuda<S: MarkerStream>(
         }
     })?;
     let n_markers = counts.len() as u64;
-    let cuda_result =
-        compute_chi_squared_batch_with_metrics(PValueBackend::Cuda, &counts, total_g1, total_g2)?;
+    let cuda_result = crate::compute_backend::compute_p_batch_with_metrics(
+        PValueBackend::Cuda,
+        params.test_method,
+        &counts,
+        total_g1,
+        total_g2,
+    )?;
     let p_values = cuda_result.p_values.try_as_slice()?;
 
     // The Bayesian columns are functions of the same counts, so the device

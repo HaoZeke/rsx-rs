@@ -157,6 +157,135 @@ const CUDA_KERNEL_SOURCE: &str = r#"
         }
     }
 
+    __device__ double rsx_lfact(double value) {
+        return lgamma(value + 1.0);
+    }
+
+    __device__ double rsx_log_hypergeometric(
+        double a, double b, double c, double d,
+        double n, double row1, double col1
+    ) {
+        double col2 = n - col1;
+        double row2 = n - row1;
+        return rsx_lfact(row1) + rsx_lfact(row2) + rsx_lfact(col1) + rsx_lfact(col2)
+             - rsx_lfact(n) - rsx_lfact(a) - rsx_lfact(b) - rsx_lfact(c) - rsx_lfact(d);
+    }
+
+    // Two-sided Fisher by the probability method: sum the hypergeometric
+    // density over tables no more likely than the observed one. The tail walk
+    // is at most one step per individual, which is why this is the test that
+    // gains most from the device.
+    extern "C" __global__ void fisher_exact_p_values(
+        const struct AssociationCounts *counts,
+        unsigned int total_group1,
+        unsigned int total_group2,
+        double *p_values,
+        unsigned long long length
+    ) {
+        unsigned long long index =
+            (unsigned long long)blockIdx.x * blockDim.x + threadIdx.x;
+        if (index >= length) return;
+
+        unsigned int n1 = counts[index].group1;
+        unsigned int n2 = counts[index].group2;
+        if (n1 > total_group1 || n2 > total_group2) {
+            p_values[index] = 1.0;
+            return;
+        }
+
+        unsigned int a = n1;
+        unsigned int b = total_group1 - n1;
+        unsigned int c = n2;
+        unsigned int d = total_group2 - n2;
+        unsigned int n = total_group1 + total_group2;
+        unsigned int row1 = a + c;
+        unsigned int row2 = n - row1;
+        unsigned int col1 = a + b;
+
+        double observed = rsx_log_hypergeometric(a, b, c, d, n, row1, col1);
+        unsigned int lowest = col1 > row2 ? col1 - row2 : 0u;
+        unsigned int highest = row1 < col1 ? row1 : col1;
+
+        // `maximum` is only read once `any` is set, so it needs no sentinel:
+        // nvrtc compiles without headers and has no INFINITY.
+        double maximum = 0.0;
+        double relative = 0.0;
+        bool any = false;
+        for (unsigned int ai = lowest; ai <= highest; ++ai) {
+            unsigned int bi = col1 - ai;
+            unsigned int ci = row1 - ai;
+            unsigned int di = row2 - bi;
+            double density = rsx_log_hypergeometric(ai, bi, ci, di, n, row1, col1);
+            if (density > observed + 1e-9) continue;
+            if (!any) {
+                maximum = density;
+                relative = 1.0;
+                any = true;
+            } else if (density > maximum) {
+                relative = relative * exp(maximum - density) + 1.0;
+                maximum = density;
+            } else {
+                relative += exp(density - maximum);
+            }
+        }
+
+        double p = any ? exp(maximum + log(relative)) : 0.0;
+        p_values[index] = fmax(fmin(p, 1.0), 1.0e-16);
+    }
+
+    // Log-likelihood-ratio test against the same one-degree chi-squared tail.
+    extern "C" __global__ void g_test_p_values(
+        const struct AssociationCounts *counts,
+        unsigned int total_group1,
+        unsigned int total_group2,
+        double *p_values,
+        unsigned long long length
+    ) {
+        unsigned long long index =
+            (unsigned long long)blockIdx.x * blockDim.x + threadIdx.x;
+        if (index >= length) return;
+
+        unsigned int n1 = counts[index].group1;
+        unsigned int n2 = counts[index].group2;
+        if (n1 > total_group1 || n2 > total_group2) {
+            p_values[index] = 1.0;
+            return;
+        }
+
+        double a = (double)n1;
+        double b = (double)(total_group1 - n1);
+        double c = (double)n2;
+        double d = (double)(total_group2 - n2);
+        double n = (double)(total_group1 + total_group2);
+
+        double row1 = a + c;
+        double row2 = b + d;
+        double col1 = a + b;
+        double col2 = c + d;
+
+        double observations[4] = {a, b, c, d};
+        double rows[4] = {row1, row2, row1, row2};
+        double columns[4] = {col1, col1, col2, col2};
+
+        double g = 0.0;
+        for (int cell = 0; cell < 4; ++cell) {
+            double observed = observations[cell];
+            if (observed <= 0.0) continue;
+            double expected = rows[cell] * columns[cell] / n;
+            if (expected > 0.0) {
+                g += observed * log(observed / expected);
+            }
+        }
+        g *= 2.0;
+
+        if (isnan(g) || g <= 0.0) {
+            p_values[index] = 1.0;
+            return;
+        }
+        double p = erfc(sqrt(g / 2.0));
+        p_values[index] = fmax(fmin(p, 1.0), 1.0e-16);
+    }
+
     extern "C" __global__ void chi_squared_p_values(
         const AssociationCounts *counts,
         unsigned int total_group1,
@@ -196,6 +325,8 @@ const CUDA_KERNEL_SOURCE: &str = r#"
 struct CachedCudaModule {
     context: std::sync::Arc<cudarc::driver::CudaContext>,
     chi_squared: cudarc::driver::CudaFunction,
+    fisher_exact: cudarc::driver::CudaFunction,
+    g_test: cudarc::driver::CudaFunction,
     bayes_evidence: cudarc::driver::CudaFunction,
     gram_accumulate: cudarc::driver::CudaFunction,
 }
@@ -292,11 +423,15 @@ fn cuda_module() -> Result<(&'static CachedCudaModule, f64), Box<dyn std::error:
     let ptx = compile_ptx(CUDA_KERNEL_SOURCE)?;
     let module = context.load_module(ptx)?;
     let chi_squared = module.load_function("chi_squared_p_values")?;
+    let fisher_exact = module.load_function("fisher_exact_p_values")?;
+    let g_test = module.load_function("g_test_p_values")?;
     let bayes_evidence = module.load_function("bayes_evidence")?;
     let gram_accumulate = module.load_function("gram_accumulate")?;
     let _ = CUDA_MODULE.set(CachedCudaModule {
         context,
         chi_squared,
+        fisher_exact,
+        g_test,
         bayes_evidence,
         gram_accumulate,
     });
@@ -507,18 +642,58 @@ pub fn compute_chi_squared_batch_with_metrics(
     total_group1: u32,
     total_group2: u32,
 ) -> Result<BatchResult, Box<dyn std::error::Error>> {
+    compute_p_batch_with_metrics(
+        backend,
+        crate::test_method::TestMethod::ChiSquared,
+        counts,
+        total_group1,
+        total_group2,
+    )
+}
+
+/// Batched p-values for any supported association test.
+pub fn compute_p_batch(
+    backend: PValueBackend,
+    test: crate::test_method::TestMethod,
+    counts: &[AssociationCounts],
+    total_group1: u32,
+    total_group2: u32,
+) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+    compute_p_batch_with_metrics(backend, test, counts, total_group1, total_group2)?
+        .p_values
+        .into_vec()
+}
+
+pub fn compute_p_batch_with_metrics(
+    backend: PValueBackend,
+    test: crate::test_method::TestMethod,
+    counts: &[AssociationCounts],
+    total_group1: u32,
+    total_group2: u32,
+) -> Result<BatchResult, Box<dyn std::error::Error>> {
     match backend {
-        PValueBackend::Cpu => Ok(compute_cpu(counts, total_group1, total_group2)),
-        PValueBackend::Cuda => compute_cuda(counts, total_group1, total_group2),
+        PValueBackend::Cpu => Ok(compute_cpu(test, counts, total_group1, total_group2)),
+        PValueBackend::Cuda => compute_cuda(test, counts, total_group1, total_group2),
     }
 }
 
-fn compute_cpu(counts: &[AssociationCounts], total_group1: u32, total_group2: u32) -> BatchResult {
+fn compute_cpu(
+    test: crate::test_method::TestMethod,
+    counts: &[AssociationCounts],
+    total_group1: u32,
+    total_group2: u32,
+) -> BatchResult {
     let started = Instant::now();
     let p_values = counts
         .iter()
         .map(|counts| {
-            crate::stats::p_association(counts.group1, counts.group2, total_group1, total_group2)
+            crate::test_method::compute_p(
+                test,
+                counts.group1,
+                counts.group2,
+                total_group1,
+                total_group2,
+            )
         })
         .collect();
     let total_seconds = started.elapsed().as_secs_f64();
@@ -543,6 +718,7 @@ fn compute_cpu(counts: &[AssociationCounts], total_group1: u32, total_group2: u3
 
 #[cfg(not(feature = "cuda"))]
 fn compute_cuda(
+    _test: crate::test_method::TestMethod,
     _counts: &[AssociationCounts],
     _total_group1: u32,
     _total_group2: u32,
@@ -556,14 +732,20 @@ fn compute_cuda(
 
 #[cfg(feature = "cuda")]
 fn compute_cuda(
+    test: crate::test_method::TestMethod,
     counts: &[AssociationCounts],
     total_group1: u32,
     total_group2: u32,
 ) -> Result<BatchResult, Box<dyn std::error::Error>> {
-    use cudarc::driver::{LaunchConfig, PushKernelArg};
+    use cudarc::driver::PushKernelArg;
 
     let total_started = Instant::now();
     let (module, setup_seconds) = cuda_module()?;
+    let kernel = match test {
+        crate::test_method::TestMethod::ChiSquared => &module.chi_squared,
+        crate::test_method::TestMethod::Fisher => &module.fisher_exact,
+        crate::test_method::TestMethod::GTest => &module.g_test,
+    };
     let context = &module.context;
     let device = context.name()?;
     let stream = context.default_stream();
@@ -599,10 +781,10 @@ fn compute_cuda(
 
     let kernel_started = Instant::now();
     let length = counts.len() as u64;
-    let config = LaunchConfig::for_num_elems(counts.len() as u32);
+    let config = marker_launch_config(counts.len());
     unsafe {
         stream
-            .launch_builder(&module.chi_squared)
+            .launch_builder(kernel)
             .arg(&device_counts)
             .arg(&total_group1)
             .arg(&total_group2)
@@ -644,6 +826,23 @@ fn compute_cuda(
             host_staging_bytes: 0,
         },
     })
+}
+
+#[cfg(feature = "cuda")]
+/// Threads per block for the per-marker kernels.
+///
+/// The Fisher tail walk needs enough registers that a full 1024-thread block
+/// is refused with CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES, so every per-marker
+/// kernel launches at a width all three of them can occupy.
+const MARKER_KERNEL_BLOCK: u32 = 256;
+
+#[cfg(feature = "cuda")]
+fn marker_launch_config(elements: usize) -> cudarc::driver::LaunchConfig {
+    cudarc::driver::LaunchConfig {
+        grid_dim: ((elements as u32).div_ceil(MARKER_KERNEL_BLOCK).max(1), 1, 1),
+        block_dim: (MARKER_KERNEL_BLOCK, 1, 1),
+        shared_mem_bytes: 0,
+    }
 }
 
 /// Per-marker Bayes factors and directional posteriors with backend timings.
@@ -760,7 +959,7 @@ fn bayes_evidence_cuda(
     total_group2: u32,
     model: &crate::stats::DirectionalModel,
 ) -> Result<BayesEvidenceResult, Box<dyn std::error::Error>> {
-    use cudarc::driver::{LaunchConfig, PushKernelArg};
+    use cudarc::driver::PushKernelArg;
 
     let total_started = Instant::now();
     let (module, setup_seconds) = cuda_module()?;
@@ -803,7 +1002,7 @@ fn bayes_evidence_cuda(
 
     let kernel_started = Instant::now();
     let length = counts.len() as u64;
-    let config = LaunchConfig::for_num_elems(counts.len() as u32);
+    let config = marker_launch_config(counts.len());
     unsafe {
         stream
             .launch_builder(&module.bayes_evidence)

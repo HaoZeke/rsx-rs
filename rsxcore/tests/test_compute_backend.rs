@@ -285,3 +285,54 @@ fn cuda_gram_accumulation_matches_cpu_reference() {
         }
     }
 }
+
+#[cfg(feature = "cuda")]
+#[test]
+fn cuda_matches_cpu_for_every_association_test() {
+    use rsx_core::compute_backend::compute_p_batch;
+    use rsx_core::test_method::TestMethod;
+
+    let total_group1 = 17;
+    let total_group2 = 14;
+    let counts: Vec<_> = (0..=total_group1)
+        .flat_map(|group1| {
+            (0..=total_group2).map(move |group2| AssociationCounts { group1, group2 })
+        })
+        .cycle()
+        .take(20_003)
+        .collect();
+
+    for test in [
+        TestMethod::ChiSquared,
+        TestMethod::Fisher,
+        TestMethod::GTest,
+    ] {
+        let cpu = compute_p_batch(
+            PValueBackend::Cpu,
+            test,
+            &counts,
+            total_group1,
+            total_group2,
+        )
+        .unwrap();
+        let cuda = compute_p_batch(
+            PValueBackend::Cuda,
+            test,
+            &counts,
+            total_group1,
+            total_group2,
+        )
+        .unwrap();
+
+        let mut worst = 0.0f64;
+        for (index, (expected, observed)) in cpu.iter().zip(&cuda).enumerate() {
+            let error = (expected - observed).abs();
+            worst = worst.max(error);
+            assert!(
+                error <= 1.0e-12,
+                "{test:?} marker {index}: CPU={expected:.17e} CUDA={observed:.17e} abs_error={error:.3e}"
+            );
+        }
+        println!("{test:?} worst absolute difference {worst:.3e}");
+    }
+}

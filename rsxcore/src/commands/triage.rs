@@ -11,9 +11,7 @@
 //! pass. Counts cost eight bytes per marker; marker text is never retained.
 
 use crate::bitset::GroupMask;
-use crate::compute_backend::{
-    AssociationCounts, PValueBackend, compute_bayes_evidence_batch, compute_chi_squared_batch,
-};
+use crate::compute_backend::{AssociationCounts, PValueBackend, compute_bayes_evidence_batch};
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
@@ -72,7 +70,13 @@ impl BatchedEvidence {
             }
         })?;
 
-        let p_values = compute_chi_squared_batch(params.backend, &counts, total_g1, total_g2)?;
+        let p_values = crate::compute_backend::compute_p_batch(
+            params.backend,
+            TestMethod::ChiSquared,
+            &counts,
+            total_g1,
+            total_g2,
+        )?;
         let (bayes_factors, posteriors) = compute_bayes_evidence_batch(
             params.backend,
             &counts,
