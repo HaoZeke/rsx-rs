@@ -69,18 +69,28 @@ fn directional_model(
     })
 }
 
-unsafe fn parse_prevalence_prior(
+/// Raw scalars for one posterior prevalence prior as the C ABI carries them.
+struct PrevalencePriorArgs {
     family: *const c_char,
-    name: &str,
     probability: f64,
     alpha: f64,
     beta: f64,
+}
+
+unsafe fn parse_prevalence_prior(
+    args: PrevalencePriorArgs,
+    name: &str,
 ) -> Result<crate::bayes_profile::PrevalencePriorProfile, rsx_status_t> {
     use crate::bayes_profile::PrevalencePriorProfile;
 
-    match unsafe { cstr_to_string(family, name) }?.as_str() {
-        "fixed" => Ok(PrevalencePriorProfile::Fixed { probability }),
-        "beta" => Ok(PrevalencePriorProfile::Beta { alpha, beta }),
+    match unsafe { cstr_to_string(args.family, name) }?.as_str() {
+        "fixed" => Ok(PrevalencePriorProfile::Fixed {
+            probability: args.probability,
+        }),
+        "beta" => Ok(PrevalencePriorProfile::Beta {
+            alpha: args.alpha,
+            beta: args.beta,
+        }),
         value => {
             set_last_error(&format!("{name} must be 'fixed' or 'beta', got {value:?}"));
             Err(rsx_status_t::RSX_INVALID_PARAMETER)
@@ -89,14 +99,8 @@ unsafe fn parse_prevalence_prior(
 }
 
 unsafe fn parse_posterior_priors(
-    linked_family: *const c_char,
-    linked_probability: f64,
-    linked_alpha: f64,
-    linked_beta: f64,
-    null_family: *const c_char,
-    null_probability: f64,
-    null_alpha: f64,
-    null_beta: f64,
+    linked: PrevalencePriorArgs,
+    null: PrevalencePriorArgs,
 ) -> Result<
     (
         crate::bayes_profile::PrevalencePriorProfile,
@@ -105,24 +109,8 @@ unsafe fn parse_posterior_priors(
     rsx_status_t,
 > {
     Ok((
-        unsafe {
-            parse_prevalence_prior(
-                linked_family,
-                "posterior_linked_family",
-                linked_probability,
-                linked_alpha,
-                linked_beta,
-            )
-        }?,
-        unsafe {
-            parse_prevalence_prior(
-                null_family,
-                "posterior_null_family",
-                null_probability,
-                null_alpha,
-                null_beta,
-            )
-        }?,
+        unsafe { parse_prevalence_prior(linked, "posterior_linked_family") }?,
+        unsafe { parse_prevalence_prior(null, "posterior_null_family") }?,
     ))
 }
 
@@ -285,14 +273,18 @@ pub unsafe extern "C" fn rsx_distrib(
         };
         let (posterior_linked, posterior_null) = match unsafe {
             parse_posterior_priors(
-                posterior_linked_family,
-                linked_probability,
-                posterior_linked_alpha,
-                posterior_linked_beta,
-                posterior_null_family,
-                null_prevalence,
-                posterior_null_alpha,
-                posterior_null_beta,
+                PrevalencePriorArgs {
+                    family: posterior_linked_family,
+                    probability: linked_probability,
+                    alpha: posterior_linked_alpha,
+                    beta: posterior_linked_beta,
+                },
+                PrevalencePriorArgs {
+                    family: posterior_null_family,
+                    probability: null_prevalence,
+                    alpha: posterior_null_alpha,
+                    beta: posterior_null_beta,
+                },
             )
         } {
             Ok(priors) => priors,
@@ -412,14 +404,18 @@ pub unsafe extern "C" fn rsx_signif(
         };
         let (posterior_linked, posterior_null) = match unsafe {
             parse_posterior_priors(
-                posterior_linked_family,
-                linked_probability,
-                posterior_linked_alpha,
-                posterior_linked_beta,
-                posterior_null_family,
-                null_prevalence,
-                posterior_null_alpha,
-                posterior_null_beta,
+                PrevalencePriorArgs {
+                    family: posterior_linked_family,
+                    probability: linked_probability,
+                    alpha: posterior_linked_alpha,
+                    beta: posterior_linked_beta,
+                },
+                PrevalencePriorArgs {
+                    family: posterior_null_family,
+                    probability: null_prevalence,
+                    alpha: posterior_null_alpha,
+                    beta: posterior_null_beta,
+                },
             )
         } {
             Ok(priors) => priors,
@@ -530,14 +526,18 @@ pub unsafe extern "C" fn rsx_triage(
         };
         let (posterior_linked, posterior_null) = match unsafe {
             parse_posterior_priors(
-                posterior_linked_family,
-                linked_probability,
-                posterior_linked_alpha,
-                posterior_linked_beta,
-                posterior_null_family,
-                null_prevalence,
-                posterior_null_alpha,
-                posterior_null_beta,
+                PrevalencePriorArgs {
+                    family: posterior_linked_family,
+                    probability: linked_probability,
+                    alpha: posterior_linked_alpha,
+                    beta: posterior_linked_beta,
+                },
+                PrevalencePriorArgs {
+                    family: posterior_null_family,
+                    probability: null_prevalence,
+                    alpha: posterior_null_alpha,
+                    beta: posterior_null_beta,
+                },
             )
         } {
             Ok(priors) => priors,
