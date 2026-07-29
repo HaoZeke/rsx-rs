@@ -474,10 +474,20 @@ fn log_beta_binom(k: u32, n: u32) -> f64 {
     libm::lgamma((k + 1) as f64) + libm::lgamma((n - k + 1) as f64) - libm::lgamma((n + 2) as f64)
 }
 
-/// Posterior probability that a marker is sex-linked (empirical Bayes).
-/// Uses a Beta-Binomial conjugate model.
-/// pi: prior probability of sex-linkage (estimated from data or set to 0.01).
-/// p_sex: assumed frequency in the linked sex (e.g., 0.9).
+/// Parameters of the directional binomial-mixture model.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DirectionalModel {
+    pub linkage_prior: f64,
+    pub linked_prevalence: f64,
+    pub null_prevalence: f64,
+    pub group1_linked_weight: f64,
+}
+
+/// Posterior probability under the compatibility parameter surface.
+///
+/// Calculation paths that expose the complete model use
+/// [`posterior_sex_linked_with_model`] so the null prevalence and directional
+/// mixture weight are explicit.
 pub fn posterior_sex_linked(
     n_g1: u32,
     n_g2: u32,
@@ -486,14 +496,41 @@ pub fn posterior_sex_linked(
     pi: f64,
     p_sex: f64,
 ) -> f64 {
+    posterior_sex_linked_with_model(
+        n_g1,
+        n_g2,
+        total_g1,
+        total_g2,
+        &DirectionalModel {
+            linkage_prior: pi,
+            linked_prevalence: p_sex,
+            null_prevalence: 0.5,
+            group1_linked_weight: 0.5,
+        },
+    )
+}
+
+/// Posterior under a directional mixture whose calculation inputs are explicit.
+pub fn posterior_sex_linked_with_model(
+    n_g1: u32,
+    n_g2: u32,
+    total_g1: u32,
+    total_g2: u32,
+    model: &DirectionalModel,
+) -> f64 {
+    let p_sex = model.linked_prevalence;
     let ll_g1_linked =
         binom_logpmf(n_g1, total_g1, p_sex) + binom_logpmf(n_g2, total_g2, 1.0 - p_sex);
     let ll_g2_linked =
         binom_logpmf(n_g1, total_g1, 1.0 - p_sex) + binom_logpmf(n_g2, total_g2, p_sex);
-    let ll_linked = logsumexp2(ll_g1_linked, ll_g2_linked) - 2.0f64.ln();
-    let ll_null = binom_logpmf(n_g1, total_g1, 0.5) + binom_logpmf(n_g2, total_g2, 0.5);
+    let ll_linked = logsumexp2(
+        ll_g1_linked + model.group1_linked_weight.ln(),
+        ll_g2_linked + (1.0 - model.group1_linked_weight).ln(),
+    );
+    let ll_null = binom_logpmf(n_g1, total_g1, model.null_prevalence)
+        + binom_logpmf(n_g2, total_g2, model.null_prevalence);
 
-    let log_odds = ll_linked - ll_null + (pi / (1.0 - pi)).ln();
+    let log_odds = ll_linked - ll_null + (model.linkage_prior / (1.0 - model.linkage_prior)).ln();
 
     // Posterior = 1 / (1 + exp(-log_odds))
     if log_odds > 20.0 {
