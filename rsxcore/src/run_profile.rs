@@ -143,6 +143,29 @@ pub struct FreqProfile {
     pub min_depth: u16,
 }
 
+const fn default_streaming_threshold_bytes() -> u64 {
+    2_000_000_000
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum StreamingMode {
+    #[default]
+    Auto,
+    Memory,
+    Streaming,
+}
+
+impl StreamingMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Memory => "memory",
+            Self::Streaming => "streaming",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DepthProfile {
@@ -150,6 +173,10 @@ pub struct DepthProfile {
     pub popmap: String,
     pub output_file: String,
     pub min_frequency: f32,
+    #[serde(default)]
+    pub streaming_mode: StreamingMode,
+    #[serde(default = "default_streaming_threshold_bytes")]
+    pub streaming_threshold_bytes: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

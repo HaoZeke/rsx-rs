@@ -181,6 +181,12 @@ fn command_args(profile: &RunProfile) -> Vec<OsString> {
             option(&mut args, "--popmap", &value.popmap);
             option(&mut args, "--output-file", &value.output_file);
             number(&mut args, "--min-frequency", value.min_frequency);
+            option(&mut args, "--streaming-mode", value.streaming_mode.as_str());
+            number(
+                &mut args,
+                "--streaming-threshold-bytes",
+                value.streaming_threshold_bytes,
+            );
         }
         CommandProfile::Map(value) => {
             option(&mut args, "--markers-file", &value.markers_file);

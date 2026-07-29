@@ -9,7 +9,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use rsx_core::commands;
 use rsx_core::run_profile::{self, CommandProfile, RunProfile};
 
@@ -101,6 +101,32 @@ impl BayesModelArgs {
         &self,
     ) -> Result<rsx_core::stats::DirectionalModel, rsx_core::bayes_profile::ProfileError> {
         self.to_profile().to_runtime()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+enum DepthStreamingMode {
+    #[default]
+    Auto,
+    Memory,
+    Streaming,
+}
+
+impl DepthStreamingMode {
+    fn resolve(self, file_size: u64, threshold_bytes: u64) -> bool {
+        match self {
+            Self::Auto => file_size > threshold_bytes,
+            Self::Memory => false,
+            Self::Streaming => true,
+        }
+    }
+
+    const fn to_profile(self) -> run_profile::StreamingMode {
+        match self {
+            Self::Auto => run_profile::StreamingMode::Auto,
+            Self::Memory => run_profile::StreamingMode::Memory,
+            Self::Streaming => run_profile::StreamingMode::Streaming,
+        }
     }
 }
 
@@ -257,6 +283,12 @@ enum Commands {
         /// Minimum frequency of a marker to retain it
         #[arg(short = 'f', long = "min-frequency", default_value = "0.75")]
         min_frequency: f32,
+        /// Depth-table execution policy
+        #[arg(long = "streaming-mode", value_enum, default_value = "auto")]
+        streaming_mode: DepthStreamingMode,
+        /// File-size boundary used by --streaming-mode auto
+        #[arg(long = "streaming-threshold-bytes", default_value = "2000000000")]
+        streaming_threshold_bytes: u64,
     },
 
     /// Align markers to a genome and compute metrics
@@ -586,16 +618,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             popmap,
             output_file,
             min_frequency,
+            streaming_mode,
+            streaming_threshold_bytes,
         } => {
-            // Auto-detect streaming: use external sort for files > 2GB
             let file_size = std::fs::metadata(&markers_table)
                 .map(|m| m.len())
                 .unwrap_or(0);
-            let streaming = file_size > 2_000_000_000;
+            let streaming = streaming_mode.resolve(file_size, streaming_threshold_bytes);
             if streaming {
                 log::info!(
-                    "Large file ({}GB), using streaming mode",
-                    file_size / 1_000_000_000
+                    "using streaming depth mode (file bytes: {file_size}, auto threshold bytes: {streaming_threshold_bytes})"
                 );
             }
             commands::depth::run(&commands::depth::DepthParams {
@@ -890,11 +922,15 @@ fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Err
             popmap,
             output_file,
             min_frequency,
+            streaming_mode,
+            streaming_threshold_bytes,
         } => CommandProfile::Depth(run_profile::DepthProfile {
             markers_table: markers_table.clone(),
             popmap: popmap.clone(),
             output_file: output_file.clone(),
             min_frequency: *min_frequency,
+            streaming_mode: streaming_mode.to_profile(),
+            streaming_threshold_bytes: *streaming_threshold_bytes,
         }),
         #[cfg(feature = "map")]
         Commands::Map {
@@ -1020,7 +1056,7 @@ fn main() {
 mod tests {
     use std::fs;
 
-    use super::{extract_groups, parse_cli_from, Commands};
+    use super::{Commands, extract_groups, parse_cli_from};
 
     #[test]
     fn missing_groups_uses_popmap_resolution() {
@@ -1040,9 +1076,10 @@ mod tests {
     fn malformed_groups_are_rejected() {
         let groups = Some(vec!["male".to_string()]);
         let err = extract_groups(&groups).expect_err("single group must fail");
-        assert!(err
-            .to_string()
-            .contains("exactly two non-empty group names"));
+        assert!(
+            err.to_string()
+                .contains("exactly two non-empty group names")
+        );
     }
 
     #[test]
