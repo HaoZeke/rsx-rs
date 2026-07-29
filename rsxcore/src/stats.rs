@@ -568,12 +568,29 @@ pub fn bayes_factor_2x2_with_model(
         });
     }
 
+    Ok(bayes_factor_2x2_with_validated_model(
+        n_g1, n_g2, total_g1, total_g2, model,
+    ))
+}
+
+/// Hot-path calculation for models validated before marker iteration.
+pub(crate) fn bayes_factor_2x2_with_validated_model(
+    n_g1: u32,
+    n_g2: u32,
+    total_g1: u32,
+    total_g2: u32,
+    model: &BayesFactorModel,
+) -> f64 {
+    debug_assert!(model.validate().is_ok());
+    debug_assert!(n_g1 <= total_g1);
+    debug_assert!(n_g2 <= total_g2);
+
     let log_h1 = log_beta_binom_with_prior(n_g1, total_g1, model.alternative_group1)
         + log_beta_binom_with_prior(n_g2, total_g2, model.alternative_group2);
 
     let log_h0 = log_beta_binom_with_prior(n_g1 + n_g2, total_g1 + total_g2, model.null);
 
-    Ok((log_h1 - log_h0).exp())
+    (log_h1 - log_h0).exp()
 }
 
 fn log_beta_binom_with_prior(k: u32, n: u32, prior: BetaPrior) -> f64 {

@@ -9,7 +9,7 @@ use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
 use crate::stats::Cg;
-use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
+use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -49,6 +49,7 @@ pub fn run_with_source<S: MarkerStream>(
     popmap: &Popmap,
     params: &DistribParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    params.bayes_model.bayes_factor.validate()?;
     let mut groups = GroupConfig {
         group1: params.group1.clone(),
         group2: params.group2.clone(),
@@ -184,7 +185,13 @@ pub fn run_with_source<S: MarkerStream>(
             Cg(bias)
         )?;
         if params.output_bayes {
-            let bf = stats::bayes_factor_2x2(g, h, total_g1, total_g2);
+            let bf = stats::bayes_factor_2x2_with_validated_model(
+                g,
+                h,
+                total_g1,
+                total_g2,
+                &params.bayes_model.bayes_factor,
+            );
             let post = stats::posterior_sex_linked_with_model(
                 g,
                 h,

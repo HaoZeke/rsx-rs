@@ -263,4 +263,26 @@ fn bayes_model(args: &mut Vec<OsString>, model: &rsx_core::bayes_profile::ModelP
     number(args, "--linked-probability", model.linked_prevalence);
     number(args, "--null-prevalence", model.null_prevalence);
     number(args, "--group1-linked-weight", model.group1_linked_weight);
+    number(
+        args,
+        "--bf-group1-alpha",
+        model.bayes_factor.alternative_group1.alpha,
+    );
+    number(
+        args,
+        "--bf-group1-beta",
+        model.bayes_factor.alternative_group1.beta,
+    );
+    number(
+        args,
+        "--bf-group2-alpha",
+        model.bayes_factor.alternative_group2.alpha,
+    );
+    number(
+        args,
+        "--bf-group2-beta",
+        model.bayes_factor.alternative_group2.beta,
+    );
+    number(args, "--bf-null-alpha", model.bayes_factor.null.alpha);
+    number(args, "--bf-null-beta", model.bayes_factor.null.beta);
 }

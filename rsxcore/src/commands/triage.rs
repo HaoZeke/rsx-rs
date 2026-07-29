@@ -12,7 +12,7 @@ use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
 use crate::stats::Cg;
-use crate::test_method::{TestMethod, compute_p};
+use crate::test_method::{compute_p, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -87,6 +87,7 @@ pub fn run_with_source<S: MarkerStream>(
     popmap: &Popmap,
     params: &TriageParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    params.bayes_model.bayes_factor.validate()?;
     let mut groups = GroupConfig {
         group1: params.group1.clone(),
         group2: params.group2.clone(),
@@ -135,7 +136,13 @@ pub fn run_with_source<S: MarkerStream>(
         let p = compute_p(TestMethod::ChiSquared, g1, g2, total_g1, total_g2);
         let p_corrected = stats::bonferroni_correct(p, n_markers);
         let strict_call = p < strict_threshold;
-        let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
+        let bf = stats::bayes_factor_2x2_with_validated_model(
+            g1,
+            g2,
+            total_g1,
+            total_g2,
+            &params.bayes_model.bayes_factor,
+        );
         let posterior =
             stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &params.bayes_model);
         let posterior_call = posterior > params.posterior_threshold;
@@ -207,6 +214,8 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
 ) -> Result<Vec<RecordBatch>, Box<dyn std::error::Error>> {
     use arrow::array::builder::{BooleanBuilder, Float64Builder, StringBuilder, UInt32Builder};
     use arrow::datatypes::{DataType, Field, Schema};
+
+    params.bayes_model.bayes_factor.validate()?;
 
     let schema = Schema::new(vec![
         Field::new("id", DataType::Utf8, false),
@@ -288,7 +297,13 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
         let p_corrected = stats::bonferroni_correct(p, n_markers);
 
         let strict_call = p < corrected_threshold;
-        let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
+        let bf = stats::bayes_factor_2x2_with_validated_model(
+            g1,
+            g2,
+            total_g1,
+            total_g2,
+            &params.bayes_model.bayes_factor,
+        );
         let posterior =
             stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &params.bayes_model);
 

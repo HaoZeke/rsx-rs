@@ -5,13 +5,13 @@
 
 use crate::bitset::GroupMask;
 use crate::compute_backend::{
-    AssociationCounts, PValueBackend, compute_chi_squared_batch_with_metrics,
+    compute_chi_squared_batch_with_metrics, AssociationCounts, PValueBackend,
 };
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
-use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
+use crate::test_method::{compute_p, CorrectionMethod, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -64,6 +64,7 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
     params: &SignifParams,
     backend: PValueBackend,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    params.bayes_model.bayes_factor.validate()?;
     // Reject invalid flag combinations *before* creating/truncating the output file.
     if matches!(params.correction, CorrectionMethod::Fdr) && params.output_fasta {
         return Err(
@@ -406,7 +407,13 @@ fn write_marker_bayes_row<W: Write>(
     total_g2: u32,
     bayes_model: &stats::DirectionalModel,
 ) -> std::io::Result<()> {
-    let bf = stats::bayes_factor_2x2(g1, g2, total_g1, total_g2);
+    let bf = stats::bayes_factor_2x2_with_validated_model(
+        g1,
+        g2,
+        total_g1,
+        total_g2,
+        &bayes_model.bayes_factor,
+    );
     let post = stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, bayes_model);
     write!(output, "{}\t{}", marker.id, marker.sequence)?;
     for &d in &marker.individual_depths {
