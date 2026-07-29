@@ -38,6 +38,8 @@ struct DirectionalModelArgs {
     bf_group1: crate::bayes_profile::BetaPriorProfile,
     bf_group2: crate::bayes_profile::BetaPriorProfile,
     bf_null: crate::bayes_profile::BetaPriorProfile,
+    posterior_linked: crate::bayes_profile::PrevalencePriorProfile,
+    posterior_null: crate::bayes_profile::PrevalencePriorProfile,
 }
 
 fn directional_model(
@@ -50,10 +52,10 @@ fn directional_model(
         linked_prevalence: args.linked_prevalence,
         null_prevalence: args.null_prevalence,
         group1_linked_weight: args.group1_linked_weight,
-        posterior: Some(PosteriorProfile::fixed(
-            args.linked_prevalence,
-            args.null_prevalence,
-        )),
+        posterior: Some(PosteriorProfile {
+            linked: args.posterior_linked,
+            null: args.posterior_null,
+        }),
         bayes_factor: BayesFactorProfile {
             alternative_group1: args.bf_group1,
             alternative_group2: args.bf_group2,
@@ -65,6 +67,63 @@ fn directional_model(
         set_last_error(&error.to_string());
         rsx_status_t::RSX_INVALID_PARAMETER
     })
+}
+
+unsafe fn parse_prevalence_prior(
+    family: *const c_char,
+    name: &str,
+    probability: f64,
+    alpha: f64,
+    beta: f64,
+) -> Result<crate::bayes_profile::PrevalencePriorProfile, rsx_status_t> {
+    use crate::bayes_profile::PrevalencePriorProfile;
+
+    match unsafe { cstr_to_string(family, name) }?.as_str() {
+        "fixed" => Ok(PrevalencePriorProfile::Fixed { probability }),
+        "beta" => Ok(PrevalencePriorProfile::Beta { alpha, beta }),
+        value => {
+            set_last_error(&format!("{name} must be 'fixed' or 'beta', got {value:?}"));
+            Err(rsx_status_t::RSX_INVALID_PARAMETER)
+        }
+    }
+}
+
+unsafe fn parse_posterior_priors(
+    linked_family: *const c_char,
+    linked_probability: f64,
+    linked_alpha: f64,
+    linked_beta: f64,
+    null_family: *const c_char,
+    null_probability: f64,
+    null_alpha: f64,
+    null_beta: f64,
+) -> Result<
+    (
+        crate::bayes_profile::PrevalencePriorProfile,
+        crate::bayes_profile::PrevalencePriorProfile,
+    ),
+    rsx_status_t,
+> {
+    Ok((
+        unsafe {
+            parse_prevalence_prior(
+                linked_family,
+                "posterior_linked_family",
+                linked_probability,
+                linked_alpha,
+                linked_beta,
+            )
+        }?,
+        unsafe {
+            parse_prevalence_prior(
+                null_family,
+                "posterior_null_family",
+                null_probability,
+                null_alpha,
+                null_beta,
+            )
+        }?,
+    ))
 }
 
 /// Helper to convert a C string pointer to a Rust string, returning error on null
@@ -188,6 +247,12 @@ pub unsafe extern "C" fn rsx_distrib(
     bf_group2_beta: f64,
     bf_null_alpha: f64,
     bf_null_beta: f64,
+    posterior_linked_family: *const c_char,
+    posterior_linked_alpha: f64,
+    posterior_linked_beta: f64,
+    posterior_null_family: *const c_char,
+    posterior_null_alpha: f64,
+    posterior_null_beta: f64,
 ) -> rsx_status_t {
     catch_unwind(|| {
         let table_path = match unsafe { cstr_to_string(table_path, "table_path") } {
@@ -218,6 +283,21 @@ pub unsafe extern "C" fn rsx_distrib(
             Ok(t) => t,
             Err(e) => return e,
         };
+        let (posterior_linked, posterior_null) = match unsafe {
+            parse_posterior_priors(
+                posterior_linked_family,
+                linked_probability,
+                posterior_linked_alpha,
+                posterior_linked_beta,
+                posterior_null_family,
+                null_prevalence,
+                posterior_null_alpha,
+                posterior_null_beta,
+            )
+        } {
+            Ok(priors) => priors,
+            Err(error) => return error,
+        };
         let bayes_model = match directional_model(DirectionalModelArgs {
             linkage_prior: prior_probability,
             linked_prevalence: linked_probability,
@@ -235,6 +315,8 @@ pub unsafe extern "C" fn rsx_distrib(
                 alpha: bf_null_alpha,
                 beta: bf_null_beta,
             },
+            posterior_linked,
+            posterior_null,
         }) {
             Ok(model) => model,
             Err(error) => return error,
@@ -292,6 +374,12 @@ pub unsafe extern "C" fn rsx_signif(
     bf_group2_beta: f64,
     bf_null_alpha: f64,
     bf_null_beta: f64,
+    posterior_linked_family: *const c_char,
+    posterior_linked_alpha: f64,
+    posterior_linked_beta: f64,
+    posterior_null_family: *const c_char,
+    posterior_null_alpha: f64,
+    posterior_null_beta: f64,
 ) -> rsx_status_t {
     catch_unwind(|| {
         let table_path = match unsafe { cstr_to_string(table_path, "table_path") } {
@@ -322,6 +410,21 @@ pub unsafe extern "C" fn rsx_signif(
             Ok(t) => t,
             Err(e) => return e,
         };
+        let (posterior_linked, posterior_null) = match unsafe {
+            parse_posterior_priors(
+                posterior_linked_family,
+                linked_probability,
+                posterior_linked_alpha,
+                posterior_linked_beta,
+                posterior_null_family,
+                null_prevalence,
+                posterior_null_alpha,
+                posterior_null_beta,
+            )
+        } {
+            Ok(priors) => priors,
+            Err(error) => return error,
+        };
         let bayes_model = match directional_model(DirectionalModelArgs {
             linkage_prior: prior_probability,
             linked_prevalence: linked_probability,
@@ -339,6 +442,8 @@ pub unsafe extern "C" fn rsx_signif(
                 alpha: bf_null_alpha,
                 beta: bf_null_beta,
             },
+            posterior_linked,
+            posterior_null,
         }) {
             Ok(model) => model,
             Err(error) => return error,
@@ -395,6 +500,12 @@ pub unsafe extern "C" fn rsx_triage(
     bf_null_beta: f64,
     group1: *const c_char,
     group2: *const c_char,
+    posterior_linked_family: *const c_char,
+    posterior_linked_alpha: f64,
+    posterior_linked_beta: f64,
+    posterior_null_family: *const c_char,
+    posterior_null_alpha: f64,
+    posterior_null_beta: f64,
 ) -> rsx_status_t {
     catch_unwind(|| {
         let table_path = match unsafe { cstr_to_string(table_path, "table_path") } {
@@ -416,6 +527,21 @@ pub unsafe extern "C" fn rsx_triage(
         let group2 = match unsafe { cstr_to_string(group2, "group2") } {
             Ok(s) => s,
             Err(e) => return e,
+        };
+        let (posterior_linked, posterior_null) = match unsafe {
+            parse_posterior_priors(
+                posterior_linked_family,
+                linked_probability,
+                posterior_linked_alpha,
+                posterior_linked_beta,
+                posterior_null_family,
+                null_prevalence,
+                posterior_null_alpha,
+                posterior_null_beta,
+            )
+        } {
+            Ok(priors) => priors,
+            Err(error) => return error,
         };
 
         let params = crate::commands::triage::TriageParams {
@@ -443,6 +569,8 @@ pub unsafe extern "C" fn rsx_triage(
                     alpha: bf_null_alpha,
                     beta: bf_null_beta,
                 },
+                posterior_linked,
+                posterior_null,
             }) {
                 Ok(model) => model,
                 Err(error) => return error,
