@@ -578,7 +578,7 @@ fn ipc_bytes_to_pyarrow_tables(py: Python<'_>, bytes: &[u8]) -> PyResult<Vec<PyO
 // --------------------------------------------------------------------------- //
 
 #[pyfunction]
-#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2=""))]
+#[pyo3(signature = (table_path, popmap_path, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", signif_threshold=0.05, bayes_factor_threshold=10.0))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow(
     py: Python<'_>,
@@ -598,15 +598,17 @@ fn triage_to_arrow(
     bf_null_beta: f64,
     group1: &str,
     group2: &str,
+    signif_threshold: f32,
+    bayes_factor_threshold: f64,
 ) -> PyResult<PyObject> {
     let params = rsx_core::commands::triage::TriageParams {
         markers_table_path: table_path.to_string(),
         popmap_file_path: popmap_path.to_string(),
         output_file_path: String::new(),
         min_depth,
-        signif_threshold: 0.05,
+        signif_threshold,
         posterior_threshold,
-        bayes_factor_threshold: 10.0,
+        bayes_factor_threshold,
         bayes_model: directional_model(
             prior_probability,
             linked_probability,
@@ -681,7 +683,7 @@ mod cmd_overhead {
 }
 
 #[pyfunction]
-#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2=""))]
+#[pyo3(signature = (markers_ipc, popmap_ipc, min_depth=1, posterior_threshold=0.9, prior_probability=0.01, linked_probability=0.9, null_prevalence=0.5, group1_linked_weight=0.5, bf_group1_alpha=1.0, bf_group1_beta=1.0, bf_group2_alpha=1.0, bf_group2_beta=1.0, bf_null_alpha=1.0, bf_null_beta=1.0, group1="", group2="", signif_threshold=0.05, bayes_factor_threshold=10.0))]
 #[allow(clippy::too_many_arguments)]
 fn triage_to_arrow_from_arrow(
     py: Python<'_>,
@@ -701,6 +703,8 @@ fn triage_to_arrow_from_arrow(
     bf_null_beta: f64,
     group1: &str,
     group2: &str,
+    signif_threshold: f32,
+    bayes_factor_threshold: f64,
 ) -> PyResult<PyObject> {
     let (popmap, _popmap_tmp) = popmap_from_ipc(popmap_ipc)?;
     let source = MarkerTableSource::from_arrow_ipc(
@@ -716,9 +720,9 @@ fn triage_to_arrow_from_arrow(
         popmap_file_path: String::new(),
         output_file_path: String::new(),
         min_depth,
-        signif_threshold: 0.05,
+        signif_threshold,
         posterior_threshold,
-        bayes_factor_threshold: 10.0,
+        bayes_factor_threshold,
         bayes_model: directional_model(
             prior_probability,
             linked_probability,

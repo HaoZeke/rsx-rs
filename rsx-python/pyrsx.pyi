@@ -306,6 +306,46 @@ def triage(
     """
     ...
 
+def triage_to_arrow(
+    table_path: str,
+    popmap_path: str,
+    min_depth: int = 1,
+    posterior_threshold: float = 0.9,
+    prior_probability: float = 0.01,
+    linked_probability: float = 0.9,
+    null_prevalence: float = 0.5,
+    group1_linked_weight: float = 0.5,
+    bf_group1_alpha: float = 1.0,
+    bf_group1_beta: float = 1.0,
+    bf_group2_alpha: float = 1.0,
+    bf_group2_beta: float = 1.0,
+    bf_null_alpha: float = 1.0,
+    bf_null_beta: float = 1.0,
+    group1: str = "",
+    group2: str = "",
+    signif_threshold: float = 0.05,
+    bayes_factor_threshold: float = 10.0,
+) -> Any: ...
+def triage_to_arrow_from_arrow(
+    markers_ipc: bytes,
+    popmap_ipc: bytes,
+    min_depth: int = 1,
+    posterior_threshold: float = 0.9,
+    prior_probability: float = 0.01,
+    linked_probability: float = 0.9,
+    null_prevalence: float = 0.5,
+    group1_linked_weight: float = 0.5,
+    bf_group1_alpha: float = 1.0,
+    bf_group1_beta: float = 1.0,
+    bf_group2_alpha: float = 1.0,
+    bf_group2_beta: float = 1.0,
+    bf_null_alpha: float = 1.0,
+    bf_null_beta: float = 1.0,
+    group1: str = "",
+    group2: str = "",
+    signif_threshold: float = 0.05,
+    bayes_factor_threshold: float = 10.0,
+) -> Any: ...
 def freq(
     table_path: str,
     output_file: str,
