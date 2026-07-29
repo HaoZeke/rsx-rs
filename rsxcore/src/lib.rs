@@ -22,6 +22,7 @@
 //! memory even on 50 GB+ tables.
 
 pub mod bitset;
+pub mod bayes_profile;
 pub mod c_api;
 pub mod commands;
 pub mod compute_backend;
