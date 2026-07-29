@@ -43,7 +43,13 @@ class PosteriorFamilyTests(unittest.TestCase):
         def log_beta(alpha, beta):
             return math.lgamma(alpha) + math.lgamma(beta) - math.lgamma(alpha + beta)
 
-        linked_log_marginal = log_beta(29.0, 1.0) - log_beta(9.0, 1.0)
+        group1_log_marginal = log_beta(29.0, 1.0) - log_beta(9.0, 1.0)
+        group2_log_marginal = log_beta(9.0, 21.0) - log_beta(9.0, 1.0)
+        maximum = max(group1_log_marginal, group2_log_marginal)
+        linked_log_marginal = maximum + math.log(
+            0.5 * math.exp(group1_log_marginal - maximum)
+            + 0.5 * math.exp(group2_log_marginal - maximum)
+        )
         null_log_marginal = log_beta(15.0, 15.0) - log_beta(5.0, 5.0)
         log_odds = linked_log_marginal - null_log_marginal + math.log(0.01 / 0.99)
         expected = 1.0 / (1.0 + math.exp(-log_odds))
