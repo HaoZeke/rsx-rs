@@ -7,7 +7,9 @@ use std::thread;
 use std::time::Duration;
 
 use rsx_core::run_profile::{CommandProfile, RunProfile};
-use rsx_core::stats::{bayes_factor_2x2, bayes_factor_2x2_with_model};
+use rsx_core::stats::{
+    bayes_factor_2x2, bayes_factor_2x2_with_model, posterior_sex_linked_with_model,
+};
 use sha2::{Digest, Sha256};
 
 fn write_markers_table(path: &std::path::Path) {
@@ -117,6 +119,88 @@ beta = 10.0
     let row = output.lines().nth(2).unwrap();
     let observed: f64 = row.split('\t').nth(14).unwrap().parse().unwrap();
     assert_eq!(observed, format!("{expected:.4}").parse::<f64>().unwrap());
+}
+
+#[test]
+fn triage_profile_posterior_family_reaches_the_runtime_calculation() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile_path = directory.path().join("input.toml");
+    let hydrated_path = directory.path().join("hydrated.toml");
+    let markers_path = directory.path().join("markers.tsv");
+    let popmap_path = directory.path().join("popmap.tsv");
+    let output_path = directory.path().join("triage.tsv");
+    fs::write(
+        &markers_path,
+        "#Number of markers : 1\nid\tsequence\tind1\tind2\n0\tACGT\t4\t0\n",
+    )
+    .unwrap();
+    fs::write(&popmap_path, "ind1\tM\nind2\tF\n").unwrap();
+    fs::write(
+        &profile_path,
+        format!(
+            r#"
+schema_version = 1
+profile_name = "custom-posterior-v1"
+write_hydrated_profile = "{}"
+
+[run]
+command = "triage"
+markers_table = "{}"
+popmap = "{}"
+output_file = "{}"
+min_depth = 1
+groups = ["M", "F"]
+signif_threshold = 0.05
+posterior_threshold = 0.01
+bayes_factor_threshold = 0.01
+
+[run.bayes_model]
+linkage_prior = 0.5
+linked_prevalence = 0.9
+null_prevalence = 0.5
+group1_linked_weight = 0.5
+
+[run.bayes_model.posterior.linked]
+family = "beta"
+alpha = 9.0
+beta = 1.0
+
+[run.bayes_model.posterior.null]
+family = "beta"
+alpha = 5.0
+beta = 5.0
+"#,
+            hydrated_path.display(),
+            markers_path.display(),
+            popmap_path.display(),
+            output_path.display(),
+        ),
+    )
+    .unwrap();
+
+    let status = Command::new(env!("CARGO_BIN_EXE_rsx"))
+        .arg("--profile")
+        .arg(&profile_path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let hydrated = RunProfile::parse_toml(&fs::read_to_string(&hydrated_path).unwrap()).unwrap();
+    let model = match hydrated.run {
+        CommandProfile::Triage(profile) => profile.bayes_model.to_runtime().unwrap(),
+        _ => panic!("triage profile changed command variants"),
+    };
+    let expected = posterior_sex_linked_with_model(1, 0, 1, 1, &model);
+    let output = fs::read_to_string(&output_path).unwrap();
+    let row = output.lines().nth(2).unwrap();
+    let observed: f64 = row.split('\t').nth(15).unwrap().parse().unwrap();
+
+    assert_eq!(observed, format!("{expected:.4}").parse::<f64>().unwrap());
+    assert!(
+        fs::read_to_string(hydrated_path)
+            .unwrap()
+            .contains("[run.bayes_model.posterior.linked]")
+    );
 }
 
 #[test]
