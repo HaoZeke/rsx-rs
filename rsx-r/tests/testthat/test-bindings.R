@@ -59,9 +59,11 @@ test_that("Bayesian R bindings accept the complete directional model", {
     bf_null_alpha = 10.0,
     bf_null_beta = 10.0,
     posterior_linked_family = "beta",
+    posterior_linked_probability = 0.8,
     posterior_linked_alpha = 9.0,
     posterior_linked_beta = 1.0,
     posterior_null_family = "beta",
+    posterior_null_probability = 0.4,
     posterior_null_alpha = 5.0,
     posterior_null_beta = 5.0
   )

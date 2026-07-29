@@ -131,6 +131,39 @@ def test_triage(test_data):
     assert "Bayes_Factor" in content
 
 
+def test_fixed_posterior_probabilities_are_independent(test_data):
+    """Fixed posterior probabilities must not be aliases for legacy prevalences."""
+    import csv
+
+    posteriors = []
+    for name, linked, null in [
+        ("compat", 0.9, 0.5),
+        ("independent", 0.7, 0.3),
+    ]:
+        out = os.path.join(test_data["tmp"], f"triage_{name}.tsv")
+        pyrsx.triage(
+            test_data["table"],
+            test_data["popmap"],
+            out,
+            min_depth=1,
+            group1="M",
+            group2="F",
+            linked_probability=0.9,
+            null_prevalence=0.5,
+            posterior_linked_family="fixed",
+            posterior_linked_probability=linked,
+            posterior_null_family="fixed",
+            posterior_null_probability=null,
+        )
+        with open(out, newline="") as handle:
+            rows = csv.DictReader(
+                (line for line in handle if not line.startswith("#")), delimiter="\t"
+            )
+            posteriors.append([row["Posterior_SexLinked"] for row in rows])
+
+    assert posteriors[0] != posteriors[1]
+
+
 def test_depth(test_data):
     """depth should produce per-individual stats."""
     out = os.path.join(test_data["tmp"], "depth.tsv")
@@ -283,6 +316,10 @@ def test_cli_triage(test_data):
             "10",
             "--bf-null-beta",
             "10",
+            "--posterior-linked-probability",
+            "0.8",
+            "--posterior-null-probability",
+            "0.4",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -358,9 +395,11 @@ def test_highlevel_triage_via_marker_table():
             bf_null_alpha=10.0,
             bf_null_beta=10.0,
             posterior_linked_family="beta",
+            posterior_linked_probability=0.8,
             posterior_linked_alpha=9.0,
             posterior_linked_beta=1.0,
             posterior_null_family="beta",
+            posterior_null_probability=0.4,
             posterior_null_alpha=5.0,
             posterior_null_beta=5.0,
         )
@@ -386,6 +425,8 @@ def test_highlevel_triage_via_marker_table():
         assert result.params.bf_group1_alpha == 8.0
         assert result.params.bf_null_beta == 10.0
         assert result.params.posterior_linked_family == "beta"
+        assert result.params.posterior_linked_probability == 0.8
+        assert result.params.posterior_null_probability == 0.4
         assert result.params.posterior_null_alpha == 5.0
 
 
