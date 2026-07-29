@@ -56,6 +56,13 @@ rsx_freq <- function(table_path, output_file, min_depth = 1L) {
 #'   marker prevalence under the group-2-linked alternative.
 #' @param bf_null_alpha,bf_null_beta Beta-prior shape parameters for marker
 #'   prevalence under the null model.
+#' @param posterior_linked_family,posterior_null_family Posterior prevalence
+#'   family: `"fixed"` uses `linked_probability` or `null_prevalence`; `"beta"`
+#'   integrates over the corresponding Beta shape parameters.
+#' @param posterior_linked_alpha,posterior_linked_beta Beta-prior shape
+#'   parameters for linked-marker prevalence.
+#' @param posterior_null_alpha,posterior_null_beta Beta-prior shape parameters
+#'   for null-marker prevalence.
 #' @return The output path, invisibly.
 #' @export
 #' @examples
@@ -77,7 +84,13 @@ rsx_distrib <- function(table_path, popmap_path, output_file,
                         bf_group2_alpha = 1.0,
                         bf_group2_beta = 1.0,
                         bf_null_alpha = 1.0,
-                        bf_null_beta = 1.0) {
+                        bf_null_beta = 1.0,
+                        posterior_linked_family = "fixed",
+                        posterior_linked_alpha = 1.0,
+                        posterior_linked_beta = 1.0,
+                        posterior_null_family = "fixed",
+                        posterior_null_alpha = 1.0,
+                        posterior_null_beta = 1.0) {
   .Call(C_rsx_distrib, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         group1, group2, correction, test, as.logical(output_bayes),
@@ -85,7 +98,11 @@ rsx_distrib <- function(table_path, popmap_path, output_file,
         as.numeric(null_prevalence), as.numeric(group1_linked_weight),
         as.numeric(bf_group1_alpha), as.numeric(bf_group1_beta),
         as.numeric(bf_group2_alpha), as.numeric(bf_group2_beta),
-        as.numeric(bf_null_alpha), as.numeric(bf_null_beta))
+        as.numeric(bf_null_alpha), as.numeric(bf_null_beta),
+        posterior_linked_family,
+        as.numeric(posterior_linked_alpha), as.numeric(posterior_linked_beta),
+        posterior_null_family,
+        as.numeric(posterior_null_alpha), as.numeric(posterior_null_beta))
   invisible(output_file)
 }
 
@@ -115,7 +132,13 @@ rsx_signif <- function(table_path, popmap_path, output_file,
                        bf_group2_alpha = 1.0,
                        bf_group2_beta = 1.0,
                        bf_null_alpha = 1.0,
-                       bf_null_beta = 1.0) {
+                       bf_null_beta = 1.0,
+                       posterior_linked_family = "fixed",
+                       posterior_linked_alpha = 1.0,
+                       posterior_linked_beta = 1.0,
+                       posterior_null_family = "fixed",
+                       posterior_null_alpha = 1.0,
+                       posterior_null_beta = 1.0) {
   .Call(C_rsx_signif, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         group1, group2, correction, test,
@@ -124,7 +147,11 @@ rsx_signif <- function(table_path, popmap_path, output_file,
         as.numeric(null_prevalence), as.numeric(group1_linked_weight),
         as.numeric(bf_group1_alpha), as.numeric(bf_group1_beta),
         as.numeric(bf_group2_alpha), as.numeric(bf_group2_beta),
-        as.numeric(bf_null_alpha), as.numeric(bf_null_beta))
+        as.numeric(bf_null_alpha), as.numeric(bf_null_beta),
+        posterior_linked_family,
+        as.numeric(posterior_linked_alpha), as.numeric(posterior_linked_beta),
+        posterior_null_family,
+        as.numeric(posterior_null_alpha), as.numeric(posterior_null_beta))
   invisible(output_file)
 }
 
@@ -154,7 +181,13 @@ rsx_triage <- function(table_path, popmap_path, output_file,
                        bf_group2_beta = 1.0,
                        bf_null_alpha = 1.0,
                        bf_null_beta = 1.0,
-                       group1 = "M", group2 = "F") {
+                       group1 = "M", group2 = "F",
+                       posterior_linked_family = "fixed",
+                       posterior_linked_alpha = 1.0,
+                       posterior_linked_beta = 1.0,
+                       posterior_null_family = "fixed",
+                       posterior_null_alpha = 1.0,
+                       posterior_null_beta = 1.0) {
   .Call(C_rsx_triage, table_path, popmap_path, output_file,
         as.integer(min_depth), as.numeric(signif_threshold),
         as.numeric(posterior_threshold), as.numeric(bayes_factor_threshold),
@@ -163,7 +196,10 @@ rsx_triage <- function(table_path, popmap_path, output_file,
         as.numeric(bf_group1_alpha), as.numeric(bf_group1_beta),
         as.numeric(bf_group2_alpha), as.numeric(bf_group2_beta),
         as.numeric(bf_null_alpha), as.numeric(bf_null_beta),
-        group1, group2)
+        group1, group2, posterior_linked_family,
+        as.numeric(posterior_linked_alpha), as.numeric(posterior_linked_beta),
+        posterior_null_family,
+        as.numeric(posterior_null_alpha), as.numeric(posterior_null_beta))
   invisible(output_file)
 }
 
