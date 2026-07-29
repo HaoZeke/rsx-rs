@@ -197,6 +197,27 @@ fn run_profile_rejects_unknown_command_fields() {
 }
 
 #[test]
+fn depth_profile_records_the_streaming_policy() {
+    let input = format!(
+        r#"{PROFILE_HEADER}
+[run]
+command = "depth"
+markers_table = "markers.tsv"
+popmap = "popmap.tsv"
+output_file = "depth.tsv"
+min_frequency = 0.75
+streaming_mode = "streaming"
+streaming_threshold_bytes = 123
+"#
+    );
+    let profile = RunProfile::parse_toml(&input).unwrap();
+    let hydrated = profile.to_toml().unwrap();
+
+    assert!(hydrated.contains("streaming_mode = \"streaming\""));
+    assert!(hydrated.contains("streaming_threshold_bytes = 123"));
+}
+
+#[test]
 fn run_profile_hydrates_explicit_beta_priors_for_bayesian_commands() {
     let input = format!(
         r#"{PROFILE_HEADER}

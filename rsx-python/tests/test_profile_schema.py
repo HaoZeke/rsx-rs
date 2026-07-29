@@ -113,6 +113,35 @@ def test_legacy_directional_model_hydrates_uniform_beta_priors() -> None:
     assert "bayes_factor" in profile.model_dump()["run"]["bayes_model"]
 
 
+def test_depth_profile_and_binding_expose_the_streaming_policy() -> None:
+    profile = RunProfile.model_validate(
+        {
+            "schema_version": 1,
+            "profile_name": "python-depth-v1",
+            "run": {
+                "command": "depth",
+                "markers_table": "markers.tsv",
+                "popmap": "popmap.tsv",
+                "output_file": "depth.tsv",
+                "min_frequency": 0.75,
+                "streaming_mode": "memory",
+                "streaming_threshold_bytes": 123,
+            },
+        }
+    )
+    assert profile.run.streaming_mode == "memory"
+    assert profile.run.streaming_threshold_bytes == 123
+
+    with pytest.raises(RuntimeError):
+        pyrsx.depth(
+            "missing.tsv",
+            "missing-popmap.tsv",
+            "unused.tsv",
+            streaming=False,
+            streaming_threshold_bytes=123,
+        )
+
+
 def test_checked_in_json_schema_matches_pydantic_model() -> None:
     schema_path = Path(__file__).parents[1] / "schema" / "run-profile-v1.schema.json"
     checked_in = json.loads(schema_path.read_text(encoding="utf-8"))

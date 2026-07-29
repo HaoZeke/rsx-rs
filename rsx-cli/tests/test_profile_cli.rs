@@ -120,6 +120,54 @@ beta = 10.0
 }
 
 #[test]
+fn depth_profile_controls_and_hydrates_streaming_policy() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile_path = directory.path().join("input.toml");
+    let hydrated_path = directory.path().join("hydrated.toml");
+    let markers_path = directory.path().join("markers.tsv");
+    let popmap_path = directory.path().join("popmap.tsv");
+    let output_path = directory.path().join("depth.tsv");
+    write_markers_table(&markers_path);
+    fs::write(&popmap_path, "ind1\tM\nind2\tF\n").unwrap();
+    fs::write(
+        &profile_path,
+        format!(
+            r#"
+schema_version = 1
+profile_name = "depth-streaming-v1"
+write_hydrated_profile = "{}"
+
+[run]
+command = "depth"
+markers_table = "{}"
+popmap = "{}"
+output_file = "{}"
+min_frequency = 0.5
+streaming_mode = "streaming"
+streaming_threshold_bytes = 123
+"#,
+            hydrated_path.display(),
+            markers_path.display(),
+            popmap_path.display(),
+            output_path.display(),
+        ),
+    )
+    .unwrap();
+
+    let status = Command::new(env!("CARGO_BIN_EXE_rsx"))
+        .arg("--profile")
+        .arg(&profile_path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(output_path.exists());
+
+    let hydrated = fs::read_to_string(hydrated_path).unwrap();
+    assert!(hydrated.contains("streaming_mode = \"streaming\""));
+    assert!(hydrated.contains("streaming_threshold_bytes = 123"));
+}
+
+#[test]
 fn failed_analysis_keeps_the_hydrated_profile_written_before_execution() {
     let directory = tempfile::tempdir().unwrap();
     let profile_path = directory.path().join("input.toml");
@@ -300,11 +348,13 @@ fn unhandled_termination_leaves_the_started_archive() {
     let markers_path = directory.path().join("markers.tsv");
     let output_fifo = directory.path().join("blocked-output.tsv");
     write_markers_table(&markers_path);
-    assert!(Command::new("mkfifo")
-        .arg(&output_fifo)
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        Command::new("mkfifo")
+            .arg(&output_fifo)
+            .status()
+            .unwrap()
+            .success()
+    );
     fs::write(
         &profile_path,
         format!(
