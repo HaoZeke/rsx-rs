@@ -695,19 +695,37 @@ fn compute_cpu(
     total_group1: u32,
     total_group2: u32,
 ) -> BatchResult {
+    use crate::test_method::TestMethod;
+
     let started = Instant::now();
-    let p_values = counts
-        .iter()
-        .map(|counts| {
-            crate::test_method::compute_p(
-                test,
-                counts.group1,
-                counts.group2,
-                total_group1,
-                total_group2,
-            )
-        })
-        .collect();
+    // Select the test once rather than per marker. Dispatching inside the loop
+    // cost about twice the scalar call it wraps, because the call and the match
+    // dominate a test this small.
+    let p_values: Vec<f64> = match test {
+        TestMethod::ChiSquared => counts
+            .iter()
+            .map(|counts| {
+                crate::stats::p_association(
+                    counts.group1,
+                    counts.group2,
+                    total_group1,
+                    total_group2,
+                )
+            })
+            .collect(),
+        TestMethod::Fisher => counts
+            .iter()
+            .map(|counts| {
+                crate::stats::fisher_exact(counts.group1, counts.group2, total_group1, total_group2)
+            })
+            .collect(),
+        TestMethod::GTest => counts
+            .iter()
+            .map(|counts| {
+                crate::stats::g_test(counts.group1, counts.group2, total_group1, total_group2)
+            })
+            .collect(),
+    };
     let total_seconds = started.elapsed().as_secs_f64();
     BatchResult {
         p_values: PValueBuffer::Owned(p_values),
