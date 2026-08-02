@@ -47,7 +47,6 @@ cuda = ["dep:cudarc"]
 [dependencies]
 needletail = "0.6"
 flate2 = "1"
-hexf = "0.2"
 libm = "0.2"
 cudarc = { version = "0.18", optional = true, default-features = false, features = ["std", "driver", "nvrtc", "dynamic-loading", "cuda-12020"] }
 # crossbeam removed -- inline parsing is faster than channel-based

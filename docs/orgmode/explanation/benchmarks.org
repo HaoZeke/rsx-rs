@@ -706,9 +706,8 @@ The chi-squared p-value for df=1 simplifies exactly to
 =scripts/sympy/chi2_cdf_derivation.py=.
 
 This replaces the full regularized gamma function (statrs crate, 562 ns)
-with a single =libm::erfc= call (108 ns). A Sollya-generated minimax
-polynomial (=scripts/sollya/erfc_minimax.sollya=) can further replace
-=libm::erfc= for GPU kernels.
+with a single =libm::erfc= call (108 ns). The CUDA kernels call the device
+=erfc= for the same reason.
 
 ** mmap I/O (zero-copy file access)
 

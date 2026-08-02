@@ -117,7 +117,7 @@ omits analysis results and input datasets.
   CUDA path transfers count pairs directly, retains the compiled kernel, and
   reuses the largest page-locked result buffer within a process. Metrics keep
   first-batch setup separate from transfers and kernel execution.
-- Reproducible: pixi environments, an Airspeed Velocity literature benchmark suite, and SymPy/Sollya proofs for the math.
+- Reproducible: pixi environments, an Airspeed Velocity literature benchmark suite, and SymPy derivations and a Lean proof for the math.
 
 ## Documentation
 

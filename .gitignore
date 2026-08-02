@@ -91,3 +91,6 @@ repro/benchmarks/figshare_package/
 /r_coverage.xml
 /.venv-coverage-python/
 *.profraw
+
+# local review notes, never published
+.reviews/

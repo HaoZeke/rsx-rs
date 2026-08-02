@@ -17,6 +17,23 @@ All notable changes to rsx-rs are documented here.
   `exploratory` row when every marker falls below the configured strict,
   posterior, and Bayes-factor thresholds.
 
+### Removed
+
+
+- The Sollya-fitted degree-40 erfc polynomial, its coefficient table, the
+  Horner helper, the `hexf` dependency, and `scripts/sollya/`. The bound the
+  coefficients shipped with, 8.22e-17, describes the mathematical polynomial;
+  evaluated in binary64 Horner form over the fitted [0, 6] the routine left that
+  bound at t ~ 0.36 and returned negative values from t ~ 4, which a probability
+  cannot be. Nothing called it -- `chi_squared_p` goes through libm and the CUDA
+  kernels call the device `erfc` -- so no result changes.
+
+### Changed
+
+
+- `tests/test_precision.rs` asserts the shipped path tracks `erfc` to 1e-15 and
+  stays inside [0, 1] across the same range the polynomial was fitted on.
+
 ## [0.2.6] - 2026-07-06
 
 Correctness and robustness patch (process table metadata and error handling,

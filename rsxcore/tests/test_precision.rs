@@ -700,53 +700,25 @@ fn test_cg_format_matches_cpp_g() {
     assert_eq!(format!("{}", Cg(0.0113988)), "0.0113988");
 }
 
-/// The Sollya bound is a property of the mathematical polynomial, not of a
-/// binary64 Horner evaluation of it. Over [0, 6] the coefficients alternate in
-/// sign and the monomials reach 6^40, so cancellation dominates long before the
-/// top of the fitted interval: the evaluated routine leaves the stated bound at
-/// t ~ 0.36 and returns negative values from t ~ 4 upward, where a probability
-/// cannot go. `chi_squared_p` therefore calls libm and every reported p-value in
-/// the manuscript comes from that path; this test pins the difference so the
-/// polynomial cannot be wired in without the failure showing up here.
+/// A Sollya-fitted degree-40 polynomial used to sit beside this path as an
+/// alternative erfc evaluator. Its generator's bound described the mathematical
+/// polynomial; evaluated in binary64 Horner form over the fitted [0, 6] it left
+/// that bound at t ~ 0.36 and returned negative values from t ~ 4, so it was
+/// removed rather than shipped unused. This pins what replaced it.
 #[test]
-fn sollya_polynomial_evaluation_is_not_the_sollya_bound() {
-    const SOLLYA_ESTIMATE: f64 = 8.22e-17;
-
-    let (mut worst, mut worst_t) = (0.0f64, 0.0f64);
+fn reported_p_values_track_erfc_and_stay_in_range() {
     let samples = 60_001;
-    for i in 0..samples {
-        let t = 6.0 * (i as f64) / ((samples - 1) as f64);
-        let error = (rsx_core::stats::fast_erfc_poly(t) - libm::erfc(t)).abs();
-        if error > worst {
-            worst = error;
-            worst_t = t;
-        }
-    }
-    assert!(
-        worst > SOLLYA_ESTIMATE,
-        "evaluation now meets the Sollya estimate ({worst:.3e} at t={worst_t:.4}); \
-         if the evaluation was reformulated, retire this test and the caveat in A.7"
-    );
-
-    // A probability may not be negative. Record where that starts.
-    let first_negative = (0..=600)
-        .map(|i| f64::from(i) / 100.0)
-        .find(|&t| rsx_core::stats::fast_erfc_poly(t) < 0.0)
-        .expect("the evaluated polynomial goes negative inside the fitted interval");
-    assert!(
-        first_negative < 4.5,
-        "expected negative output below t=4.5, first saw it at {first_negative}"
-    );
-
-    // The path the manuscript actually reports is accurate over the same range.
     for i in 0..samples {
         let t = 6.0 * (i as f64) / ((samples - 1) as f64);
         let chi_squared = 2.0 * t * t;
         let reported = rsx_core::stats::chi_squared_p(chi_squared);
         assert!(
             (reported - libm::erfc(t)).abs() <= 1e-15,
-            "libm path drifted at chi2={chi_squared}"
+            "p-value drifted from erfc at chi2={chi_squared}"
         );
-        assert!((0.0..=1.0).contains(&reported), "p-value out of range at t={t}");
+        assert!(
+            (0.0..=1.0).contains(&reported),
+            "p-value outside [0, 1] at chi2={chi_squared}: {reported}"
+        );
     }
 }
