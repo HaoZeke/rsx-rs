@@ -152,8 +152,7 @@ are inherently streaming.
 - Chi-squared with Yates continuity correction (exact port of C++ =stats.cpp=)
 - P-value via =erfc(sqrt(chi2/2))= (SymPy-derived identity, replaces gamma CDF)
 - CUDA =signif= batches evaluate the same formula in =f64= on the device and
-  return one p-value per marker; =fast_erfc_poly= remains a tested polynomial
-  implementation for kernels without a device =erfc= implementation
+  return one p-value per marker, using the device =erfc=
 - The CUDA count-pair struct has an explicit C layout and moves to the device
   without host staging arrays. The process retains the compiled kernel and its
   largest page-locked result allocation, so repeated batches avoid compilation
