@@ -2,7 +2,7 @@
 
 All notable changes to rsx-rs are documented here.
 
-## [Unreleased]
+## [0.2.9] - 2026-08-02
 
 ### Added
 - **CUDA / signif**: optional `cuda` feature and explicit

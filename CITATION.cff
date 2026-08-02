@@ -12,8 +12,8 @@ authors:
 repository-code: "https://github.com/HaoZeke/rsx-rs"
 url: "https://rsx.rgoswami.me"
 license: GPL-3.0-or-later
-version: "0.2.8"
-date-released: 2026-07-06
+version: "0.2.9"
+date-released: 2026-08-02
 identifiers:
   - type: doi
     value: "10.5281/zenodo.20531538"
