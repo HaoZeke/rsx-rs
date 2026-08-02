@@ -115,17 +115,24 @@ pub fn chi_squared_p(chi_sq: f64) -> f64 {
     fast_erfc((chi_sq / 2.0).sqrt()).min(1.0)
 }
 
-/// erfc(t) via libm (CPU-optimized, ~30ns).
-/// For GPU kernels, use `fast_erfc_poly` which avoids libm calls.
+/// erfc(t) via libm. Every p-value rsx reports comes through here, on the CPU
+/// and on the device, where the CUDA kernels call the device erfc.
 #[inline]
 fn fast_erfc(t: f64) -> f64 {
     libm::erfc(t)
 }
 
-/// Sollya-generated minimax polynomial for erfc(t) on [0, 6].
-/// Single degree-40 polynomial -- branchless, no exp(), GPU/SIMD ready.
-/// Max absolute error: 8.2e-17 (below f64 epsilon).
-/// See `scripts/sollya/erfc_direct.sollya`.
+/// Sollya-generated minimax polynomial for erfc(t) on [0, 6], kept as the
+/// numerical artefact behind `scripts/sollya/erfc_direct.sollya`.
+///
+/// Sollya's 8.22e-17 estimate bounds the mathematical polynomial. It does not
+/// bound this evaluation: the degree-40 coefficients alternate in sign and the
+/// monomials reach 6^40, so binary64 Horner loses the bound at t ~ 0.36 and
+/// returns negative values from t ~ 4 upward. Nothing calls it, and nothing
+/// should without reformulating the evaluation first. Use `chi_squared_p`.
+///
+/// `tests/test_precision.rs::sollya_polynomial_evaluation_is_not_the_sollya_bound`
+/// measures the gap.
 #[inline]
 #[allow(dead_code)]
 pub fn fast_erfc_poly(t: f64) -> f64 {

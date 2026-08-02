@@ -77,6 +77,9 @@ cbindgen = { version = "0.28", optional = true }
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 tempfile = "3"
+# the precision suite compares the polynomial against the same erfc the
+# library calls, so it needs the reference directly
+libm = "0.2"
 
 [[bench]]
 name = "bench_stats"
