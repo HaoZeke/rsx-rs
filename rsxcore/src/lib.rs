@@ -33,6 +33,7 @@ pub mod markers_table;
 pub mod popmap;
 pub mod run_profile;
 pub mod source;
+mod erfc_panels;
 pub mod stats;
 pub mod status;
 pub mod test_method;

@@ -20,19 +20,12 @@ All notable changes to rsx-rs are documented here.
 ### Removed
 
 
-- The Sollya-fitted degree-40 erfc polynomial, its coefficient table, the
-  Horner helper, the `hexf` dependency, and `scripts/sollya/`. The 8.22e-17 the
-  coefficients shipped with bounds the mathematical polynomial. It was fitted as
-  a single degree-40 monomial basis across the whole of [0, 6] and evaluated by
-  Horner in binary64, where the intermediate monomials reach 6^40 ~ 1.3e31;
-  round-off at that magnitude swamps the approximation, so the routine left the
-  bound at t ~ 0.36 and returned negative values from t ~ 4, which a probability
-  cannot be. That is a conditioning error in how the fit was set up, not a limit
-  of the approach: the same target on twelve centred half-unit panels at degree
-  twelve reaches 3.3e-16 absolute with no `exp` call. It was removed rather than
-  refitted because nothing called it and it was never benchmarked against the
-  `libm` erfc it was meant to replace. `chi_squared_p` goes through libm and the
-  CUDA kernels call the device `erfc`, so no result changes.
+- The single degree-40 Sollya fit across [0, 6], its coefficient table, the
+  Horner helper, and the `hexf` dependency. The 8.22e-17 it shipped with bounds
+  the mathematical polynomial. Fitted in the raw variable across the whole
+  interval, its Horner intermediates reach 6^40 ~ 1.3e31, so round-off buried
+  the approximation: it left the bound at t ~ 0.36 and returned negative values
+  from t ~ 4, which a probability cannot be. It had no test and no caller.
 
 ### Changed
 

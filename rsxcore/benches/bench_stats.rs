@@ -19,6 +19,35 @@ fn bench_p_association(c: &mut Criterion) {
     });
 }
 
+/// The panelled table exists for callers without a usable platform erfc. Whether
+/// it also pays for itself against libm is a measurement, not an assumption, so
+/// both run over the same spread of chi-squared statistics a marker scan sees.
+fn bench_erfc_evaluators(c: &mut Criterion) {
+    let statistics: Vec<f64> = (0..1024)
+        .map(|i| 72.0 * (i as f64) / 1023.0)
+        .collect();
+
+    c.bench_function("erfc_libm", |b| {
+        b.iter(|| {
+            let mut total = 0.0f64;
+            for &chi in &statistics {
+                total += libm::erfc(black_box(chi / 2.0).sqrt());
+            }
+            black_box(total)
+        })
+    });
+
+    c.bench_function("erfc_panelled", |b| {
+        b.iter(|| {
+            let mut total = 0.0f64;
+            for &chi in &statistics {
+                total += rsx_core::stats::erfc_panelled(black_box(chi / 2.0).sqrt());
+            }
+            black_box(total)
+        })
+    });
+}
+
 fn bench_cg_format(c: &mut Criterion) {
     use rsx_core::stats::Cg;
     c.bench_function("cg_format", |b| {
@@ -104,6 +133,7 @@ fn bench_fast_parse_u16(c: &mut Criterion) {
 
 criterion_group!(
     benches,
+    bench_erfc_evaluators,
     bench_chi_squared,
     bench_p_association,
     bench_cg_format,

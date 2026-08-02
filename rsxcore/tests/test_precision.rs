@@ -700,11 +700,76 @@ fn test_cg_format_matches_cpp_g() {
     assert_eq!(format!("{}", Cg(0.0113988)), "0.0113988");
 }
 
-/// A Sollya-fitted degree-40 polynomial used to sit beside this path as an
-/// alternative erfc evaluator. Its generator's bound described the mathematical
-/// polynomial; evaluated in binary64 Horner form over the fitted [0, 6] it left
-/// that bound at t ~ 0.36 and returned negative values from t ~ 4, so it was
-/// removed rather than shipped unused. This pins what replaced it.
+/// The predecessor of `erfc_panelled` was a single degree-40 fit across the
+/// whole of [0, 6] in the raw variable. It was accurate as a polynomial and
+/// useless as a routine: Horner intermediates reached 6^40, so it left its own
+/// 8.22e-17 bound at t ~ 0.36 and returned negative values from t ~ 4. Panels
+/// in a centred variable are what fixed that, and this measures the result.
+#[test]
+fn panelled_erfc_matches_libm_across_the_reported_range() {
+    // rsx floors reported p-values here, so this is the value below which a
+    // difference cannot reach a marker call.
+    const FLOOR: f64 = 1e-16;
+
+    let samples = 120_001;
+    let (mut worst_rel, mut worst_at) = (0.0f64, 0.0f64);
+    for i in 0..samples {
+        let t = 6.0 * (i as f64) / ((samples - 1) as f64);
+        let reference = libm::erfc(t);
+        let panelled = rsx_core::stats::erfc_panelled(t);
+        assert!(
+            panelled >= 0.0,
+            "erfc must not go negative: t={t}, got {panelled}"
+        );
+        assert!(panelled <= 1.0, "erfc must not exceed 1: t={t}, got {panelled}");
+        if reference >= FLOOR {
+            let rel = (panelled - reference).abs() / reference;
+            if rel > worst_rel {
+                worst_rel = rel;
+                worst_at = t;
+            }
+        } else {
+            // Past the cut-off the table returns 0. That is only sound because
+            // what it drops is smaller than the floor.
+            assert!(
+                (panelled - reference).abs() < FLOOR,
+                "absolute error {:.3e} at t={t} exceeds the reporting floor",
+                (panelled - reference).abs()
+            );
+        }
+    }
+    assert!(
+        worst_rel < 5e-15,
+        "worst relative error {worst_rel:.3e} at t={worst_at:.4}"
+    );
+
+    // Where a marker call is actually decided, the agreement is tighter: a
+    // Bonferroni threshold on these panels sits near 1e-7, which is t ~ 3.8.
+    let mut worst_decisive = 0.0f64;
+    for i in 0..=47_500 {
+        let t = 4.75 * (i as f64) / 47_500.0;
+        let reference = libm::erfc(t);
+        if reference > 0.0 {
+            let rel = (rsx_core::stats::erfc_panelled(t) - reference).abs() / reference;
+            worst_decisive = worst_decisive.max(rel);
+        }
+    }
+    // fpminimax reports at most 1.1e-16 for these panels, but that bounds the
+    // polynomial; evaluating a degree-14 Horner adds a few ulp on top. The
+    // measured figure is 4.4e-16, and the gap between fitted and evaluated
+    // error is the whole reason the single wide fit failed.
+    assert!(
+        worst_decisive < 1e-15,
+        "worst relative error below t=4.75 was {worst_decisive:.3e}"
+    );
+
+    assert_eq!(rsx_core::stats::erfc_panelled(0.0), 1.0);
+    assert_eq!(rsx_core::stats::erfc_panelled(6.0), 0.0);
+    assert_eq!(rsx_core::stats::erfc_panelled(-1.0), 1.0);
+    assert!(rsx_core::stats::erfc_panelled(f64::NAN).is_nan());
+}
+
+/// The path that produces every reported p-value.
 #[test]
 fn reported_p_values_track_erfc_and_stay_in_range() {
     let samples = 60_001;

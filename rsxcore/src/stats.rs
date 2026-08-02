@@ -122,6 +122,48 @@ fn fast_erfc(t: f64) -> f64 {
     libm::erfc(t)
 }
 
+/// erfc(t) for t >= 0 from a panelled minimax table, without libm.
+///
+/// [0, 6) is cut into 24 panels of width 1/4 and each panel carries a degree-14
+/// fit in the centred variable u = t - c, so |u| <= 1/8 and every monomial the
+/// Horner loop touches stays O(1). That is what keeps the evaluation error near
+/// the approximation error; a single wide fit in the raw variable does not,
+/// because its intermediates run to 6^40.
+///
+/// fpminimax bounds the fitted polynomials at 1.1e-16 relative for t < 4.75;
+/// evaluating a degree-14 Horner adds a few ulp, and the measured figure
+/// against libm is 4.4e-16. Past t = 4.75 it grows to 2.8e-15 by t = 6, where
+/// erfc is already under the 1e-16 floor rsx reports p-values at, and past
+/// t = 6 the table returns 0 because what it drops is smaller than that floor.
+/// `scripts/sollya/erfc_panels.sollya` generates the table and prints the
+/// fitted bound per panel; `tests/test_precision.rs` measures the evaluated
+/// error, which is the number that matters and is never the one the generator
+/// reports.
+///
+/// Provided for callers that cannot rely on the platform erfc. `chi_squared_p`
+/// uses libm, which is faster on the hosts we benchmark.
+#[must_use]
+pub fn erfc_panelled(t: f64) -> f64 {
+    use crate::erfc_panels::{ERFC_PANELS, ERFC_PANEL_COEFFS, ERFC_PANEL_WIDTH};
+
+    if !(t > 0.0) {
+        // erfc(0) = 1, and the caller never passes a negative argument because
+        // t is sqrt(chi2/2). NaN falls here too.
+        return if t.is_nan() { f64::NAN } else { 1.0 };
+    }
+    if t >= ERFC_PANEL_WIDTH * ERFC_PANELS as f64 {
+        return 0.0;
+    }
+    let panel = (t / ERFC_PANEL_WIDTH) as usize;
+    let centre = (panel as f64 + 0.5) * ERFC_PANEL_WIDTH;
+    let u = t - centre;
+    let mut acc = 0.0f64;
+    for &bits in ERFC_PANEL_COEFFS[panel].iter().rev() {
+        acc = acc.mul_add(u, f64::from_bits(bits));
+    }
+    acc
+}
+
 /// Compute p-value of association with group using chi-squared test
 /// with Yates correction. Matches C++ `get_p_association` exactly.
 pub fn p_association(n_group1: u32, n_group2: u32, total_group1: u32, total_group2: u32) -> f64 {
