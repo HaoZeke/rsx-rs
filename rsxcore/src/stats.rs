@@ -146,10 +146,13 @@ fn fast_erfc(t: f64) -> f64 {
 pub fn erfc_panelled(t: f64) -> f64 {
     use crate::erfc_panels::{ERFC_PANELS, ERFC_PANEL_COEFFS, ERFC_PANEL_WIDTH};
 
-    if !(t > 0.0) {
+    if t.is_nan() {
+        return f64::NAN;
+    }
+    if t <= 0.0 {
         // erfc(0) = 1, and the caller never passes a negative argument because
-        // t is sqrt(chi2/2). NaN falls here too.
-        return if t.is_nan() { f64::NAN } else { 1.0 };
+        // t is sqrt(chi2/2).
+        return 1.0;
     }
     if t >= ERFC_PANEL_WIDTH * ERFC_PANELS as f64 {
         return 0.0;
