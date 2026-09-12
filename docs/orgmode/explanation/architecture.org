@@ -49,7 +49,7 @@ which includes the full generated header.
 
 Following the metatensor pattern:
 
-1. All public types are =#[repr(C)]= -- binary-compatible with C
+1. All public types are =#[repr(C)]=, binary-compatible with C
 2. All public functions are =extern "C"= with =catch_unwind= for panic safety
 3. Status code first: every function returns =rsx_status_t=
 4. Thread-local errors: details via =rsx_last_error()=

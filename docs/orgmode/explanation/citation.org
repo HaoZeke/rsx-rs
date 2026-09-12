@@ -28,21 +28,25 @@ Resources, 2021. doi:10.1111/1755-0998.13360
 
 * Software
 
-The repository ships a =CITATION.cff=, so GitHub renders a "Cite this
+The repository includes a =CITATION.cff=, so GitHub renders a "Cite this"
 repository" button with formatted BibTeX and APA. The published artifacts are:
 
 - =rsxcore= and =rsx-cli= (the =rsx= binary) on [[https://crates.io/crates/rsx-cli][crates.io]]
 - =pyrsx= (Python bindings) on [[https://pypi.org/project/pyrsx/][PyPI]]
 
-Zenodo software archive for v0.2.6:
-[[https://doi.org/10.5281/zenodo.20531538][doi:10.5281/zenodo.20531538]]
+The BMC Availability section names version 0.2.8 and the version-independent
+Zenodo deposit [[https://doi.org/10.5281/zenodo.20531538][doi:10.5281/zenodo.20531538]]
+(this snapshot: [[https://doi.org/10.5281/zenodo.20531539][10.5281/zenodo.20531539]]).
+That deposit is the software-and-reproducibility package used for the paper
+figures and numbers.
 
 * Reproducibility archive
 
-The deposited workflow that regenerates the paper's figures and numbers:
+Same Zenodo family. Cite the concept DOI so a later snapshot still resolves:
 
-Goswami R, Goswami R. /Reproducibility archive for rsx./ Zenodo.
-[[https://doi.org/10.5281/zenodo.20531539][doi:10.5281/zenodo.20531539]]
+Goswami R, Goswami R. /Reproducibility package for rsx: a high-performance
+streaming toolkit for RAD-seq sex determination./ Zenodo.
+[[https://doi.org/10.5281/zenodo.20531538][doi:10.5281/zenodo.20531538]]
 
 * BibTeX / BibLaTeX entries
 
@@ -84,6 +88,5 @@ BibTeX/APA.
          }
 #+end_export
 
-For the rsx v0.2.6 software itself, use the Zenodo page (https://doi.org/10.5281/zenodo.20531538)
+For the software, use the Zenodo concept DOI (https://doi.org/10.5281/zenodo.20531538)
 or GitHub's Cite button / =CITATION.cff= (it can generate BibTeX, APA, etc.).
-The reproducibility archive has its own Zenodo BibTeX.

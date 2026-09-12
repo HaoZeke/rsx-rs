@@ -77,7 +77,7 @@ of individuals; =depth=, =merge=, and large inputs use a fixed buffer with
 external sort; =pca= scales with the square of the number of individuals.
 Typical peak is under 500 MB even for tens of millions of markers.
 
-** How do I get sex-linked marker probabilities, not just calls?
+** How do I get sex-linked marker probabilities in addition to calls?
 
 Run =signif= with the Bayesian layer enabled (=--bayes= on the CLI,
 =bayes=True= in =pyrsx.signif=). Each marker then carries a Bayes factor and a
