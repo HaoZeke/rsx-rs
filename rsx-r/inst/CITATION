@@ -1,4 +1,23 @@
 bibentry(
+  bibtype  = "Article",
+  title    = "rsx: a high-performance streaming toolkit for RAD-seq sex determination",
+  author   = c(
+    person("Rohit", "Goswami"),
+    person("Ruhila", "Goswami")
+  ),
+  year     = "2026",
+  journal  = "BMC Bioinformatics",
+  doi      = "10.1186/s12859-026-06628-4",
+  url      = "https://doi.org/10.1186/s12859-026-06628-4",
+  textVersion = paste(
+    "Goswami R, Goswami R (2026).",
+    "rsx: a high-performance streaming toolkit for RAD-seq sex determination.",
+    "BMC Bioinformatics.",
+    "https://doi.org/10.1186/s12859-026-06628-4"
+  )
+)
+
+bibentry(
   bibtype  = "Manual",
   title    = "rsxr: R Bindings for the rsx RAD-seq Sex-Determination Toolkit",
   author   = c(

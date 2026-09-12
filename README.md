@@ -122,7 +122,8 @@ omits analysis results and input datasets.
 ## Documentation
 
 - Full site: https://rsx.rgoswami.me (tutorials, command reference, architecture, HPC design, R + Python integration).
-- Preprint: Goswami R, Goswami R. rsx: A high-performance streaming toolkit for RAD-seq sex determination. arXiv:2606.06434 (2026). https://arxiv.org/abs/2606.06434 (submitted to BMC Bioinformatics).
+- Paper: Goswami R, Goswami R. rsx: a high-performance streaming toolkit for RAD-seq sex determination. *BMC Bioinformatics* (2026). https://doi.org/10.1186/s12859-026-06628-4
+- Preprint: arXiv:2606.06434. https://arxiv.org/abs/2606.06434
 - Reproducibility materials: the companion `rsx_bmc_repro` package (snakemake-orchestrated, MCA/Zenodo archive shape matching the rest of the collection) + the org files under `repro/` in this repo.
 - Software archive: https://doi.org/10.5281/zenodo.20531538
 
@@ -138,13 +139,15 @@ The brown trout LG28 manuscript applies all three on one Icelandic dataset.
 
 ## Citation
 
-Please cite the preprint (or published version when available).
+Please cite the BMC Bioinformatics paper.
 
-> Goswami R, Goswami R. /rsx: A high-performance streaming toolkit for RAD-seq
-> sex determination./ arXiv:2606.06434 (2026). https://arxiv.org/abs/2606.06434
+> Goswami R, Goswami R. rsx: a high-performance streaming toolkit for RAD-seq
+> sex determination. BMC Bioinformatics (2026).
+> https://doi.org/10.1186/s12859-026-06628-4
 
-See `CITATION.cff` (root) for the machine-readable entry (includes the arXiv preprint, RADSex, and Zenodo software DOI). 
-GitHub's "Cite this repository" button also generates BibTeX/APA from it.
+See `CITATION.cff` (root) for the machine-readable entry (journal DOI, arXiv
+preprint, RADSex, and Zenodo software DOI). GitHub's "Cite this repository"
+button also generates BibTeX/APA from it.
 
 RADSex reference: Feron et al., Mol Ecol Resour 2021. https://doi.org/10.1111/1755-0998.13360
 
@@ -153,16 +156,18 @@ For the benchmark data / figures, also cite the deposited reproducibility archiv
 ### BibTeX / BibLaTeX
 
 ```bibtex
-@article{Goswami2026rsx,
-  title         = {rsx: A high-performance streaming toolkit for RAD-seq sex determination},
+@article{goswamiRsxHighperformanceStreaming2026,
+  title         = {rsx: a high-performance streaming toolkit for {RAD-seq} sex determination},
   author        = {Goswami, Rohit and Goswami, Ruhila},
   year          = {2026},
+  month         = sep,
+  journal       = {BMC Bioinformatics},
+  publisher     = {BioMed Central},
+  doi           = {10.1186/s12859-026-06628-4},
+  url           = {https://doi.org/10.1186/s12859-026-06628-4},
   eprint        = {2606.06434},
   archivePrefix = {arXiv},
-  primaryClass  = {q-bio.GN},
-  url           = {https://arxiv.org/abs/2606.06434},
-  doi           = {10.48550/arXiv.2606.06434},
-  note          = {Preprint, submitted to BMC Bioinformatics}
+  primaryClass  = {q-bio.GN}
 }
 ```
 

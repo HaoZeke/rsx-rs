@@ -2,6 +2,13 @@
 
 All notable changes to rsx-rs are documented here.
 
+## [Unreleased]
+
+### Changed
+- Citation surfaces now point at the BMC Bioinformatics early-access article
+  (https://doi.org/10.1186/s12859-026-06628-4). arXiv:2606.06434 remains the
+  preprint.
+
 ## [0.2.9] - 2026-08-02
 
 ### Added
