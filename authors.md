@@ -12,6 +12,19 @@
 Source:
 [`inst/CITATION`](https://github.com/HaoZeke/rsx-rs/blob/main/inst/CITATION)
 
+Goswami R, Goswami R (2026). rsx: a high-performance streaming toolkit
+for RAD-seq sex determination. BMC Bioinformatics.
+https://doi.org/10.1186/s12859-026-06628-4
+
+    @Article{,
+      title = {rsx: a high-performance streaming toolkit for RAD-seq sex determination},
+      author = {Rohit Goswami and Ruhila Goswami},
+      year = {2026},
+      journal = {BMC Bioinformatics},
+      doi = {10.1186/s12859-026-06628-4},
+      url = {https://doi.org/10.1186/s12859-026-06628-4},
+    }
+
 Goswami R, Goswami R (2026). rsxr: R Bindings for the rsx RAD-seq
 Sex-Determination Toolkit. https://github.com/HaoZeke/rsx-rs
 
