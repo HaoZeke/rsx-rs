@@ -83,9 +83,7 @@ impl BitsetRow {
     /// Clear all bits to zero (for reuse).
     #[inline]
     pub fn clear(&mut self) {
-        for w in &mut self.words {
-            *w = 0;
-        }
+        self.words.fill(0);
     }
 }
 

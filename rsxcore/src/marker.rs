@@ -46,9 +46,7 @@ impl Marker {
             self.id.clear();
             self.sequence.clear();
         }
-        for d in &mut self.individual_depths {
-            *d = 0;
-        }
+        self.individual_depths.fill(0);
         self.presence.clear();
         self.n_individuals = 0;
         self.p = 0.0;

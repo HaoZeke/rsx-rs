@@ -1111,6 +1111,7 @@ impl GramAccumulator {
     /// realistic individual counts.
     const DEFAULT_TILE_MARKERS: usize = 262_144;
     /// Markers each thread walks before the grid adds another chunk.
+    #[cfg(feature = "cuda")]
     const MARKERS_PER_CHUNK: u64 = 512;
 
     pub fn new(

@@ -144,7 +144,10 @@ fn fast_erfc(t: f64) -> f64 {
 /// uses libm, which is faster on the hosts we benchmark.
 #[must_use]
 pub fn erfc_panelled(t: f64) -> f64 {
-    use crate::erfc_panels::{ERFC_PANEL_COEFFS, ERFC_PANEL_WIDTH, ERFC_PANELS};
+    use crate::erfc_panels::{ERFC_DEGREE, ERFC_PANEL_COEFFS, ERFC_PANEL_WIDTH, ERFC_PANELS};
+
+    // The generated table and its declared degree must agree.
+    const _: () = assert!(ERFC_PANEL_COEFFS[0].len() == ERFC_DEGREE + 1);
 
     if t.is_nan() {
         return f64::NAN;
