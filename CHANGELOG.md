@@ -4,6 +4,22 @@ All notable changes to rsx-rs are documented here.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-09-25
+
+### Fixed
+- **rsx-cli** carries the release version again. Its explicit version stayed
+  at 0.2.6 through the 0.2.7, 0.2.8 and 0.2.9 tags, so `rsx --version`
+  reported 0.2.6, and cargo-dist, which releases the packages whose version
+  matches the tag, published no artifacts for those three tags.
+- `Cargo.lock` matches the manifests again: workspace crates at the release
+  version, and `hexf`, `hexf-parse` and `syn` 1.x, which nothing depends on
+  any more, are gone. A `--locked` build of the 0.2.9 tag failed on the stale
+  lock file.
+- The committed C header (`rsxcore/include/rsx.h`, `rsx-r/src/rsx.h`) carries
+  the release version.
+- Python package, pixi manifest, Sphinx configuration and `CITATION.cff` carry
+  the release version.
+
 ### Changed
 - Citation surfaces now point at the BMC Bioinformatics early-access article
   (https://doi.org/10.1186/s12859-026-06628-4). arXiv:2606.06434 remains the
