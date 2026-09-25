@@ -23,9 +23,7 @@ fn bench_p_association(c: &mut Criterion) {
 /// it also pays for itself against libm is a measurement, not an assumption, so
 /// both run over the same spread of chi-squared statistics a marker scan sees.
 fn bench_erfc_evaluators(c: &mut Criterion) {
-    let statistics: Vec<f64> = (0..1024)
-        .map(|i| 72.0 * (i as f64) / 1023.0)
-        .collect();
+    let statistics: Vec<f64> = (0..1024).map(|i| 72.0 * (i as f64) / 1023.0).collect();
 
     c.bench_function("erfc_libm", |b| {
         b.iter(|| {

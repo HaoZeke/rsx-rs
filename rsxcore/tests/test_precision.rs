@@ -721,7 +721,10 @@ fn panelled_erfc_matches_libm_across_the_reported_range() {
             panelled >= 0.0,
             "erfc must not go negative: t={t}, got {panelled}"
         );
-        assert!(panelled <= 1.0, "erfc must not exceed 1: t={t}, got {panelled}");
+        assert!(
+            panelled <= 1.0,
+            "erfc must not exceed 1: t={t}, got {panelled}"
+        );
         if reference >= FLOOR {
             let rel = (panelled - reference).abs() / reference;
             if rel > worst_rel {

@@ -144,7 +144,7 @@ fn fast_erfc(t: f64) -> f64 {
 /// uses libm, which is faster on the hosts we benchmark.
 #[must_use]
 pub fn erfc_panelled(t: f64) -> f64 {
-    use crate::erfc_panels::{ERFC_PANELS, ERFC_PANEL_COEFFS, ERFC_PANEL_WIDTH};
+    use crate::erfc_panels::{ERFC_PANEL_COEFFS, ERFC_PANEL_WIDTH, ERFC_PANELS};
 
     if t.is_nan() {
         return f64::NAN;
