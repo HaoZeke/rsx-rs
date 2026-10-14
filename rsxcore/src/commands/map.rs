@@ -155,10 +155,19 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         ),
         effective_n_markers
     )?;
-    writeln!(
-        output,
-        "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif"
-    )?;
+    if params.output_bayes {
+        writeln!(
+            output,
+            "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif\tBayes_Factor\tPosterior_SexLinked"
+        )?;
+    } else {
+        writeln!(
+            output,
+            "Contig\tPosition\tLength\tMarker_id\tBias\tP\tCorrectedP\tSignif"
+        )?;
+    }
+
+    let bayes_model = stats::DirectionalModel::directional_screening_v1();
 
     let mut n_aligned = 0u64;
     let mut write_err: Option<std::io::Error> = None;
@@ -211,10 +220,24 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
         let p_corrected = stats::bonferroni_correct(p, effective_n_markers);
         let signif = p < signif_threshold;
         let contig_len = contig_lengths.get(&contig).copied().unwrap_or(0);
+        let bayes_suffix = if params.output_bayes {
+            let factor = stats::bayes_factor_2x2_with_validated_model(
+                g1,
+                g2,
+                total_g1,
+                total_g2,
+                &bayes_model.bayes_factor,
+            );
+            let posterior =
+                stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &bayes_model);
+            format!("\t{factor:.4}\t{posterior:.4}")
+        } else {
+            String::new()
+        };
 
         if let Err(e) = writeln!(
             output,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{bayes_suffix}",
             contig,
             position,
             contig_len,

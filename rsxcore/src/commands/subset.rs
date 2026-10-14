@@ -116,8 +116,20 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
             ),
             effective_n_markers
         )?;
-        writeln!(output, "{}", header_columns.join("\t"))?;
+        if params.output_bayes {
+            writeln!(
+                output,
+                "{}\tBayes_Factor\tPosterior_SexLinked",
+                header_columns.join("\t")
+            )?;
+        } else {
+            writeln!(output, "{}", header_columns.join("\t"))?;
+        }
     }
+
+    // Table-only columns. FASTA keeps the sequence header and does not grow a
+    // Bayes field the writer cannot place.
+    let bayes_model = stats::DirectionalModel::directional_screening_v1();
 
     let fasta_groups = vec![
         (groups.group1.clone(), &mask_g1),
@@ -151,6 +163,21 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut write_marker = |marker: &crate::marker::Marker| -> std::io::Result<()> {
         if params.output_fasta {
             marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)
+        } else if params.output_bayes {
+            let g1 = marker.presence.count_masked(&mask_g1);
+            let g2 = marker.presence.count_masked(&mask_g2);
+            write_subset_bayes_row(
+                &mut output,
+                marker,
+                stats::bayes_factor_2x2_with_validated_model(
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    &bayes_model.bayes_factor,
+                ),
+                stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &bayes_model),
+            )
         } else {
             marker.write_as_table(&mut output)
         }
@@ -183,4 +210,17 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn write_subset_bayes_row<W: Write>(
+    output: &mut W,
+    marker: &crate::marker::Marker,
+    bayes_factor: f64,
+    posterior: f64,
+) -> std::io::Result<()> {
+    write!(output, "{}\t{}", marker.id, marker.sequence)?;
+    for &depth in &marker.individual_depths {
+        write!(output, "\t{depth}")?;
+    }
+    writeln!(output, "\t{bayes_factor:.4}\t{posterior:.4}")
 }

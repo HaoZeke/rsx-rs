@@ -344,3 +344,129 @@ fn merge_keeps_sample_offsets_past_u16() {
     assert_eq!(fields[2], "0", "first wide sample was overwritten: {data}");
     assert_eq!(fields.last().copied(), Some("7"));
 }
+
+#[test]
+fn canonical_kmer_hash_matches_revcomp_for_the_reported_33mer() {
+    let seq = b"TTAGTTGTGCCGCAGCGAAGTAGTGCTTGAAATATG";
+    assert_eq!(seq.len(), 36);
+    let reverse = seq
+        .iter()
+        .rev()
+        .map(|base| match base {
+            b'A' => b'T',
+            b'C' => b'G',
+            b'G' => b'C',
+            b'T' => b'A',
+            _ => b'N',
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        rsx_core::kmer::canonical_kmer_hash(seq, 33),
+        rsx_core::kmer::canonical_kmer_hash(&reverse, 33)
+    );
+}
+
+fn subset_output(output_bayes: bool) -> String {
+    let dir = temp_dir();
+    let table = dir.join(if output_bayes {
+        "subset_bayes.tsv"
+    } else {
+        "subset_plain.tsv"
+    });
+    let popmap = table.with_extension("popmap.tsv");
+    let output = table.with_extension("out.tsv");
+    let mut markers = std::fs::File::create(&table).unwrap();
+    write!(
+        markers,
+        "#Number of markers : 1\n\
+         id\tsequence\tm1\tf1\n\
+         0\tACGT\t5\t0\n"
+    )
+    .unwrap();
+    drop(markers);
+    std::fs::write(&popmap, "m1\tM\nf1\tF\n").unwrap();
+    rsx_core::commands::subset::run(&rsx_core::commands::subset::SubsetParams {
+        markers_table_path: table.to_str().unwrap().to_string(),
+        popmap_file_path: popmap.to_str().unwrap().to_string(),
+        output_file_path: output.to_str().unwrap().to_string(),
+        min_depth: 1,
+        signif_threshold: 0.05,
+        correction: rsx_core::test_method::CorrectionMethod::None,
+        test_method: rsx_core::test_method::TestMethod::ChiSquared,
+        output_bayes,
+        output_fasta: false,
+        group1: "M".into(),
+        group2: "F".into(),
+        min_group1: 0,
+        min_group2: 0,
+        max_group1: 9,
+        max_group2: 9,
+        min_individuals: 0,
+        max_individuals: 9,
+    })
+    .unwrap();
+    std::fs::read_to_string(output).unwrap()
+}
+
+#[test]
+fn subset_bayes_flag_changes_output() {
+    let plain = subset_output(false);
+    let bayes = subset_output(true);
+    assert_ne!(plain, bayes);
+    assert!(
+        bayes.contains("Bayes_Factor") && bayes.contains("Posterior_SexLinked"),
+        "{bayes}"
+    );
+    let row = bayes
+        .lines()
+        .find(|line| line.contains("ACGT"))
+        .expect("subset keeps the marker");
+    assert_eq!(row.split('\t').count(), 6, "{row}");
+}
+
+#[cfg(feature = "map")]
+#[test]
+fn map_bayes_flag_changes_output() {
+    let dir = temp_dir();
+    let table = dir.join("markers.tsv");
+    let popmap = dir.join("popmap.tsv");
+    let genome = dir.join("genome.fa");
+    let mut markers = std::fs::File::create(&table).unwrap();
+    write!(
+        markers,
+        "#Number of markers : 1\n\
+         id\tsequence\tind1\tind2\n\
+         0\tATCGATCGATCG\t5\t0\n"
+    )
+    .unwrap();
+    drop(markers);
+    std::fs::write(&popmap, "ind1\tM\nind2\tF\n").unwrap();
+    std::fs::write(&genome, ">chr1\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n").unwrap();
+    let run = |bayes: bool| {
+        let output = dir.join(format!("map_{bayes}.tsv"));
+        rsx_core::commands::map::run(&rsx_core::commands::map::MapParams {
+            markers_table_path: table.to_str().unwrap().to_string(),
+            popmap_file_path: popmap.to_str().unwrap().to_string(),
+            genome_file_path: genome.to_str().unwrap().to_string(),
+            output_file_path: output.to_str().unwrap().to_string(),
+            min_depth: 1,
+            min_quality: 0,
+            min_frequency: 0.1,
+            signif_threshold: 0.05,
+            correction: rsx_core::test_method::CorrectionMethod::None,
+            test_method: rsx_core::test_method::TestMethod::ChiSquared,
+            output_bayes: bayes,
+            group1: "M".into(),
+            group2: "F".into(),
+        })
+        .unwrap();
+        std::fs::read_to_string(output).unwrap()
+    };
+    let plain = run(false);
+    let bayes = run(true);
+    assert_ne!(plain, bayes);
+    assert!(
+        bayes.contains("Bayes") || bayes.contains("Posterior"),
+        "{bayes}"
+    );
+}
