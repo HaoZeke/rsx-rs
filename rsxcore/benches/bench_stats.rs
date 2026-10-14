@@ -122,6 +122,39 @@ fn bench_bitset_popcount_1000(c: &mut Criterion) {
     });
 }
 
+fn bench_exact_association(c: &mut Criterion) {
+    use rsx_core::ozaki_exact;
+    use rsx_core::stats::{self, BayesFactorModel};
+    let model = BayesFactorModel::uniform_v1();
+    c.bench_function("fisher_lgamma_20", |b| {
+        b.iter(|| stats::fisher_exact(black_box(8), black_box(2), black_box(20), black_box(20)))
+    });
+    c.bench_function("fisher_integer_20", |b| {
+        b.iter(|| {
+            ozaki_exact::fisher_probability(
+                black_box(8),
+                black_box(2),
+                black_box(20),
+                black_box(20),
+            )
+        })
+    });
+    c.bench_function("bayes_lgamma_20", |b| {
+        b.iter(|| stats::bayes_factor_2x2(black_box(8), black_box(2), black_box(20), black_box(20)))
+    });
+    c.bench_function("bayes_integer_20", |b| {
+        b.iter(|| {
+            ozaki_exact::bayes_factor_integer_prior(
+                black_box(8),
+                black_box(2),
+                black_box(20),
+                black_box(20),
+                black_box(&model),
+            )
+        })
+    });
+}
+
 fn bench_fast_parse_u16(c: &mut Criterion) {
     use rsx_core::io::table_io::fast_parse_u16;
     c.bench_function("fast_parse_u16", |b| {
@@ -139,5 +172,6 @@ criterion_group!(
     bench_bitset_popcount_large,
     bench_bitset_popcount_1000,
     bench_fast_parse_u16,
+    bench_exact_association,
 );
 criterion_main!(benches);

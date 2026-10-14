@@ -1,0 +1,59 @@
+name: Formal
+on:
+  push:
+    branches: [main, design/ozaki-exact]
+  pull_request:
+jobs:
+  sympy:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Slice, CRT, and hypergeometric checks
+        run: |
+          python -m pip install --upgrade sympy pytest
+          python -m pytest formal/sympy -q
+
+  lean:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Build the OzakiExact proofs
+        working-directory: formal/lean
+        run: |
+          lake exe cache get
+          lake build
+
+  tla:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install a JRE and TLC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends openjdk-21-jre-headless
+          curl -fsSL -o /tmp/tla2tools.jar \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+      - name: Model-check the sharded merge
+        working-directory: formal/tla
+        run: |
+          java -jar /tmp/tla2tools.jar -workers 1 -config ShardMerge.cfg ShardMerge.tla \
+            | tee tlc.out
+          grep -q "Model checking completed. No error has been found." tlc.out
+
+  sollya:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Sollya 8.0
+        run: sh scripts/ci/install_sollya.sh
+      - name: Certify the logarithm panels and match the Rust constants
+        run: |
+          sollya formal/sollya/ln_reduced.sollya > /tmp/ln_reduced.out
+          python3 formal/sollya/check_bounds.py /tmp/ln_reduced.out rsxcore/src/ln_reduced.rs

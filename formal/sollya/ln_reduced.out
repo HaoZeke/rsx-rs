@@ -1,0 +1,612 @@
+ABS_BOUND_UPPER 0x1.f48729117040bf06373d6p-55
+
+LN2_BITS 0x3fe62e42fefa39ef
+
+PANEL 0
+C 0x3f8fc0a8b0fc03e4
+
+C 0x3fef81f81f81f81f
+
+C 0xbfdf05e09d0dc25d
+
+C 0x3fd45d2139251403
+
+C 0xbfce13644413d11b
+
+C 0x3fc7b0c0432fb9cf
+
+C 0xbfc37040d6981e5f
+
+C 0x3fc069f8adcd8f9f
+
+C 0xbfbb9bff60524bc3
+
+PANEL 0x1p0
+C 0x3fa77458f632dcfc
+
+C 0x3fee9131abf0b767
+
+C 0xbfdd32cfecd6a03c
+
+C 0x3fd2981454982d92
+
+C 0xbfcaa4698f9b1ef4
+
+C 0x3fc45c042a20fbcf
+
+C 0xbfc03498288c038f
+
+C 0x3fba8cbfea433dc2
+
+C 0xbfba179899ffcd45
+
+PANEL 0x1p1
+C 0x3fb341d7961bd1d1
+
+C 0x3fedae6076b981db
+
+C 0xbfdb87c5115e3d9d
+
+C 0x3fd1060a8dd4ca79
+
+C 0xbfc7af5c8e8da674
+
+C 0x3fc19330a756e9c7
+
+C 0xbfbb2cfa92b1c4b9
+
+C 0x3fb59b3fa2602bcb
+
+C 0xbf95873912fc55f8
+
+PANEL 0x1.8p1
+C 0x3fba926d3a4ad563
+
+C 0x3fecd85689039b0b
+
+C 0xbfda004e00e9edb1
+
+C 0x3fcf4010d4a0e144
+
+C 0xbfc5207ecbb39096
+
+C 0x3fbe786bd26b9c40
+
+C 0xbfb6e1e46c3544ce
+
+C 0x3fb1b030acd22be5
+
+C 0xbfb92e2dc0851b9c
+
+PANEL 0x1p2
+C 0x3fc0d77e7cd08e59
+
+C 0x3fec0e070381c0e0
+
+C 0xbfd898926c4781db
+
+C 0x3fccc060592b9918
+
+C 0xbfc2e7b3274b02c1
+
+C 0x3fba84d68b070f14
+
+C 0xbfb35cacffb6e73e
+
+C 0x3fad22f70cd5e440
+
+C 0xbfc0fc88670432c4
+
+PANEL 0x1.4p2
+C 0x3fc44d2b6ccb7d1e
+
+C 0x3feb4e81b4e81b4e
+
+C 0xbfd74d3b7ba72ce5
+
+C 0x3fca831bdb3344df
+
+C 0xbfc0f7bffbe9d453
+
+C 0x3fb72aaa57c3cdd0
+
+C 0xbfb0761e352a55b6
+
+C 0x3fa81ddc6f943c16
+
+C 0xbfc0092e8457011b
+
+PANEL 0x1.8p2
+C 0x3fc7ab890210d909
+
+C 0x3fea98ef606a63bd
+
+C 0xbfd61b5fe5bf7280
+
+C 0x3fc87fdc6c54774c
+
+C 0xbfbe8b76982aab08
+
+C 0x3fb44f6f38b5cb16
+
+C 0xbfac20efec0c6822
+
+C 0x3fa40f7fb76c2b8c
+
+C 0xbfaafae4b3740f45
+
+PANEL 0x1.cp2
+C 0x3fcaf3c94e80bff3
+
+C 0x3fe9ec8e951033d9
+
+C 0xbfd50073827b5dfb
+
+C 0x3fc6af79878acb69
+
+C 0xbfbb912f2b12d3a0
+
+C 0x3fb1ddc51c3b2401
+
+C 0xbfa822011b0f53d0
+
+C 0x3fa0c1fabcb24d5a
+
+C 0x3f862c4a1af67e35
+
+PANEL 0x1p3
+C 0x3fce27076e2af2e6
+
+C 0x3fe948b0fcd6e9e0
+
+C 0xbfd3fa39ab5482c8
+
+C 0x3fc50bd36797c549
+
+C 0xbfb8f192399b22b2
+
+C 0x3faf889f532d1e64
+
+C 0xbfa4c4aff5800987
+
+C 0x3f9c258b74a132e1
+
+C 0x3f2663761e3604bf
+
+PANEL 0x1.2p3
+C 0x3fd0a324e27390e3
+
+C 0x3fe8acb90f6bf3aa
+
+C 0xbfd306b9e0b5a0c6
+
+C 0x3fc38fa774e7c536
+
+C 0xbfb69ffc911f4ca8
+
+C 0x3fabe9c692a20174
+
+C 0xbfa1e3bb0c2af7d7
+
+C 0x3f97b31689be0de3
+
+C 0xbfc7365806054816
+
+PANEL 0x1.4p3
+C 0x3fd22941fbcf7966
+
+C 0x3fe8181818181818
+
+C 0xbfd22436485aba9d
+
+C 0x3fc2366cb50fa4af
+
+C 0xbfb491cbd17a68e1
+
+C 0x3fa8c7bc90a281a9
+
+C 0xbf9f30343322937c
+
+C 0x3f9413d9b90816df
+
+C 0x3fc32dd9929f536d
+
+PANEL 0x1.6p3
+C 0x3fd3a64c556945ea
+
+C 0x3fe78a4c8178a4c8
+
+C 0xbfd15123aeb135ce
+
+C 0x3fc0fc369d9d1cad
+
+C 0xbfb2be0722347889
+
+C 0x3fa60f559bd9eb4d
+
+C 0xbf9b1a23662da3fd
+
+C 0x3f910fbccac0add6
+
+C 0x3fb68141bdb7f449
+
+PANEL 0x1.8p3
+C 0x3fd51aad872df82d
+
+C 0x3fe702e05c0b8170
+
+C 0xbfd08c22c6810d04
+
+C 0x3fbfbb3a0e646fd4
+
+C 0xbfb11d10f535f981
+
+C 0x3fa3b0afd2e21738
+
+C 0xbf9796d3d199c4b5
+
+C 0x3f8d1cb117a0138f
+
+C 0xbf9a8b9b3da2e073
+
+PANEL 0x1.ap3
+C 0x3fd686c81e9b14af
+
+C 0x3fe6816816816817
+
+C 0xbfcfa7f4def44d2f
+
+C 0x3fbdaf50860b94fe
+
+C 0xbfaf50dba1859dd7
+
+C 0x3fa19e95f4d1e432
+
+C 0xbf94b6111c68d258
+
+C 0x3f88dd1fce8ae5bf
+
+C 0x3fb8a28d4c00f65f
+
+PANEL 0x1.cp3
+C 0x3fd7eaf83b82afc3
+
+C 0x3fe6058160581606
+
+C 0xbfce4f25ade3ef97
+
+C 0x3fbbcf8114fffe08
+
+C 0xbfacb52aff5198b0
+
+C 0x3f9f9bfca8e16caa
+
+C 0xbf920763804835e8
+
+C 0x3f85590bf2f32111
+
+C 0xbfc72f00f1311f1c
+
+PANEL 0x1.ep3
+C 0x3fd947941c2116fb
+
+C 0x3fe58ed2308158ed
+
+C 0xbfcd0be29cfa2f5a
+
+C 0x3fba17405384396a
+
+C 0xbfaa5d8ebe0881e7
+
+C 0x3f9c6b5045d841dd
+
+C 0xbf9005cfe0df83f0
+
+C 0x3f8270c39c6c7c4e
+
+C 0x3fbd9eba458c4712
+
+PANEL 0x1p4
+C 0x3fda9cec9a9a084a
+
+C 0x3fe51d07eae2f815
+
+C 0xbfcbdc69754bec2c
+
+C 0x3fb8828fcc5b1e08
+
+C 0xbfa841df75433acc
+
+C 0x3f999b944ca32c00
+
+C 0xbf8c623e9be49136
+
+C 0x3f7fe004fddab0c7
+
+C 0x3fc8eb1e742d5b55
+
+PANEL 0x1.1p4
+C 0x3fdbeb4d9da71b7c
+
+C 0x3fe4afd6a052bf5b
+
+C 0xbfcabf2503010588
+
+C 0x3fb70dea7615c49b
+
+C 0xbfa65b11da2a2bab
+
+C 0x3f971f9f4b8165f8
+
+C 0xbf88ee474381444f
+
+C 0x3f7b885859c7d021
+
+C 0x3f86515283edf0c0
+
+PANEL 0x1.2p4
+C 0x3fdd32fe7e00ebd5
+
+C 0x3fe446f86562d9fb
+
+C 0xbfc9b2a7c9fde843
+
+C 0x3fb5b63434609393
+
+C 0xbfa4a30c2c839aab
+
+C 0x3f94ec46a502d817
+
+C 0xbf85e7db3ff5ee4c
+
+C 0x3f77feded37a71e5
+
+C 0xbfc62a5d5eb83603
+
+PANEL 0x1.3p4
+C 0x3fde744261d68788
+
+C 0x3fe3e22cbce4a902
+
+C 0xbfc8b5a770f49430
+
+C 0x3fb478abdc57f344
+
+C 0xbfa3148230450195
+
+C 0x3f92f80da3c37190
+
+C 0xbf83b32dfd7abf1e
+
+C 0x3f750244da0dabc2
+
+C 0x3fa7eb59db11bf43
+
+PANEL 0x1.4p4
+C 0x3fdfaf588f78f31f
+
+C 0x3fe3813813813814
+
+C 0xbfc7c6f8c7523152
+
+C 0x3fb352df4fe617af
+
+C 0xbfa1aada933e1262
+
+C 0x3f913adcd69c0ad1
+
+C 0xbf819407d2e0d58f
+
+C 0x3f72359b6feb43b5
+
+C 0x3fb06b20d0890210
+
+PANEL 0x1.5p4
+C 0x3fe0723e5c1cdf40
+
+C 0x3fe323e34a2b10bf
+
+C 0xbfc6e58c4f2688e9
+
+C 0x3fb242a157da9323
+
+C 0xbfa062107a722e1a
+
+C 0x3f8f5b81b3bd37bc
+
+C 0xbf7ea5d0d22a60ba
+
+C 0x3f70187922a1dc7d
+
+C 0xbfd18a71a48fb752
+
+PANEL 0x1.6p4
+C 0x3fe109f39e2d4c97
+
+C 0x3fe2c9fb4d812ca0
+
+C 0xbfc6106b37c90a1d
+
+C 0x3fb14600f415d5fb
+
+C 0xbf9e6d37a5fe8880
+
+C 0x3f8c95946cb19e03
+
+C 0xbf7bfd268a0acdb0
+
+C 0x3f6c0fc781249280
+
+C 0x3f76c4b55b15962a
+
+PANEL 0x1.7p4
+C 0x3fe19ee6b467c96f
+
+C 0x3fe27350b8812735
+
+C 0xbfc546b4b916c246
+
+C 0x3fb05b41e6b28f2a
+
+C 0xbf9c4ad1a553efdd
+
+C 0x3f8a19aadefa1f18
+
+C 0xbf797c18b3f9f40e
+
+C 0x3f68cf1ebb1794af
+
+C 0x3fc6c12245feb0ce
+
+PANEL 0x1.8p4
+C 0x3fe23130d7bebf43
+
+C 0x3fe21fb78121fb78
+
+C 0xbfc4879bc1db1894
+
+C 0x3faf01ac90c3f78b
+
+C 0xbf9a577fd026d15a
+
+C 0x3f87deeed0e686ee
+
+C 0xbf7782b3113479cc
+
+C 0x3f65e772cb6dc2a8
+
+C 0x3fdbb904c90be604
+
+PANEL 0x1.9p4
+C 0x3fe2c0e9ed448e8c
+
+C 0x3fe1cf06ada2811d
+
+C 0xbfc3d264edc9d3d3
+
+C 0x3fad6ab1fb3a2000
+
+C 0xbf988e7ca979daa7
+
+C 0x3f85ddb686576d68
+
+C 0xbf74d52020d5aba8
+
+C 0x3f6354d87d975529
+
+C 0x3fcf322f6026f0d1
+
+PANEL 0x1.ap4
+C 0x3fe34e289d9ce1d3
+
+C 0x3fe1811811811812
+
+C 0xbfc32664b9707cf9
+
+C 0x3fabef11d4ded0b6
+
+C 0xbf96eb8be2dcb68c
+
+C 0x3f840f5c28db7490
+
+C 0xbf721bf6c41106c8
+
+C 0x3f60fc7a1abf41ab
+
+C 0xbfb4a166deafc19c
+
+PANEL 0x1.bp4
+C 0x3fe3d9026a7156fb
+
+C 0x3fe135c81135c811
+
+C 0xbfc282fdebcb2e62
+
+C 0x3faa8c8991455d0e
+
+C 0xbf956ae998944b4a
+
+C 0x3f826e130890266e
+
+C 0xbf713d0e737242b5
+
+C 0x3f5e9ae96ca8532d
+
+C 0x3fd4628b802f79dc
+
+PANEL 0x1.cp4
+C 0x3fe4618bc21c5ec2
+
+C 0x3fe0ecf56be69c90
+
+C 0xbfc1e7a02e6f26a7
+
+C 0x3fa9410f10d6b325
+
+C 0xbf9409507876a38b
+
+C 0x3f80f4d535a531a1
+
+C 0xbf6bf11288b26ad8
+
+C 0x3f5b05a0b5d8337d
+
+C 0xbfdbd64a09252d02
+
+PANEL 0x1.dp4
+C 0x3fe4e7d811b75bb1
+
+C 0x3fe0a6810a6810a7
+
+C 0xbfc153c6ce7a1384
+
+C 0x3fa80aca4fbb830f
+
+C 0xbf92c3bacb2893c0
+
+C 0x3f7f3e6e240c1841
+
+C 0xbf6ca58a5acf31db
+
+C 0x3f57d71954b72e93
+
+C 0x3fd606a5cb926bf4
+
+PANEL 0x1.ep4
+C 0x3fe56bf9d5b3f399
+
+C 0x3fe0624dd2f1a9fc
+
+C 0xbfc0c6f7a0b51484
+
+C 0x3fa6e80fe03335e3
+
+C 0xbf91979b07d8221f
+
+C 0x3f7cd2b314c6d42a
+
+C 0xbf67940b92cf6764
+
+C 0x3f5586b39b8ebfaa
+
+C 0xbfcd03845b4d3685
+
+PANEL 0x1.fp4
+C 0x3fe5ee02a9241675
+
+C 0x3fe0204081020408
+
+C 0xbfc040c2050aa422
+
+C 0x3fa5d75c1438f819
+
+C 0xbf90828cc875188c
+
+C 0x3f7a9fb5b6fec884
+
+C 0xbf64992378487f09
+
+C 0x3f535c93b13cdc8c
+
+C 0xbfd91b9fa9fd1add
+

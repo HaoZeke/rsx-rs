@@ -1,0 +1,56 @@
+/*
+ * Certified minimax for ln on the binary significand interval [1, 2).
+ *
+ * Thirty-two panels of width 1/32, each a degree-8 fpminimax polynomial in the
+ * centred variable u = m - c. supnorm returns an interval that contains the
+ * true absolute error; the Rust constant LN_POLY_ABS_BOUND must sit at or
+ * above every upper endpoint.
+ *
+ * Run: sollya ln_reduced.sollya
+ */
+
+prec = 200!;
+verbosity = 0!;
+display = hexadecimal!;
+
+w = 1/32;
+d = 8;
+n = 32;
+
+procedure panel_poly(k) {
+  cc = 1 + k * w + w / 2;
+  gg = log(x + cc);
+  return fpminimax(gg, d, [|D...|], [-w/2; w/2], absolute);
+};
+
+procedure panel_sup(k) {
+  cc = 1 + k * w + w / 2;
+  gg = log(x + cc);
+  pp = panel_poly(k);
+  return supnorm(pp, gg, [-w/2; w/2], absolute, 1b-30);
+};
+
+worst = 0;
+for k from 0 to n - 1 do {
+  up = sup(panel_sup(k));
+  if (up > worst) then { worst = up; };
+};
+
+write("ABS_BOUND_UPPER ");
+print(worst);
+write("\n");
+write("LN2_BITS ");
+printdouble(log(2));
+write("\n");
+
+for k from 0 to n - 1 do {
+  pp = panel_poly(k);
+  write("PANEL ", k, "\n");
+  for j from 0 to d do {
+    write("C ");
+    printdouble(coeff(pp, j));
+    write("\n");
+  };
+};
+
+quit;
