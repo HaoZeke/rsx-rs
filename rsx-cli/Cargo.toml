@@ -4,7 +4,7 @@ name = "rsx-cli"
 # semver step ahead of the library when crates.io already holds a CLI cut.
 version = "0.2.10"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "GPL-3.0-or-later"
 description = "Rust CLI for RAD-seq sex-determination marker analysis (RADSex-compatible)"
 repository = "https://github.com/HaoZeke/rsx-rs"
@@ -21,7 +21,10 @@ parquet-io = ["rsxcore/parquet-io"]
 cuda = ["rsxcore/cuda"]
 
 [dependencies]
-rsxcore = { path = "../rsxcore", version = "0.2.10", features = ["parallel"] }
+# rsxcore defaults include `map` (minimap2), which does not build on MSVC.
+# Keep that feature on the CLI `map` switch so `--no-default-features` is the
+# documented Windows build, while the default CLI still enables it.
+rsxcore = { path = "../rsxcore", version = "0.2.10", default-features = false, features = ["parallel"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 env_logger = "0.11"
 log = "0.4"

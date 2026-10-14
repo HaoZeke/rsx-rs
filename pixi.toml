@@ -5,13 +5,13 @@ channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]
 
 [dependencies]
-rust = ">=1.85"
+rust = ">=1.88"
 
 [feature.dev.tasks]
-check = { cmd = "cargo fmt --check && cargo clippy -- -D warnings && cargo nextest run -p rsxcore --profile ci" }
+check = { cmd = "cargo fmt --check && cargo clippy -- -D warnings && cargo nextest run -p rsxcore -p rsx-cli --profile ci" }
 build = { cmd = "RUSTFLAGS='-C target-cpu=native' cargo build --release" }
 build-portable = { cmd = "cargo build --release" }
-test = { cmd = "cargo nextest run -p rsxcore" }
+test = { cmd = "cargo nextest run -p rsxcore -p rsx-cli" }
 test-all = { cmd = "cargo nextest run", description = "Workspace nextest (all members)" }
 gen-header = { cmd = "cargo build --manifest-path rsxcore/Cargo.toml --features gen-header" }
 # Build/install the C library + cbindgen header + pkg-config via cargo-c.

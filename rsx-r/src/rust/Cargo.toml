@@ -2,7 +2,7 @@
 name = "rsxr"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.88"
 publish = false
 description = "Static-library anchor exposing the rsxcore C API to the rsxr R package"
 license = "GPL-3.0-or-later"

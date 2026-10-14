@@ -2,7 +2,7 @@
 name = "pyrsx"
 version.workspace = true
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "GPL-3.0-or-later"
 description = "Python bindings for rsx: RAD-seq sex determination toolkit"
 repository = "https://github.com/HaoZeke/rsx-rs"

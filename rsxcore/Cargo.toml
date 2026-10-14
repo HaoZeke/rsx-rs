@@ -2,7 +2,7 @@
 name = "rsxcore"
 version.workspace = true
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "GPL-3.0-or-later"
 description = "Rust library for RAD-seq sex-determination marker analysis (RADSex-compatible)"
 repository = "https://github.com/HaoZeke/rsx-rs"
@@ -75,6 +75,9 @@ cbindgen = { version = "0.28", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+# 1.11 keeps the dev-dependency on the 1.85-compatible line. The crate MSRV
+# is 1.88 because triage uses let-chains.
+proptest = "1.11"
 tempfile = "3"
 # the precision suite compares the polynomial against the same erfc the
 # library calls, so it needs the reference directly

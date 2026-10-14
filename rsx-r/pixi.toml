@@ -24,7 +24,7 @@ r-rcmdcheck = "*"
 r-testthat = ">=3.0"
 r-tibble = "*"
 r-readr = "*"
-rust = ">=1.85"
+rust = ">=1.88"
 # Compression libraries needletail links against (also pulled by the linker).
 zlib = "*"
 bzip2 = "*"

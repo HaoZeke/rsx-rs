@@ -354,6 +354,58 @@ mod tests {
     }
 
     #[test]
+    fn test_count_sequences_reads_gzipped_fastq() {
+        use flate2::Compression;
+        use flate2::write::GzEncoder;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ind1.fq.gz");
+        let mut encoder =
+            GzEncoder::new(std::fs::File::create(&path).unwrap(), Compression::fast());
+        writeln!(encoder, "@r1").unwrap();
+        writeln!(encoder, "ACGTACGT").unwrap();
+        writeln!(encoder, "+").unwrap();
+        writeln!(encoder, "IIIIIIII").unwrap();
+        writeln!(encoder, "@r2").unwrap();
+        writeln!(encoder, "ACGTACGT").unwrap();
+        writeln!(encoder, "+").unwrap();
+        writeln!(encoder, "IIIIIIII").unwrap();
+        encoder.finish().unwrap();
+
+        let counts = count_sequences(&path).unwrap();
+        assert_eq!(counts.len(), 1);
+        assert_eq!(counts.get(&pack_2bit(b"ACGTACGT")), Some(&2));
+    }
+
+    #[test]
+    fn test_get_input_files_sorts_supported_names_and_skips_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["c.fasta", "a.fq", "d.fa", "ignore.txt", "notes.bam"] {
+            std::fs::write(dir.path().join(name), b">r\nAC\n").unwrap();
+        }
+        let gz_path = dir.path().join("b.fq.gz");
+        let mut encoder = flate2::write::GzEncoder::new(
+            std::fs::File::create(&gz_path).unwrap(),
+            flate2::Compression::fast(),
+        );
+        writeln!(encoder, "@r\nAC\n+\nII").unwrap();
+        encoder.finish().unwrap();
+
+        let files = get_input_files(dir.path()).unwrap();
+        let names: Vec<_> = files.iter().map(|f| f.individual_name.as_str()).collect();
+        assert_eq!(names, ["a", "b", "c", "d"]);
+        assert!(files.iter().all(|f| f.path.is_file()));
+    }
+
+    #[test]
+    fn test_get_input_files_errors_when_directory_has_no_reads() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("readme.txt"), b"no reads").unwrap();
+        let err = get_input_files(dir.path()).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
     fn test_count_sequences_packed_uses_inline_short_read_key() {
         let mut f = tempfile::NamedTempFile::new().unwrap();
         writeln!(f, ">read1").unwrap();
