@@ -131,10 +131,10 @@ fn accumulate_gram_streaming<S: MarkerStream>(
     n: usize,
     backend: crate::compute_backend::PValueBackend,
 ) -> Result<GramStreamingAcc, Box<dyn std::error::Error>> {
-    if backend == crate::compute_backend::PValueBackend::Cpu
-        && let Some(exact) = accumulate_gram_cpu_exact(source, n)?
-    {
-        return Ok(exact);
+    if backend == crate::compute_backend::PValueBackend::Cpu {
+        if let Some(exact) = accumulate_gram_cpu_exact(source, n)? {
+            return Ok(exact);
+        }
     }
     let mut accumulator = crate::compute_backend::GramAccumulator::new(backend, n)?;
     let mut push_err: Option<Box<dyn std::error::Error>> = None;

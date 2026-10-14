@@ -178,12 +178,14 @@ pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
                 .alignment
                 .as_ref()
                 .map_or(0, |a| a.alignment_score.unwrap_or(0));
-            if score > best_score {
-                best_idx = j;
-                best_score = score;
-                best_count = 1;
-            } else if score == best_score {
-                best_count += 1;
+            match score.cmp(&best_score) {
+                std::cmp::Ordering::Greater => {
+                    best_idx = j;
+                    best_score = score;
+                    best_count = 1;
+                }
+                std::cmp::Ordering::Equal => best_count += 1,
+                std::cmp::Ordering::Less => {}
             }
         }
 

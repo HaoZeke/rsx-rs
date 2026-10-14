@@ -158,7 +158,7 @@ unsafe fn gram_upper_f64_avx512(rows: &[u16], individuals: usize) -> (Vec<f64>, 
         load_row_f64(row, &mut row_f, &mut mean);
         for i in 0..individuals {
             let xi = row_f[i];
-            let broadcast = _mm512_set1_pd(xi);
+            let broadcast = unsafe { _mm512_set1_pd(xi) };
             let base = i * individuals;
             let mut j = i;
             while j + 8 <= individuals {
@@ -185,7 +185,7 @@ unsafe fn gram_upper_f64_avx2(rows: &[u16], individuals: usize) -> (Vec<f64>, Ve
         load_row_f64(row, &mut row_f, &mut mean);
         for i in 0..individuals {
             let xi = row_f[i];
-            let broadcast = _mm256_set1_pd(xi);
+            let broadcast = unsafe { _mm256_set1_pd(xi) };
             let base = i * individuals;
             let mut j = i;
             while j + 4 <= individuals {

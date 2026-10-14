@@ -459,10 +459,10 @@ pub fn run_with_source<S: MarkerStream>(
     if let Some(e) = write_err {
         return Err(e.into());
     }
-    if called_rows == 0
-        && let Some(row) = best_exploratory
-    {
-        write_row(&mut output, &row)?;
+    if called_rows == 0 {
+        if let Some(row) = best_exploratory {
+            write_row(&mut output, &row)?;
+        }
     }
 
     Ok(())
@@ -648,10 +648,10 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
         append_row(&row);
     })?;
 
-    if called_rows == 0
-        && let Some(row) = best_exploratory
-    {
-        append_row(&row);
+    if called_rows == 0 {
+        if let Some(row) = best_exploratory {
+            append_row(&row);
+        }
     }
 
     let batch = RecordBatch::try_new(
