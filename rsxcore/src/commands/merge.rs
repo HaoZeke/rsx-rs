@@ -32,7 +32,7 @@ pub struct MergeParams {
 #[derive(Clone)]
 struct MergeEntry {
     packed_seq: Vec<u8>,
-    sample_offset: u16,
+    sample_offset: u32,
     depths: Vec<u16>,
 }
 
@@ -74,7 +74,7 @@ pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
     // Phase 1: read headers
     let mut all_samples: Vec<String> = Vec::new();
     let mut file_samples: Vec<Vec<String>> = Vec::new();
-    let mut sample_offsets: Vec<u16> = Vec::new();
+    let mut sample_offsets: Vec<u32> = Vec::new();
 
     for (i, path) in params.input_files.iter().enumerate() {
         let file = std::fs::File::open(path)?;
@@ -82,14 +82,26 @@ pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
         let mut lines = reader.lines();
 
         let first_line = lines.next().ok_or("Empty file")??;
-        let n_markers: u64 = first_line
-            .split(':')
-            .nth(1)
-            .map(|s| s.trim().parse().unwrap_or(0))
-            .unwrap_or(0);
-
-        let header_line = lines.next().ok_or("Missing header")??;
+        // The count comment is optional. `TableHeader` already treats a file
+        // that starts at `id\tsequence` as a valid table; consuming that line
+        // as the comment turned the first marker into the sample header.
+        let (n_markers, header_line) = if first_line.starts_with('#') {
+            let n_markers: u64 = first_line
+                .split(':')
+                .nth(1)
+                .map(|s| s.trim().parse().unwrap_or(0))
+                .unwrap_or(0);
+            let header_line = lines.next().ok_or("Missing header")??;
+            (n_markers, header_line)
+        } else {
+            (0, first_line)
+        };
         let parts: Vec<&str> = header_line.split('\t').collect();
+        if parts.len() < 2 {
+            return Err(
+                format!("marker table {path} is missing the id and sequence columns").into(),
+            );
+        }
         let samples: Vec<String> = parts[2..].iter().map(|s| s.to_string()).collect();
 
         eprintln!(
@@ -103,7 +115,9 @@ pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
             n_markers
         );
 
-        sample_offsets.push(all_samples.len() as u16);
+        let offset = u32::try_from(all_samples.len())
+            .map_err(|_| format!("merge sample offset exceeds u32::MAX while reading {path}"))?;
+        sample_offsets.push(offset);
         all_samples.extend(samples.clone());
         file_samples.push(samples);
     }
@@ -434,13 +448,26 @@ fn flush_chunk(
     Ok(chunk_path)
 }
 
-/// Binary format: [seq_len:u16][packed_seq][offset:u16][n_depths:u16][depths:u16*n]
+/// Binary format: [seq_len:u32][packed_seq][offset:u32][n_depths:u32][depths:u16*n]
+///
+/// Lengths are u32 because a u16 count wraps at 65536 samples: the writer
+/// still emits every depth, and the reader then walks off the next record.
 fn write_entry(w: &mut impl Write, entry: &MergeEntry) -> std::io::Result<()> {
-    let seq_len = entry.packed_seq.len() as u16;
+    let seq_len = u32::try_from(entry.packed_seq.len()).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "packed sequence longer than u32::MAX",
+        )
+    })?;
     w.write_all(&seq_len.to_le_bytes())?;
     w.write_all(&entry.packed_seq)?;
     w.write_all(&entry.sample_offset.to_le_bytes())?;
-    let n_depths = entry.depths.len() as u16;
+    let n_depths = u32::try_from(entry.depths.len()).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "depth vector longer than u32::MAX",
+        )
+    })?;
     w.write_all(&n_depths.to_le_bytes())?;
     for &d in &entry.depths {
         w.write_all(&d.to_le_bytes())?;
@@ -448,25 +475,40 @@ fn write_entry(w: &mut impl Write, entry: &MergeEntry) -> std::io::Result<()> {
     Ok(())
 }
 
-fn read_entry(r: &mut impl Read) -> std::io::Result<Option<MergeEntry>> {
-    let mut buf2 = [0u8; 2];
-    match r.read_exact(&mut buf2) {
-        Ok(()) => {}
-        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
-        Err(e) => return Err(e),
+fn read_u32(r: &mut impl Read) -> std::io::Result<Option<u32>> {
+    let mut buf = [0u8; 4];
+    match r.read_exact(&mut buf) {
+        Ok(()) => Ok(Some(u32::from_le_bytes(buf))),
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Ok(None),
+        Err(e) => Err(e),
     }
-    let seq_len = u16::from_le_bytes(buf2) as usize;
+}
+
+fn read_entry(r: &mut impl Read) -> std::io::Result<Option<MergeEntry>> {
+    let Some(seq_len) = read_u32(r)? else {
+        return Ok(None);
+    };
+    let seq_len = seq_len as usize;
 
     let mut packed_seq = vec![0u8; seq_len];
     r.read_exact(&mut packed_seq)?;
 
-    r.read_exact(&mut buf2)?;
-    let sample_offset = u16::from_le_bytes(buf2);
+    let sample_offset = read_u32(r)?.ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "truncated merge chunk while reading the sample offset",
+        )
+    })?;
 
-    r.read_exact(&mut buf2)?;
-    let n_depths = u16::from_le_bytes(buf2) as usize;
+    let n_depths = read_u32(r)?.ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "truncated merge chunk while reading the depth count",
+        )
+    })? as usize;
 
     let mut depths = vec![0u16; n_depths];
+    let mut buf2 = [0u8; 2];
     for d in &mut depths {
         r.read_exact(&mut buf2)?;
         *d = u16::from_le_bytes(buf2);

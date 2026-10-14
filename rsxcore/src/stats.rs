@@ -78,6 +78,12 @@ pub fn chi_squared_yates(
     total_group1: u32,
     total_group2: u32,
 ) -> f64 {
+    // A presence count above its margin is not a contingency table. Returning
+    // NaN makes `p_association` report p = 1 instead of a spurious tail from a
+    // zero or negative absent count.
+    if n_group1 > total_group1 || n_group2 > total_group2 {
+        return f64::NAN;
+    }
     // Use u64 totals so large valid u32 inputs do not overflow during addition.
     let n = (total_group1 as u64 + total_group2 as u64) as f64;
     let ns = total_group1 as f64;
@@ -246,7 +252,7 @@ pub fn g_test(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     let b = b_u as f64;
     let c = n_g2 as f64;
     let d = d_u as f64;
-    let n = (total_g1 + total_g2) as f64;
+    let n = (u64::from(total_g1) + u64::from(total_g2)) as f64;
 
     let mut g = 0.0f64;
     let expected = |_obs: f64, col_total: f64, row_total: f64| -> f64 { row_total * col_total / n };
@@ -296,17 +302,20 @@ pub fn fisher_exact(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     let Some(d) = total_g2.checked_sub(n_g2) else {
         return 1.0;
     };
-    let a = n_g1;
-    let c = n_g2;
-    let n = total_g1 + total_g2;
+    let a = u64::from(n_g1);
+    let b = u64::from(b);
+    let c = u64::from(n_g2);
+    let d = u64::from(d);
+    let n = u64::from(total_g1) + u64::from(total_g2);
     let row1 = a + c;
     let col1 = a + b;
+    let row2 = n - row1;
 
     // P(table) = C(row1,a) * C(row2,b) / C(n, col1)
     // Sum probabilities of all tables as or more extreme
     let log_p_observed = log_hypergeometric(a, b, c, d, n, row1, col1);
 
-    let min_a = col1.saturating_sub(n - row1);
+    let min_a = col1.saturating_sub(row2);
     let max_a = row1.min(col1);
 
     // Online log-sum-exp over the density tail (tables as or more extreme).
@@ -319,7 +328,7 @@ pub fn fisher_exact(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     for a_i in min_a..=max_a {
         let b_i = col1 - a_i;
         let c_i = row1 - a_i;
-        let d_i = (n - row1) - b_i;
+        let d_i = row2 - b_i;
         let log_p = log_hypergeometric(a_i, b_i, c_i, d_i, n, row1, col1);
         if log_p <= log_p_observed + 1e-9 {
             // Standard online logsumexp update (Goldberg / Press et al.)
@@ -345,7 +354,7 @@ pub fn fisher_exact(n_g1: u32, n_g2: u32, total_g1: u32, total_g2: u32) -> f64 {
     p_sum.clamp(1e-16, 1.0)
 }
 
-fn log_hypergeometric(a: u32, b: u32, c: u32, d: u32, n: u32, row1: u32, col1: u32) -> f64 {
+fn log_hypergeometric(a: u64, b: u64, c: u64, d: u64, n: u64, row1: u64, col1: u64) -> f64 {
     let col2 = n - col1;
     let row2 = n - row1;
     lfact(row1) + lfact(row2) + lfact(col1) + lfact(col2)
@@ -356,8 +365,8 @@ fn log_hypergeometric(a: u32, b: u32, c: u32, d: u32, n: u32, row1: u32, col1: u
         - lfact(d)
 }
 
-fn lfact(n: u32) -> f64 {
-    libm::lgamma((n + 1) as f64)
+fn lfact(n: u64) -> f64 {
+    libm::lgamma(n as f64 + 1.0)
 }
 
 // ========================================================================
@@ -612,15 +621,27 @@ pub(crate) fn bayes_factor_2x2_with_validated_model(
     debug_assert!(n_g1 <= total_g1);
     debug_assert!(n_g2 <= total_g2);
 
-    let log_h1 = log_beta_binom_with_prior(n_g1, total_g1, model.alternative_group1)
-        + log_beta_binom_with_prior(n_g2, total_g2, model.alternative_group2);
+    let log_h1 = log_beta_binom_with_prior(
+        u64::from(n_g1),
+        u64::from(total_g1),
+        model.alternative_group1,
+    ) + log_beta_binom_with_prior(
+        u64::from(n_g2),
+        u64::from(total_g2),
+        model.alternative_group2,
+    );
 
-    let log_h0 = log_beta_binom_with_prior(n_g1 + n_g2, total_g1 + total_g2, model.null);
+    let log_h0 = log_beta_binom_with_prior(
+        u64::from(n_g1) + u64::from(n_g2),
+        u64::from(total_g1) + u64::from(total_g2),
+        model.null,
+    );
 
     (log_h1 - log_h0).exp()
 }
 
-fn log_beta_binom_with_prior(k: u32, n: u32, prior: BetaPrior) -> f64 {
+fn log_beta_binom_with_prior(k: u64, n: u64, prior: BetaPrior) -> f64 {
+    debug_assert!(k <= n);
     log_beta(k as f64 + prior.alpha, (n - k) as f64 + prior.beta)
         - log_beta(prior.alpha, prior.beta)
 }
@@ -692,14 +713,20 @@ pub fn posterior_sex_linked_with_model(
     model: &DirectionalModel,
 ) -> f64 {
     debug_assert!(model.posterior.validate().is_ok());
-    let linked_total = total_g1 + total_g2;
+    let Some(absent_g1) = total_g1.checked_sub(n_g1) else {
+        return 0.0;
+    };
+    let Some(absent_g2) = total_g2.checked_sub(n_g2) else {
+        return 0.0;
+    };
+    let linked_total = u64::from(total_g1) + u64::from(total_g2);
     let ll_g1_linked = log_prevalence_marginal(
-        n_g1 + (total_g2 - n_g2),
+        u64::from(n_g1) + u64::from(absent_g2),
         linked_total,
         model.posterior.linked,
     );
     let ll_g2_linked = log_prevalence_marginal(
-        (total_g1 - n_g1) + n_g2,
+        u64::from(absent_g1) + u64::from(n_g2),
         linked_total,
         model.posterior.linked,
     );
@@ -707,7 +734,11 @@ pub fn posterior_sex_linked_with_model(
         ll_g1_linked + model.group1_linked_weight.ln(),
         ll_g2_linked + (1.0 - model.group1_linked_weight).ln(),
     );
-    let ll_null = log_prevalence_marginal(n_g1 + n_g2, total_g1 + total_g2, model.posterior.null);
+    let ll_null = log_prevalence_marginal(
+        u64::from(n_g1) + u64::from(n_g2),
+        linked_total,
+        model.posterior.null,
+    );
 
     let log_odds = ll_linked - ll_null + (model.linkage_prior / (1.0 - model.linkage_prior)).ln();
 
@@ -721,7 +752,7 @@ pub fn posterior_sex_linked_with_model(
     }
 }
 
-fn log_prevalence_marginal(k: u32, n: u32, prior: PrevalencePrior) -> f64 {
+fn log_prevalence_marginal(k: u64, n: u64, prior: PrevalencePrior) -> f64 {
     match prior {
         PrevalencePrior::Fixed { probability } => {
             k as f64 * probability.ln() + (n - k) as f64 * (1.0 - probability).ln()
@@ -750,6 +781,9 @@ pub fn empirical_bayes_em(
     max_iter: usize,
 ) -> (f64, Vec<f64>) {
     let m = group_counts.len();
+    if m == 0 {
+        return (0.0, Vec::new());
+    }
     let mut pi = 0.01f64; // initial estimate
     let mut posteriors = vec![0.0f64; m];
 

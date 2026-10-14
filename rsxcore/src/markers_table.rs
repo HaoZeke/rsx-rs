@@ -159,8 +159,11 @@ impl MarkersTableStream {
         self.for_each(|m| f(m))
     }
 
-    /// Fast path: min_depth <= 1 and we don't need to store depths.
-    /// Only tracks presence bits (no integer parsing).
+    /// Fast path: `min_depth == 1` and depths are not stored.
+    ///
+    /// Presence is exactly `fast_parse_u16(field) >= 1`. `"0"`, `"00"`, and an
+    /// empty field are absent; a non-digit field is absent too. `min_depth == 0`
+    /// cannot use this path, because a literal zero is present at that threshold.
     #[inline]
     fn for_each_fast_d1<F>(&self, data: &[u8], f: &mut F)
     where
@@ -175,8 +178,7 @@ impl MarkersTableStream {
             };
 
             for_each_depth_field(line, tab2, |col, field| {
-                let is_zero = field.len() == 1 && field[0] == b'0';
-                if !is_zero && !field.is_empty() && col < self.n_individuals as usize {
+                if depth_field_is_present(field) && col < self.n_individuals as usize {
                     marker.presence.set(col);
                     marker.n_individuals += 1;
                 }
@@ -395,7 +397,7 @@ impl MarkersTableStream {
     where
         F: FnMut(&Marker),
     {
-        if !self.config.store_sequence && !self.config.store_depths && self.config.min_depth <= 1 {
+        if !self.config.store_sequence && !self.config.store_depths && self.config.min_depth == 1 {
             self.for_each_fast_d1(slice, &mut visit);
         } else if !self.config.store_sequence {
             self.for_each_skip_seq(slice, &mut visit);
@@ -466,6 +468,27 @@ impl MarkersTableStream {
 
         Ok(result)
     }
+}
+
+/// True when `fast_parse_u16(field) >= 1`.
+///
+/// Digit strings with a non-zero digit are present, including values that
+/// saturate at `u16::MAX`. Any non-digit rejects the field, matching the parser.
+#[inline]
+fn depth_field_is_present(field: &[u8]) -> bool {
+    if field.is_empty() {
+        return false;
+    }
+    let mut nonzero = false;
+    for &byte in field {
+        if !byte.is_ascii_digit() {
+            return false;
+        }
+        if byte != b'0' {
+            nonzero = true;
+        }
+    }
+    nonzero
 }
 
 /// Calls `f(col, field_bytes)` for every depth field after the second tab.

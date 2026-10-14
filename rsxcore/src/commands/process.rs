@@ -56,6 +56,20 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
 
     let input_dir = Path::new(&params.input_dir_path);
     let input_files = get_input_files(input_dir)?;
+    let mut seen_names: std::collections::HashMap<&str, &Path> = std::collections::HashMap::new();
+    for file in &input_files {
+        if let Some(previous) =
+            seen_names.insert(file.individual_name.as_str(), file.path.as_path())
+        {
+            return Err(format!(
+                "duplicate individual name '{}' from {} and {}",
+                file.individual_name,
+                previous.display(),
+                file.path.display()
+            )
+            .into());
+        }
+    }
     let n_individuals = input_files.len();
 
     // Build individual name -> column index mapping

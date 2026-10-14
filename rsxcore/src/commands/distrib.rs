@@ -65,6 +65,12 @@ pub fn run_with_source<S: MarkerStream>(
     let n_individuals = source.header().n_individuals;
     let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
     let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
+    popmap.check_compared_columns(
+        &groups.group1,
+        mask_g1.count(),
+        &groups.group2,
+        mask_g2.count(),
+    )?;
 
     #[cfg(feature = "parallel")]
     let (distribution, n_markers) = source.par_fold_reduce(

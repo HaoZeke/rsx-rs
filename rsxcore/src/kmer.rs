@@ -14,8 +14,16 @@
 /// it is *not* guaranteed that two sequences differing by one base will share a group
 /// (see test_group_single_base_error). Use for approximate collapse only.
 pub fn canonical_kmer_hash(seq: &[u8], k: usize) -> u64 {
-    if seq.len() < k {
+    // `windows(0)` panics, and k = 0 has no k-mer to encode. Hash the whole
+    // sequence so callers can reject or ignore the grouping without aborting.
+    if k == 0 || seq.len() < k {
         return hash_bytes(seq);
+    }
+    // A u64 holds 32 bases. Longer windows must not drop the leading bases:
+    // that alias makes distinct 33-mers, and a sequence and its reverse
+    // complement, share a truncated code.
+    if k > 32 {
+        return canonical_kmer_hash_wide(seq, k);
     }
 
     // Min-hash of canonical k-mers: representative is the minimum 2-bit
@@ -29,6 +37,50 @@ pub fn canonical_kmer_hash(seq: &[u8], k: usize) -> u64 {
         best_hash = best_hash.min(canonical);
     }
     best_hash
+}
+
+/// Min-hash of canonical k-mers that do not fit in a 2-bit u64.
+///
+/// Each window is normalized with the same N→A rule as [`kmer_to_u64`], then
+/// replaced by the FNV hash of the forward or reverse-complement string,
+/// whichever hash is smaller. The pair is symmetric, so a sequence and its
+/// reverse complement still share a representative.
+fn canonical_kmer_hash_wide(seq: &[u8], k: usize) -> u64 {
+    let mut best_hash = u64::MAX;
+    for window in seq.windows(k) {
+        let forward = hash_bytes(&normalized_kmer(window));
+        let reverse = hash_bytes(&revcomp_normalized(window));
+        best_hash = best_hash.min(forward.min(reverse));
+    }
+    best_hash
+}
+
+fn normalized_kmer(window: &[u8]) -> Vec<u8> {
+    window.iter().copied().map(normalize_base).collect()
+}
+
+fn revcomp_normalized(window: &[u8]) -> Vec<u8> {
+    window
+        .iter()
+        .rev()
+        .map(|&base| match normalize_base(base) {
+            b'A' => b'T',
+            b'T' => b'A',
+            b'C' => b'G',
+            b'G' => b'C',
+            other => other,
+        })
+        .collect()
+}
+
+fn normalize_base(base: u8) -> u8 {
+    match base {
+        b'A' | b'a' => b'A',
+        b'C' | b'c' => b'C',
+        b'G' | b'g' => b'G',
+        b'T' | b't' => b'T',
+        _ => b'A',
+    }
 }
 
 /// Group markers by canonical k-mer signature.

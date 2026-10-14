@@ -87,6 +87,12 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
         &groups.group2,
         stream2.header.n_individuals,
     );
+    popmap.check_compared_columns(
+        &groups.group1,
+        mask_g1.count(),
+        &groups.group2,
+        mask_g2.count(),
+    )?;
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
 

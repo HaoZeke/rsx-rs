@@ -227,6 +227,12 @@ pub fn run_with_source<S: MarkerStream>(
     let n_individuals = source.header().n_individuals;
     let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
     let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
+    popmap.check_compared_columns(
+        &groups.group1,
+        mask_g1.count(),
+        &groups.group2,
+        mask_g2.count(),
+    )?;
 
     let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
     writeln!(
@@ -421,6 +427,12 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
     let n_individuals = source.header().n_individuals;
     let mask_g1 = GroupMask::from_columns(source.groups(), &groups.group1, n_individuals);
     let mask_g2 = GroupMask::from_columns(source.groups(), &groups.group2, n_individuals);
+    popmap.check_compared_columns(
+        &groups.group1,
+        mask_g1.count(),
+        &groups.group2,
+        mask_g2.count(),
+    )?;
 
     let n_markers = source.count_markers()?;
     let corrected_threshold = if n_markers > 0 {

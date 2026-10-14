@@ -41,11 +41,16 @@ impl TableHeader {
 
         let line = line.trim_end_matches('\n').trim_end_matches('\r');
         let columns: Vec<String> = line.split('\t').map(|s| s.to_string()).collect();
-        let n_individuals = if columns.len() >= 2 {
-            (columns.len() - 2) as u16
-        } else {
-            0
-        };
+        let n_individuals_usize = columns.len().saturating_sub(2);
+        let n_individuals = u16::try_from(n_individuals_usize).map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "markers table has {n_individuals_usize} individuals; the limit is {}",
+                    u16::MAX
+                ),
+            )
+        })?;
 
         Ok(TableHeader {
             n_markers,
@@ -55,50 +60,61 @@ impl TableHeader {
     }
 }
 
-/// Fast integer parsing for non-negative integers (matching C++ `fast_stoi`).
-/// Saturates at u16::MAX instead of wrapping, to avoid silent corruption on
-/// high-depth tags (>65535 reads of one RAD marker in one individual).
+/// Fast integer parsing for non-negative integers (matching C++ `fast_stoi`
+/// on digit strings). Saturates at u16::MAX instead of wrapping, so a depth
+/// above 65535 cannot silently alias to a small count.
+///
+/// A field that contains any non-digit is not a depth: it parses as 0 rather
+/// than as a wrapped code-point difference. That keeps `"null"`, `"10a"`, and
+/// `"-1"` from panicking in the 3–4 byte unrolled path and from being counted
+/// as present.
 ///
 /// Depth fields in RAD tables are almost always 1–3 ASCII digits; a short
-/// unrolled path avoids the saturating mul loop and its overflow branch for
-/// the common case (still saturates correctly for longer digit strings).
+/// unrolled path avoids the saturating mul loop for that common case.
 #[inline(always)]
 pub fn fast_parse_u16(bytes: &[u8]) -> u16 {
     match bytes.len() {
         0 => 0,
-        1 => (bytes[0].wrapping_sub(b'0')) as u16,
-        2 => {
-            let d0 = (bytes[0].wrapping_sub(b'0')) as u16;
-            let d1 = (bytes[1].wrapping_sub(b'0')) as u16;
-            d0 * 10 + d1
-        }
-        3 => {
-            let d0 = (bytes[0].wrapping_sub(b'0')) as u16;
-            let d1 = (bytes[1].wrapping_sub(b'0')) as u16;
-            let d2 = (bytes[2].wrapping_sub(b'0')) as u16;
-            d0 * 100 + d1 * 10 + d2
-        }
-        4 => {
-            // 1000..=9999 all fit in u16
-            let mut val: u16 = 0;
-            for &b in bytes {
-                val = val * 10 + (b.wrapping_sub(b'0')) as u16;
-            }
-            val
-        }
-        _ => {
-            let mut val: u32 = 0;
-            for &b in bytes {
-                val = val
-                    .saturating_mul(10)
-                    .saturating_add((b.wrapping_sub(b'0')) as u32);
-                if val >= u16::MAX as u32 {
-                    return u16::MAX;
-                }
-            }
-            val as u16
+        1 => digit_u16(bytes[0]).unwrap_or(0),
+        2 => match (digit_u16(bytes[0]), digit_u16(bytes[1])) {
+            (Some(tens), Some(ones)) => tens * 10 + ones,
+            _ => 0,
+        },
+        3 => match (
+            digit_u16(bytes[0]),
+            digit_u16(bytes[1]),
+            digit_u16(bytes[2]),
+        ) {
+            (Some(hundreds), Some(tens), Some(ones)) => hundreds * 100 + tens * 10 + ones,
+            _ => 0,
+        },
+        _ => parse_u16_saturating(bytes),
+    }
+}
+
+#[inline(always)]
+fn digit_u16(byte: u8) -> Option<u16> {
+    if byte.is_ascii_digit() {
+        Some(u16::from(byte - b'0'))
+    } else {
+        None
+    }
+}
+
+/// Digit strings of 4 or more characters. Non-digits reject the whole field.
+#[inline]
+fn parse_u16_saturating(bytes: &[u8]) -> u16 {
+    let mut value = 0u32;
+    for &byte in bytes {
+        let Some(digit) = digit_u16(byte) else {
+            return 0;
+        };
+        value = value.saturating_mul(10).saturating_add(u32::from(digit));
+        if value >= u32::from(u16::MAX) {
+            return u16::MAX;
         }
     }
+    u16::try_from(value).unwrap_or(u16::MAX)
 }
 
 #[cfg(test)]

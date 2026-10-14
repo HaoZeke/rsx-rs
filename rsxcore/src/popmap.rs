@@ -46,9 +46,23 @@ impl Popmap {
             if fields.len() == 2 {
                 let individual = fields[0].to_string();
                 let group = fields[1].to_string();
+                if popmap.individual_groups.contains_key(&individual) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "duplicate individual \"{individual}\" in popmap (line {})",
+                            line_num + 1
+                        ),
+                    ));
+                }
                 *popmap.group_counts.entry(group.clone()).or_insert(0) += 1;
                 popmap.individual_groups.insert(individual, group);
-                popmap.n_individuals += 1;
+                popmap.n_individuals = popmap.n_individuals.checked_add(1).ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "popmap exceeds 65535 individuals",
+                    )
+                })?;
             } else {
                 log::warn!(
                     "Could not process line {} in popmap (expected format: \"individual\\tgroup\")",
@@ -81,18 +95,6 @@ impl Popmap {
             ));
         }
 
-        if n_groups > 2
-            && (!self.group_counts.contains_key(&config.group1)
-                || !self.group_counts.contains_key(&config.group2))
-        {
-            return Err(format!(
-                "Groups specified with --groups (\"{}\", \"{}\") were not found in popmap groups ({})",
-                config.group1,
-                config.group2,
-                self.print_groups(false)
-            ));
-        }
-
         if n_groups == 2 && (config.group1.is_empty() || config.group2.is_empty()) {
             let mut iter = self.group_counts.keys();
             config.group1 = iter
@@ -105,6 +107,50 @@ impl Popmap {
                 .clone();
         }
 
+        if !config.group1.is_empty()
+            && !config.group2.is_empty()
+            && (!self.group_counts.contains_key(&config.group1)
+                || !self.group_counts.contains_key(&config.group2))
+        {
+            return Err(format!(
+                "Groups specified with --groups (\"{}\", \"{}\") were not found in popmap groups ({})",
+                config.group1,
+                config.group2,
+                self.print_groups(false)
+            ));
+        }
+
+        if !config.group1.is_empty() && config.group1 == config.group2 {
+            return Err(format!(
+                "Groups to compare must be different, got \"{}\" twice",
+                config.group1
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Reject a comparison whose marker-table columns outnumber the popmap.
+    ///
+    /// Duplicate sample names set more than one presence bit for one popmap
+    /// row. The resulting presence count cannot be a cell of a table whose
+    /// margin is `get_count`, and `distrib` would index off the end of that
+    /// margin.
+    pub fn check_compared_columns(
+        &self,
+        group1: &str,
+        columns1: u32,
+        group2: &str,
+        columns2: u32,
+    ) -> Result<(), String> {
+        for (group, columns) in [(group1, columns1), (group2, columns2)] {
+            let total = self.get_count(group);
+            if columns > total {
+                return Err(format!(
+                    "group \"{group}\" is assigned to {columns} marker-table columns but the popmap lists {total}; duplicate sample names make presence counts exceed the group total"
+                ));
+            }
+        }
         Ok(())
     }
 

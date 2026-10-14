@@ -193,28 +193,28 @@ const CUDA_KERNEL_SOURCE: &str = r#"
             return;
         }
 
-        unsigned int a = n1;
-        unsigned int b = total_group1 - n1;
-        unsigned int c = n2;
-        unsigned int d = total_group2 - n2;
-        unsigned int n = total_group1 + total_group2;
-        unsigned int row1 = a + c;
-        unsigned int row2 = n - row1;
-        unsigned int col1 = a + b;
+        unsigned long long a = n1;
+        unsigned long long b = total_group1 - n1;
+        unsigned long long c = n2;
+        unsigned long long d = total_group2 - n2;
+        unsigned long long n = (unsigned long long)total_group1 + (unsigned long long)total_group2;
+        unsigned long long row1 = a + c;
+        unsigned long long row2 = n - row1;
+        unsigned long long col1 = a + b;
 
         double observed = rsx_log_hypergeometric(a, b, c, d, n, row1, col1);
-        unsigned int lowest = col1 > row2 ? col1 - row2 : 0u;
-        unsigned int highest = row1 < col1 ? row1 : col1;
+        unsigned long long lowest = col1 > row2 ? col1 - row2 : 0ull;
+        unsigned long long highest = row1 < col1 ? row1 : col1;
 
         // `maximum` is only read once `any` is set, so it needs no sentinel:
         // nvrtc compiles without headers and has no INFINITY.
         double maximum = 0.0;
         double relative = 0.0;
         bool any = false;
-        for (unsigned int ai = lowest; ai <= highest; ++ai) {
-            unsigned int bi = col1 - ai;
-            unsigned int ci = row1 - ai;
-            unsigned int di = row2 - bi;
+        for (unsigned long long ai = lowest; ai <= highest; ++ai) {
+            unsigned long long bi = col1 - ai;
+            unsigned long long ci = row1 - ai;
+            unsigned long long di = row2 - bi;
             double density = rsx_log_hypergeometric(ai, bi, ci, di, n, row1, col1);
             if (density > observed + 1e-9) continue;
             if (!any) {
@@ -256,7 +256,7 @@ const CUDA_KERNEL_SOURCE: &str = r#"
         double b = (double)(total_group1 - n1);
         double c = (double)n2;
         double d = (double)(total_group2 - n2);
-        double n = (double)(total_group1 + total_group2);
+        double n = (double)total_group1 + (double)total_group2;
 
         double row1 = a + c;
         double row2 = b + d;
@@ -305,7 +305,7 @@ const CUDA_KERNEL_SOURCE: &str = r#"
         double present = (double)(n1 + n2);
         double absent = n - present;
 
-        if (t1 == 0 || t2 == 0 || present == 0.0 || absent == 0.0) {
+        if (n1 > t1 || n2 > t2 || t1 == 0 || t2 == 0 || present == 0.0 || absent == 0.0) {
             p_values[index] = 1.0;
             return;
         }
