@@ -24,16 +24,27 @@ pub struct Popmap {
 /// Configuration for group comparison.
 #[derive(Debug, Clone, Default)]
 pub struct GroupConfig {
+    /// First group name. Empty means the caller has not chosen one yet.
     pub group1: String,
+    /// Second group name. Empty means the caller has not chosen one yet.
     pub group2: String,
 }
 
 impl Popmap {
     /// Load a popmap from a TSV file (individual\tgroup per line).
     pub fn from_file(path: &Path) -> io::Result<Self> {
-        let file = std::fs::File::open(path)?;
+        let file = std::fs::File::open(path).map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "cannot open popmap {}: {error}. Expected one 'individual<TAB>group' row per line",
+                    path.display()
+                ),
+            )
+        })?;
         let reader = io::BufReader::new(file);
         let mut popmap = Popmap::default();
+        let mut skipped = 0u32;
 
         for (line_num, line) in reader.lines().enumerate() {
             let line = line?;
@@ -50,11 +61,21 @@ impl Popmap {
                 popmap.individual_groups.insert(individual, group);
                 popmap.n_individuals += 1;
             } else {
-                log::warn!(
-                    "Could not process line {} in popmap (expected format: \"individual\\tgroup\")",
+                skipped += 1;
+                let preview: String = line.chars().take(80).collect();
+                eprintln!(
+                    "warning: {}: line {}: expected two tab-separated columns (individual<TAB>group); skipped {preview:?}",
+                    path.display(),
                     line_num + 1
                 );
             }
+        }
+
+        if popmap.n_individuals == 0 {
+            eprintln!(
+                "warning: popmap {}: no individual/group rows were read ({skipped} line(s) skipped). Expected 'individual<TAB>group' on each line",
+                path.display()
+            );
         }
 
         Ok(popmap)

@@ -14,7 +14,10 @@
 /// it is *not* guaranteed that two sequences differing by one base will share a group
 /// (see test_group_single_base_error). Use for approximate collapse only.
 pub fn canonical_kmer_hash(seq: &[u8], k: usize) -> u64 {
-    if seq.len() < k {
+    // `windows(0)` panics. A zero-length window is not a k-mer; hash the
+    // whole sequence, which is the same fallback used when `k` is longer
+    // than `seq`. The CLI rejects `--kmer-dedup 0` before calling this.
+    if k == 0 || seq.len() < k {
         return hash_bytes(seq);
     }
 

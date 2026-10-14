@@ -286,11 +286,16 @@ impl MarkerStream for ArrowMarkerSource {
     }
 }
 
+/// Failure while reading an in-memory Arrow marker source.
 #[derive(Debug)]
 pub enum ArrowSourceError {
+    /// The source contained no batches.
     EmptyInput,
+    /// The record batches do not share one schema.
     HeterogeneousSchemas,
+    /// The schema has fewer than the `id`, `sequence`, and one individual column.
     ShortSchema(usize),
+    /// The Arrow IPC stream could not be decoded.
     IpcRead(String),
 }
 

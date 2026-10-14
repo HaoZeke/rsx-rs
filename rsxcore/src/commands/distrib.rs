@@ -15,16 +15,27 @@ use std::path::Path;
 
 /// Parameters for the `distrib` command.
 pub struct DistribParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Path of the population map.
     pub popmap_file_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
+    /// P-value cutoff before multiple-testing correction.
     pub signif_threshold: f32,
+    /// Multiple-testing correction: `bonferroni`, `fdr`, or `none`.
     pub correction: CorrectionMethod,
+    /// Association test: `chisq`, `fisher`, or `gtest`.
     pub test_method: TestMethod,
+    /// When true, append the Bayes factor and the posterior probability.
     pub output_bayes: bool,
+    /// Priors used for the Bayes factor and the posterior.
     pub bayes_model: stats::DirectionalModel,
+    /// First group name. Empty means the caller has not chosen one yet.
     pub group1: String,
+    /// Second group name. Empty means the caller has not chosen one yet.
     pub group2: String,
 }
 

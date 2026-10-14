@@ -13,26 +13,45 @@ use crate::test_method::compute_p;
 use std::io::Write;
 use std::path::Path;
 
+/// Arguments for `subset`.
 pub struct SubsetParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Path of the population map.
     pub popmap_file_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
+    /// P-value cutoff before multiple-testing correction.
     pub signif_threshold: f32,
+    /// Multiple-testing correction: `bonferroni`, `fdr`, or `none`.
     pub correction: crate::test_method::CorrectionMethod,
+    /// Association test: `chisq`, `fisher`, or `gtest`.
     pub test_method: crate::test_method::TestMethod,
+    /// When true, append the Bayes factor and the posterior probability.
     pub output_bayes: bool,
+    /// When true, write FASTA instead of a table.
     pub output_fasta: bool,
+    /// First group name. Empty means the caller has not chosen one yet.
     pub group1: String,
+    /// Second group name. Empty means the caller has not chosen one yet.
     pub group2: String,
+    /// Minimum number of group1 individuals that must carry the marker.
     pub min_group1: u32,
+    /// Minimum number of group2 individuals that must carry the marker.
     pub min_group2: u32,
+    /// Maximum number of group1 individuals that may carry the marker.
     pub max_group1: u32,
+    /// Maximum number of group2 individuals that may carry the marker.
     pub max_group2: u32,
+    /// Minimum number of individuals, from either group, that must carry the marker.
     pub min_individuals: u32,
+    /// Maximum number of individuals, from either group, that may carry the marker.
     pub max_individuals: u32,
 }
 
+/// Run the command from the paths in `params`.
 pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;

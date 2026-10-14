@@ -18,14 +18,21 @@ use std::collections::BinaryHeap;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
 
+/// Arguments for `depth`.
 pub struct DepthParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Path of the population map.
     pub popmap_file_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Fraction of individuals that must carry a marker before it is retained.
     pub min_frequency: f32,
+    /// When true, compute the median with an external sort.
     pub streaming: bool,
 }
 
+/// Run the command from the paths in `params`.
 pub fn run(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     if !params.streaming && table_path.metadata().map(|m| m.len()).unwrap_or(0) > 50 * 1024 * 1024 {
@@ -42,6 +49,7 @@ pub fn run(params: &DepthParams) -> Result<(), Box<dyn std::error::Error>> {
     run_with_source(&stream, &popmap, params)
 }
 
+/// Run the command against an open marker stream.
 pub fn run_with_source<S: MarkerStream>(
     source: &S,
     popmap: &Popmap,

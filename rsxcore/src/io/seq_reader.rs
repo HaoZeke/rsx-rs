@@ -22,7 +22,9 @@ const EXTENSIONS: &[&str] = &[
 /// An input file with its individual name derived from the filename.
 #[derive(Debug, Clone)]
 pub struct InputFile {
+    /// Path of the demultiplexed read file.
     pub path: PathBuf,
+    /// Individual name, taken from the filename without its sequence extension.
     pub individual_name: String,
 }
 
@@ -66,7 +68,10 @@ pub fn get_input_files(dir: &Path) -> std::io::Result<Vec<InputFile>> {
     if files.is_empty() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("No valid input files found in {}", dir.display()),
+            format!(
+                "no sequence files in {}. Expected demultiplexed reads named <individual>{{.fq,.fq.gz,.fastq,.fastq.gz,.fa,.fa.gz,.fasta,.fasta.gz,.fna,.fna.gz}}",
+                dir.display()
+            ),
         ));
     }
 
@@ -178,7 +183,9 @@ impl From<PackedDna> for Vec<u8> {
 
 #[derive(Clone)]
 pub(crate) enum PackedDnaKey {
+    /// Inline.
     Inline(PackedDna),
+    /// Heap.
     Heap(Vec<u8>),
 }
 

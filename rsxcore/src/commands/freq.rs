@@ -10,8 +10,11 @@ use std::path::Path;
 
 /// Parameters for the `freq` command.
 pub struct FreqParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
 }
 

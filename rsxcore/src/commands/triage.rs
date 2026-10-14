@@ -24,17 +24,28 @@ use std::path::Path;
 #[cfg(feature = "arrow-output")]
 use arrow::record_batch::RecordBatch;
 
+/// Arguments for `triage`.
 #[derive(Clone)]
 pub struct TriageParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Path of the population map.
     pub popmap_file_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
+    /// P-value cutoff before multiple-testing correction.
     pub signif_threshold: f32,
+    /// Posterior probability at or above which a posterior call is true.
     pub posterior_threshold: f64,
+    /// Bayes factor at or above which a Bayes-factor call is true.
     pub bayes_factor_threshold: f64,
+    /// Priors used for the Bayes factor and the posterior.
     pub bayes_model: stats::DirectionalModel,
+    /// First group name. Empty means the caller has not chosen one yet.
     pub group1: String,
+    /// Second group name. Empty means the caller has not chosen one yet.
     pub group2: String,
     /// Where the per-marker p-value and Bayesian evidence are evaluated.
     pub backend: PValueBackend,
@@ -189,6 +200,7 @@ fn write_row<W: Write>(output: &mut W, row: &TriageRow) -> std::io::Result<()> {
     )
 }
 
+/// Run the command from the paths in `params`.
 pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;
@@ -202,6 +214,7 @@ pub fn run(params: &TriageParams) -> Result<(), Box<dyn std::error::Error>> {
     run_with_source(&stream, &popmap, params)
 }
 
+/// Run the command against an open marker stream.
 pub fn run_with_source<S: MarkerStream>(
     source: &S,
     popmap: &Popmap,
@@ -358,6 +371,7 @@ pub fn run_with_source<S: MarkerStream>(
     Ok(())
 }
 
+/// Run the command and return Arrow record batches instead of a file.
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
@@ -372,6 +386,7 @@ pub fn run_to_arrow(params: &TriageParams) -> Result<Vec<RecordBatch>, Box<dyn s
     run_to_arrow_with_source(&stream, &popmap, params)
 }
 
+/// Run the command against a marker stream and return Arrow record batches.
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow_with_source<S: MarkerStream>(
     source: &S,

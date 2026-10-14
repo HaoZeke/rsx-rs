@@ -21,10 +21,15 @@ use std::path::Path;
 /// Default: buffer 2M entries before flushing to disk (~400MB)
 const DEFAULT_BUFFER_SIZE: usize = 2_000_000;
 
+/// Arguments for `merge`.
 pub struct MergeParams {
+    /// Marker depth tables, in the order their individuals are concatenated.
     pub input_files: Vec<String>,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Rows held in memory before a sorted chunk is written.
     pub buffer_size: Option<usize>,
+    /// When true, write Parquet instead of a TSV depth table.
     pub output_parquet: bool,
 }
 
@@ -63,6 +68,7 @@ impl Ord for HeapEntry {
     }
 }
 
+/// Run the command from the paths in `params`.
 pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
     let n_inputs = params.input_files.len();
     let buffer_limit = params.buffer_size.unwrap_or(DEFAULT_BUFFER_SIZE);
@@ -77,18 +83,28 @@ pub fn run(params: &MergeParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut sample_offsets: Vec<u16> = Vec::new();
 
     for (i, path) in params.input_files.iter().enumerate() {
-        let file = std::fs::File::open(path)?;
+        let file = std::fs::File::open(path).map_err(|error| {
+            format!("merge: cannot open input {path}: {error}. Expected a marker depth table")
+        })?;
         let reader = BufReader::new(file);
         let mut lines = reader.lines();
 
-        let first_line = lines.next().ok_or("Empty file")??;
+        let first_line = lines.next().ok_or_else(|| {
+            format!(
+                "merge: {path} is empty. Expected a marker depth table starting with '#Number of markers : N' and a header 'id\\tsequence\\t<individual>...'"
+            )
+        })??;
         let n_markers: u64 = first_line
             .split(':')
             .nth(1)
             .map(|s| s.trim().parse().unwrap_or(0))
             .unwrap_or(0);
 
-        let header_line = lines.next().ok_or("Missing header")??;
+        let header_line = lines.next().ok_or_else(|| {
+            format!(
+                "merge: {path} has no header row after the first line. Expected 'id\\tsequence\\t<individual>...'"
+            )
+        })??;
         let parts: Vec<&str> = header_line.split('\t').collect();
         let samples: Vec<String> = parts[2..].iter().map(|s| s.to_string()).collect();
 

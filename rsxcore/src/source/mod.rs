@@ -25,12 +25,15 @@ pub mod parquet_source;
 #[cfg(all(test, feature = "arrow-input"))]
 mod tests;
 
+/// In-memory Arrow marker source.
 #[cfg(feature = "arrow-input")]
 pub use arrow_source::ArrowMarkerSource;
+/// Working-set estimate and the Arrow or Parquet source selected from it.
 #[cfg(feature = "arrow-input")]
 pub use estimator::{
     MarkerTableSource, SizeEstimate, estimate_working_set_bytes, spill_threshold_bytes,
 };
+/// Marker source backed by a temporary Parquet file.
 #[cfg(feature = "arrow-input")]
 pub use parquet_source::ParquetMarkerSource;
 
@@ -46,19 +49,25 @@ pub use parquet_source::ParquetMarkerSource;
 /// - `for_each` / `par_for_each` / `par_fold_reduce`: the iteration shapes
 ///   the commands already use.
 pub trait MarkerStream {
+    /// Column names and individual count. Columns 0 and 1 are `id` and `sequence`.
     fn header(&self) -> &TableHeader;
+    /// Popmap group of each column. Entries 0 and 1 are empty placeholders.
     fn groups(&self) -> &[String];
+    /// Number of markers present in at least one individual.
     fn count_markers(&self) -> std::io::Result<u64>;
 
+    /// Call `f` once per marker, in table order.
     fn for_each<F>(&self, f: F) -> std::io::Result<()>
     where
         F: FnMut(&Marker);
 
+    /// Call `f` once per marker. The order is not specified.
     #[cfg(feature = "parallel")]
     fn par_for_each<F>(&self, f: F) -> std::io::Result<()>
     where
         F: Fn(&Marker) + Send + Sync;
 
+    /// Fold markers in parallel and combine the partial accumulators.
     #[cfg(feature = "parallel")]
     fn par_fold_reduce<Acc, Fold, Reduce>(
         &self,

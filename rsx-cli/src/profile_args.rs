@@ -21,8 +21,18 @@ where
     let Some(profile_path) = find_profile_path(&raw)? else {
         return Ok(raw);
     };
-    let source = fs::read_to_string(&profile_path)?;
-    let profile = RunProfile::parse_toml(&source)?;
+    let source = fs::read_to_string(&profile_path).map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            format!("cannot read --profile {}: {error}", profile_path.display()),
+        )
+    })?;
+    let profile = RunProfile::parse_toml(&source).map_err(|error| {
+        format!(
+            "cannot parse --profile {}: {error}. Expected schema_version = 1 and a [run] table whose command is one of: process, distrib, signif, triage, freq, depth, map, subset, merge, pca",
+            profile_path.display()
+        )
+    })?;
     let command_name = profile.command_name();
 
     let executable = raw

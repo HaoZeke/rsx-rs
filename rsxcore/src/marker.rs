@@ -94,10 +94,15 @@ impl Marker {
 /// A marker that has been aligned to a reference genome.
 #[derive(Debug, Clone)]
 pub struct AlignedMarker {
+    /// Marker identifier.
     pub id: String,
+    /// Reference sequence the marker aligned to.
     pub contig: String,
+    /// Alignment start on `contig`.
     pub position: i64,
+    /// Difference in prevalence between the two groups.
     pub bias: f64,
+    /// Uncorrected association p-value.
     pub p: f64,
 }
 

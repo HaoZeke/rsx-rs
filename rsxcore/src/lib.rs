@@ -4,6 +4,7 @@
 // Allow unwrap/expect in tests and internal trusted code (e.g. wire format deserializers,
 // test fixtures). Production paths should prefer ? or explicit error mapping.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![warn(missing_docs)]
 
 //! Core library for RADSex: sex-determination analysis from RAD-Sequencing data.
 //!

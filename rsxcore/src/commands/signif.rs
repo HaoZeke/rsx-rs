@@ -13,25 +13,40 @@ use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
 use std::io::Write;
 use std::path::Path;
 
+/// Arguments for `signif`.
 pub struct SignifParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Path of the population map.
     pub popmap_file_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
+    /// P-value cutoff before multiple-testing correction.
     pub signif_threshold: f32,
+    /// Multiple-testing correction: `bonferroni`, `fdr`, or `none`.
     pub correction: CorrectionMethod,
+    /// Association test: `chisq`, `fisher`, or `gtest`.
     pub test_method: TestMethod,
+    /// When true, write FASTA instead of a table.
     pub output_fasta: bool,
+    /// When true, append the Bayes factor and the posterior probability.
     pub output_bayes: bool,
+    /// Priors used for the Bayes factor and the posterior.
     pub bayes_model: stats::DirectionalModel,
+    /// First group name. Empty means the caller has not chosen one yet.
     pub group1: String,
+    /// Second group name. Empty means the caller has not chosen one yet.
     pub group2: String,
 }
 
+/// Run the command from the paths in `params`.
 pub fn run(params: &SignifParams) -> Result<(), Box<dyn std::error::Error>> {
     run_with_backend(params, PValueBackend::Cpu)
 }
 
+/// Run the command on `backend`.
 pub fn run_with_backend(
     params: &SignifParams,
     backend: PValueBackend,
@@ -48,6 +63,7 @@ pub fn run_with_backend(
     run_with_source_and_backend(&stream, &popmap, params, backend)
 }
 
+/// Run the command against an open marker stream.
 pub fn run_with_source<S: MarkerStream>(
     source: &S,
     popmap: &Popmap,
@@ -56,6 +72,7 @@ pub fn run_with_source<S: MarkerStream>(
     run_with_source_and_backend(source, popmap, params, PValueBackend::Cpu)
 }
 
+/// Run the command against an open marker stream on `backend`.
 pub fn run_with_source_and_backend<S: MarkerStream>(
     source: &S,
     popmap: &Popmap,

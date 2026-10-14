@@ -1,7 +1,11 @@
 // GPL-3.0-or-later
 // Copyright 2024--present rsx-rs developers
 
-//! CLI for RADSex: sex-determination analysis from RAD-Sequencing data.
+//! Command-line interface for rsx, a RAD-seq sex-marker analysis tool.
+//!
+//! `rsx --help` lists the commands. `rsx <command> --help` lists that
+//! command's arguments and the table it writes. Failures are printed to
+//! stderr as `error: ...` and exit with status 1.
 
 use std::ffi::OsString;
 use std::fs::{self, OpenOptions};
@@ -19,19 +23,37 @@ mod repro_archive;
 #[derive(Parser)]
 #[command(
     name = "rsx",
-    about = "rsx: sex-determination from RAD-seq data",
     version,
+    about = "RAD-seq sex-marker analysis",
+    long_about = "\
+rsx builds a marker depth table from demultiplexed RAD-seq reads and tests \
+markers for association with two groups named in a population map. The \
+commands follow RADSex (process, distrib, signif, freq, depth, map, subset) \
+and add merge, pca, and triage.\n\
+\n\
+--profile loads a schema_version = 1 TOML file. Flags typed on the command \
+line override the profile. --write-hydrated-profile writes the values the \
+calculation receives. --reproducibility-archive writes a zip of that \
+configuration before the analysis starts; a later failure updates the zip \
+instead of deleting it.",
+    after_help = "\
+Examples:
+  rsx process -i reads/ -o markers.tsv -T 8 -d 5
+  rsx signif -t markers.tsv -p popmap.tsv -o signif.tsv -G M,F
+
+Run `rsx <command> --help` for arguments and output columns.
+-V and --version print the version. -v is also accepted as a version flag.",
     args_override_self = true
 )]
 struct Cli {
-    /// Versioned TOML profile supplying a complete command invocation
-    #[arg(long, global = true)]
+    /// TOML run profile (schema_version = 1) that supplies one complete command
+    #[arg(long, global = true, value_name = "FILE")]
     profile: Option<String>,
-    /// Write the fully resolved invocation before analysis
-    #[arg(long, global = true)]
+    /// Write the resolved command, including defaults, before analysis starts
+    #[arg(long, global = true, value_name = "FILE")]
     write_hydrated_profile: Option<String>,
-    /// Write a software reproducibility bundle before analysis
-    #[arg(long, global = true)]
+    /// Write a zip of the resolved configuration, build, and citation files
+    #[arg(long, global = true, value_name = "ZIP")]
     reproducibility_archive: Option<String>,
     #[command(subcommand)]
     command: Commands,
@@ -39,8 +61,10 @@ struct Cli {
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
 enum PosteriorFamily {
+    /// Use one prevalence for every marker.
     #[default]
     Fixed,
+    /// Integrate the prevalence against a Beta(alpha, beta) prior.
     Beta,
 }
 
@@ -167,9 +191,12 @@ impl BayesModelArgs {
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
 enum DepthStreamingMode {
+    /// Stream when the markers file is larger than --streaming-threshold-bytes.
     #[default]
     Auto,
+    /// Keep every retained depth in memory and compute the median there.
     Memory,
+    /// Compute the median with an external sort of (individual, depth) pairs.
     Streaming,
 }
 
@@ -193,281 +220,474 @@ impl DepthStreamingMode {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Compute a table of marker depths from demultiplexed reads files
+    /// Count marker depths from demultiplexed reads.
+    ///
+    /// Each file in the directory is one individual. The individual name is
+    /// the filename with the sequence extension removed.
+    #[command(after_help = "\
+Writes a marker depth table:
+  #Number of markers : N
+  id, sequence, then one column per individual
+  one row per retained marker, depths as integers
+
+Accepted read extensions: .fq .fq.gz .fastq .fastq.gz .fa .fa.gz .fasta .fasta.gz .fna .fna.gz")]
     Process {
-        /// Path to directory containing demultiplexed sequence files
-        #[arg(short = 'i', long = "input-dir")]
+        /// Directory of demultiplexed FASTA or FASTQ files, optionally gzipped
+        #[arg(short = 'i', long = "input-dir", value_name = "DIR")]
         input_dir: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Marker depth table to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Number of threads to use
-        #[arg(short = 'T', long = "threads", default_value = "1")]
+        /// Worker threads. Must be at least 1
+        #[arg(short = 'T', long = "threads", default_value = "1", value_name = "N")]
         threads: u32,
-        /// Minimum depth in at least one individual to retain a marker
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Keep a marker when at least one individual has depth >= this value
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
-        /// Optional min-hash k-mer dedup (canonical k-mer LSH; heuristic)
-        #[arg(short = 'k', long = "kmer-dedup")]
+        /// Optional canonical k-mer length used to collapse near-duplicate sequences. Must be >= 1
+        #[arg(short = 'k', long = "kmer-dedup", value_name = "K")]
         kmer_dedup: Option<usize>,
     },
 
-    /// Compute the distribution of markers between group1 and group2
+    /// Count markers by how many individuals in each group carry them.
+    ///
+    /// Each output row is one (group1 count, group2 count) cell, not one marker.
+    #[command(after_help = "\
+Writes a distribution table. The comment line records min_depth, the threshold,
+the correction, and the marker count. Columns:
+  <group1>  <group2>  Markers  P  CorrectedP  Signif  Bias
+With --bayes, Bayes_Factor and Posterior_SexLinked are appended.
+--groups takes exactly two names, for example --groups M,F.
+If the popmap has exactly two groups, --groups may be omitted.")]
     Distrib {
-        /// Path to a marker depths table generated by "process"
-        #[arg(short = 't', long = "markers-table")]
+        /// Marker depth table from `process`
+        #[arg(short = 't', long = "markers-table", value_name = "FILE")]
         markers_table: String,
-        /// Path to a population map file
-        #[arg(short = 'p', long = "popmap")]
+        /// Population map: one `individual<TAB>group` row per line
+        #[arg(short = 'p', long = "popmap", value_name = "FILE")]
         popmap: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Distribution table to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Minimum depth to consider a marker present
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Depth at or above which an individual counts as carrying the marker
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
-        /// Names of groups to compare (comma-separated)
-        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
+        /// Exactly two group names, comma-separated, for example M,F
+        #[arg(
+            short = 'G',
+            long = "groups",
+            value_delimiter = ',',
+            value_name = "A,B"
+        )]
         groups: Option<Vec<String>>,
-        /// P-value significance threshold
-        #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
+        /// P-value cutoff before correction. Default 0.05. Bonferroni divides it by the marker count
+        #[arg(
+            short = 'S',
+            long = "signif-threshold",
+            default_value = "0.05",
+            value_name = "P"
+        )]
         signif_threshold: f32,
-        /// Disable Bonferroni correction (legacy; prefer --correction none)
+        /// Set the correction to none. Prefer --correction none
         #[arg(short = 'C', long = "disable-correction")]
         disable_correction: bool,
-        /// Multiple testing correction: bonferroni (default), fdr, none
-        #[arg(long = "correction", default_value = "bonferroni")]
+        /// Multiple-testing correction: bonferroni (default), fdr, or none
+        #[arg(
+            long = "correction",
+            default_value = "bonferroni",
+            value_name = "METHOD"
+        )]
         correction: String,
-        /// Statistical test: chisq (default), fisher, gtest
-        #[arg(long = "test", default_value = "chisq")]
+        /// Association test: chisq (default), fisher, or gtest
+        #[arg(long = "test", default_value = "chisq", value_name = "TEST")]
         test_method: String,
-        /// Include Bayes Factor and posterior P(sex-linked) per cell
+        /// Append Bayes_Factor and Posterior_SexLinked to each cell
         #[arg(long = "bayes")]
         output_bayes: bool,
         #[command(flatten)]
         bayes_model: BayesModelArgs,
     },
 
-    /// Extract markers significantly associated with a group
+    /// Write markers whose corrected p-value passes the threshold.
+    ///
+    /// Table output has the same columns as the input depth table.
+    /// `--output-fasta` is rejected together with `--correction fdr`.
+    #[command(after_help = "\
+Table output starts with a #source:rsx-signif comment, then the input header.
+With --bayes, Bayes_Factor and Posterior_SexLinked are appended.
+FASTA records look like:
+  >id_<group1>:<count>_<group2>:<count>_p:<p>_pcorr:<pcorr>_mindepth:<d>
+  SEQUENCE
+--groups takes exactly two names, for example --groups M,F.")]
     Signif {
-        /// Path to a marker depths table
-        #[arg(short = 't', long = "markers-table")]
+        /// Marker depth table from `process`
+        #[arg(short = 't', long = "markers-table", value_name = "FILE")]
         markers_table: String,
-        /// Path to a population map file
-        #[arg(short = 'p', long = "popmap")]
+        /// Population map: one `individual<TAB>group` row per line
+        #[arg(short = 'p', long = "popmap", value_name = "FILE")]
         popmap: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Significant-marker table or FASTA file to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Minimum depth to consider a marker present
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Depth at or above which an individual counts as carrying the marker
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
-        /// Names of groups to compare
-        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
+        /// Exactly two group names, comma-separated, for example M,F
+        #[arg(
+            short = 'G',
+            long = "groups",
+            value_delimiter = ',',
+            value_name = "A,B"
+        )]
         groups: Option<Vec<String>>,
-        /// P-value significance threshold
-        #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
+        /// P-value cutoff before correction. Default 0.05
+        #[arg(
+            short = 'S',
+            long = "signif-threshold",
+            default_value = "0.05",
+            value_name = "P"
+        )]
         signif_threshold: f32,
-        /// Multiple testing correction: bonferroni (default), fdr, none
-        #[arg(long = "correction", default_value = "bonferroni")]
+        /// Multiple-testing correction: bonferroni (default), fdr, or none
+        #[arg(
+            long = "correction",
+            default_value = "bonferroni",
+            value_name = "METHOD"
+        )]
         correction: String,
-        /// Statistical test: chisq (default), fisher, gtest
-        #[arg(long = "test", default_value = "chisq")]
+        /// Association test: chisq (default), fisher, or gtest
+        #[arg(long = "test", default_value = "chisq", value_name = "TEST")]
         test_method: String,
-        /// P-value execution backend: cpu (default) or cuda
-        #[arg(long = "backend", default_value = "cpu")]
+        /// Where the p-values are computed: cpu (default) or cuda
+        #[arg(long = "backend", default_value = "cpu", value_name = "BACKEND")]
         backend: String,
-        /// Output in FASTA format instead of table format
+        /// Write FASTA instead of a depth table. Not valid with --correction fdr
         #[arg(short = 'a', long = "output-fasta")]
         output_fasta: bool,
-        /// Include Bayes Factor and posterior P(sex-linked) in output
+        /// Append Bayes_Factor and Posterior_SexLinked to each table row
         #[arg(long = "bayes")]
         output_bayes: bool,
         #[command(flatten)]
         bayes_model: BayesModelArgs,
     },
 
-    /// Rank strict and Bayesian marker candidates for biological follow-up
+    /// Rank markers by a strict test and by Bayesian sex-linkage evidence.
+    ///
+    /// Every marker with at least one individual above `--min-depth` is written.
+    #[command(after_help = "\
+Writes one row per retained marker. Columns:
+  id sequence Group1 Group1_Present Group1_Total Group1_Penetrance
+  Group2 Group2_Present Group2_Total Group2_Penetrance
+  Bias_Direction Bias P CorrectedP Bayes_Factor Posterior_SexLinked
+  Strict_Call Posterior_Call Bayes_Factor_Call Candidate_Class
+Candidate_Class is one of strict+posterior, strict_only, posterior_only,
+bayes_factor_only, exploratory.
+Strict calls use a Bonferroni threshold (signif_threshold / n_markers).")]
     Triage {
-        /// Path to a marker depths table
-        #[arg(short = 't', long = "markers-table")]
+        /// Marker depth table from `process`
+        #[arg(short = 't', long = "markers-table", value_name = "FILE")]
         markers_table: String,
-        /// Path to a population map file
-        #[arg(short = 'p', long = "popmap")]
+        /// Population map: one `individual<TAB>group` row per line
+        #[arg(short = 'p', long = "popmap", value_name = "FILE")]
         popmap: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Ranked-candidate table to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Minimum depth to consider a marker present
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Depth at or above which an individual counts as carrying the marker
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
-        /// Names of groups to compare
-        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
+        /// Exactly two group names, comma-separated, for example M,F
+        #[arg(
+            short = 'G',
+            long = "groups",
+            value_delimiter = ',',
+            value_name = "A,B"
+        )]
         groups: Option<Vec<String>>,
-        /// P-value significance threshold for strict calls
-        #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
+        /// Raw p-value cutoff. The strict call uses this divided by the marker count
+        #[arg(
+            short = 'S',
+            long = "signif-threshold",
+            default_value = "0.05",
+            value_name = "P"
+        )]
         signif_threshold: f32,
-        /// Posterior P(sex-linked) threshold
-        #[arg(long = "posterior-threshold", default_value = "0.9")]
+        /// Posterior P(sex-linked) at or above which Posterior_Call is true
+        #[arg(long = "posterior-threshold", default_value = "0.9", value_name = "P")]
         posterior_threshold: f64,
-        /// Evidence execution backend: cpu (default) or cuda
-        #[arg(long = "backend", default_value = "cpu")]
+        /// Where the p-value and Bayesian evidence are computed: cpu (default) or cuda
+        #[arg(long = "backend", default_value = "cpu", value_name = "BACKEND")]
         backend: String,
-        /// Bayes factor threshold
-        #[arg(long = "bayes-factor-threshold", default_value = "10.0")]
+        /// Bayes factor at or above which Bayes_Factor_Call is true
+        #[arg(
+            long = "bayes-factor-threshold",
+            default_value = "10.0",
+            value_name = "BF"
+        )]
         bayes_factor_threshold: f64,
         #[command(flatten)]
         bayes_model: BayesModelArgs,
     },
 
-    /// Compute marker frequencies in all individuals
+    /// Histogram of how many individuals carry each marker.
+    #[command(after_help = "\
+Writes:
+  #source:rsx-freq;min_depth:N
+  Frequency  Count
+Frequency is the number of individuals with depth >= min-depth.
+The Frequency 0 row is omitted.")]
     Freq {
-        /// Path to a marker depths table
-        #[arg(short = 't', long = "markers-table")]
+        /// Marker depth table from `process`
+        #[arg(short = 't', long = "markers-table", value_name = "FILE")]
         markers_table: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Frequency table to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Minimum depth to consider a marker present
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Depth at or above which an individual counts as carrying the marker
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
     },
 
-    /// Compute number of retained reads for each individual
+    /// Summarize retained reads and marker depths for each individual.
+    #[command(after_help = "\
+Writes one row per individual. Columns:
+  Sample Group Reads Markers Retained Min_depth Max_depth Median_depth Average_depth
+Retained counts markers present in at least --min-frequency of individuals.
+The median is exact in both memory and streaming mode.
+A missing popmap group is left blank; the individual is still reported.")]
     Depth {
-        /// Path to a marker depths table
-        #[arg(short = 't', long = "markers-table")]
+        /// Marker depth table from `process`
+        #[arg(short = 't', long = "markers-table", value_name = "FILE")]
         markers_table: String,
-        /// Path to a population map file
-        #[arg(short = 'p', long = "popmap")]
+        /// Population map: one `individual<TAB>group` row per line
+        #[arg(short = 'p', long = "popmap", value_name = "FILE")]
         popmap: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Per-individual depth summary to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Minimum frequency of a marker to retain it
-        #[arg(short = 'f', long = "min-frequency", default_value = "0.75")]
+        /// Fraction of individuals that must carry a marker before it enters the median
+        #[arg(
+            short = 'f',
+            long = "min-frequency",
+            default_value = "0.75",
+            value_name = "F"
+        )]
         min_frequency: f32,
-        /// Depth-table execution policy
+        /// auto, memory, or streaming. auto streams above --streaming-threshold-bytes
         #[arg(long = "streaming-mode", value_enum, default_value = "auto")]
         streaming_mode: DepthStreamingMode,
-        /// File-size boundary used by --streaming-mode auto
-        #[arg(long = "streaming-threshold-bytes", default_value = "2000000000")]
+        /// File size in bytes above which --streaming-mode auto uses the external sort
+        #[arg(
+            long = "streaming-threshold-bytes",
+            default_value = "2000000000",
+            value_name = "BYTES"
+        )]
         streaming_threshold_bytes: u64,
     },
 
-    /// Align markers to a genome and compute metrics
+    /// Align markers to a genome and report association at each hit.
+    ///
+    /// This command is omitted from binaries built without the `map` feature.
+    #[command(after_help = "\
+Writes one row per alignment that passes --min-quality. Columns:
+  Contig Position Length Marker_id Bias P CorrectedP Signif
+The markers file is a depth table or FASTA produced by rsx.
+The genome file is FASTA. --groups takes exactly two names, for example M,F.")]
     #[cfg(feature = "map")]
     Map {
-        /// Path to a markers file (depth table or FASTA)
-        #[arg(short = 't', long = "markers-file")]
+        /// Marker depth table or FASTA file to align
+        #[arg(short = 't', long = "markers-file", value_name = "FILE")]
         markers_file: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Alignment table to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Path to a population map file
-        #[arg(short = 'p', long = "popmap")]
+        /// Population map: one `individual<TAB>group` row per line
+        #[arg(short = 'p', long = "popmap", value_name = "FILE")]
         popmap: String,
-        /// Path to the genome file in FASTA format
-        #[arg(short = 'g', long = "genome-file")]
+        /// Reference genome in FASTA format
+        #[arg(short = 'g', long = "genome-file", value_name = "FASTA")]
         genome_file: String,
-        /// Minimum depth to consider a marker present
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Depth at or above which an individual counts as carrying the marker
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
-        /// Names of groups to compare
-        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
+        /// Exactly two group names, comma-separated, for example M,F
+        #[arg(
+            short = 'G',
+            long = "groups",
+            value_delimiter = ',',
+            value_name = "A,B"
+        )]
         groups: Option<Vec<String>>,
-        /// Minimum mapping quality
-        #[arg(short = 'q', long = "min-quality", default_value = "20")]
+        /// Minimum mapping quality retained
+        #[arg(
+            short = 'q',
+            long = "min-quality",
+            default_value = "20",
+            value_name = "Q"
+        )]
         min_quality: u32,
-        /// Minimum frequency of individuals to retain a marker
-        #[arg(short = 'Q', long = "min-frequency", default_value = "0.1")]
+        /// Minimum fraction of individuals that must carry a marker before it is aligned
+        #[arg(
+            short = 'Q',
+            long = "min-frequency",
+            default_value = "0.1",
+            value_name = "F"
+        )]
         min_frequency: f32,
-        /// P-value significance threshold
-        #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
+        /// P-value cutoff before Bonferroni correction. Default 0.05
+        #[arg(
+            short = 'S',
+            long = "signif-threshold",
+            default_value = "0.05",
+            value_name = "P"
+        )]
         signif_threshold: f32,
-        /// Disable Bonferroni correction
+        /// Compare the raw p-value with the threshold instead of the Bonferroni cutoff
         #[arg(short = 'C', long = "disable-correction")]
         disable_correction: bool,
     },
 
-    /// Extract a subset of a marker depths table
+    /// Keep markers whose group counts fall inside the requested ranges.
+    #[command(after_help = "\
+Table output is a marker depth table with a #source:rsx-subset comment.
+FASTA records use the same header shape as `signif --output-fasta`.
+Counts are of individuals with depth >= --min-depth.
+--groups takes exactly two names, for example --groups M,F.
+Default maxima of 9999 mean those bounds are unset for typical cohorts.")]
     Subset {
-        /// Path to a marker depths table
-        #[arg(short = 't', long = "markers-table")]
+        /// Marker depth table from `process`
+        #[arg(short = 't', long = "markers-table", value_name = "FILE")]
         markers_table: String,
-        /// Path to a population map file
-        #[arg(short = 'p', long = "popmap")]
+        /// Population map: one `individual<TAB>group` row per line
+        #[arg(short = 'p', long = "popmap", value_name = "FILE")]
         popmap: String,
-        /// Path to the output file
-        #[arg(short = 'o', long = "output-file")]
+        /// Filtered depth table or FASTA file to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Minimum depth to consider a marker present
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Depth at or above which an individual counts as carrying the marker
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
-        /// Names of groups to compare
-        #[arg(short = 'G', long = "groups", value_delimiter = ',')]
+        /// Exactly two group names, comma-separated, for example M,F
+        #[arg(
+            short = 'G',
+            long = "groups",
+            value_delimiter = ',',
+            value_name = "A,B"
+        )]
         groups: Option<Vec<String>>,
-        /// P-value significance threshold
-        #[arg(short = 'S', long = "signif-threshold", default_value = "0.05")]
+        /// P-value cutoff before Bonferroni correction. Default 0.05
+        #[arg(
+            short = 'S',
+            long = "signif-threshold",
+            default_value = "0.05",
+            value_name = "P"
+        )]
         signif_threshold: f32,
-        /// Disable Bonferroni correction
+        /// Compare the raw p-value with the threshold instead of the Bonferroni cutoff
         #[arg(short = 'C', long = "disable-correction")]
         disable_correction: bool,
-        /// Output in FASTA format
+        /// Write FASTA instead of a depth table
         #[arg(short = 'a', long = "output-fasta")]
         output_fasta: bool,
-        /// Minimum individuals from group1
-        #[arg(short = 'm', long = "min-group1", default_value = "0")]
+        /// Minimum number of group1 individuals that must carry the marker
+        #[arg(
+            short = 'm',
+            long = "min-group1",
+            default_value = "0",
+            value_name = "N"
+        )]
         min_group1: u32,
-        /// Minimum individuals from group2
-        #[arg(short = 'n', long = "min-group2", default_value = "0")]
+        /// Minimum number of group2 individuals that must carry the marker
+        #[arg(
+            short = 'n',
+            long = "min-group2",
+            default_value = "0",
+            value_name = "N"
+        )]
         min_group2: u32,
-        /// Maximum individuals from group1
-        #[arg(short = 'M', long = "max-group1", default_value = "9999")]
+        /// Maximum number of group1 individuals that may carry the marker
+        #[arg(
+            short = 'M',
+            long = "max-group1",
+            default_value = "9999",
+            value_name = "N"
+        )]
         max_group1: u32,
-        /// Maximum individuals from group2
-        #[arg(short = 'N', long = "max-group2", default_value = "9999")]
+        /// Maximum number of group2 individuals that may carry the marker
+        #[arg(
+            short = 'N',
+            long = "max-group2",
+            default_value = "9999",
+            value_name = "N"
+        )]
         max_group2: u32,
-        /// Minimum total individuals
-        #[arg(short = 'i', long = "min-individuals", default_value = "0")]
+        /// Minimum number of individuals, from either group, that must carry the marker
+        #[arg(
+            short = 'i',
+            long = "min-individuals",
+            default_value = "0",
+            value_name = "N"
+        )]
         min_individuals: u32,
-        /// Maximum total individuals
-        #[arg(short = 'I', long = "max-individuals", default_value = "9999")]
+        /// Maximum number of individuals, from either group, that may carry the marker
+        #[arg(
+            short = 'I',
+            long = "max-individuals",
+            default_value = "9999",
+            value_name = "N"
+        )]
         max_individuals: u32,
     },
 
-    /// Merge multiple marker depth tables by sequence identity
+    /// Merge marker depth tables by sequence, concatenating individuals.
+    #[command(after_help = "\
+Input tables are marker depth tables. Individuals are appended in the order
+the files are given. Equal sequences have their depths added with saturation
+at 65535. The output is a marker depth table unless --output-parquet is set.
+Progress messages are written to stderr and are not part of the table.")]
     Merge {
-        /// Paths to input marker depth tables (positional, 2 or more)
-        #[arg(required = true, num_args = 1..)]
+        /// Marker depth tables to merge, in individual-column order
+        #[arg(required = true, num_args = 1.., value_name = "TABLE")]
         input_files: Vec<String>,
-        /// Path to the output merged table
-        #[arg(short = 'o', long = "output-file")]
+        /// Merged marker depth table to write
+        #[arg(short = 'o', long = "output-file", value_name = "FILE")]
         output_file: String,
-        /// Number of entries to buffer before flushing to disk (default: 2M)
-        #[arg(short = 'B', long = "buffer-size", default_value = "2000000")]
+        /// Rows held in memory before a sorted chunk is written. Default 2000000
+        #[arg(
+            short = 'B',
+            long = "buffer-size",
+            default_value = "2000000",
+            value_name = "N"
+        )]
         buffer_size: usize,
-        /// Output as Parquet instead of TSV (requires --features parquet-io)
+        /// Write Parquet instead of TSV. Requires a build with the parquet-io feature
         #[arg(long = "output-parquet")]
         output_parquet: bool,
     },
 
-    /// Streaming PCA of the depth matrix (sample-space / Tucker mode-2 factors)
+    /// Sample-space PCA of the marker-by-individual depth matrix.
+    #[command(after_help = "\
+Creates OUTPUT_DIR and writes:
+  eigenvalues.tsv     component, eigenvalue, variance_fraction, cumulative
+  loadings.tsv        individual, PC1, PC2, ... (same contents as sample_scores.tsv)
+  sample_scores.tsv   individual, PC1, PC2, ...
+  summary.txt         marker count, individual count, and the leading fractions
+--components limits how many components are written. The default is all of them.")]
     Pca {
-        /// Path to a marker depths table
-        #[arg(short = 't', long = "markers-table")]
+        /// Marker depth table from `process`
+        #[arg(short = 't', long = "markers-table", value_name = "FILE")]
         markers_table: String,
-        /// Output directory for eigenvalues, sample scores (loadings.tsv), summary
-        #[arg(short = 'o', long = "output-dir")]
+        /// Directory to create for eigenvalues.tsv, loadings.tsv, sample_scores.tsv, and summary.txt
+        #[arg(short = 'o', long = "output-dir", value_name = "DIR")]
         output_dir: String,
-        /// Minimum depth to consider a marker present
-        #[arg(short = 'd', long = "min-depth", default_value = "1")]
+        /// Depth at or above which an individual counts as carrying the marker
+        #[arg(short = 'd', long = "min-depth", default_value = "1", value_name = "N")]
         min_depth: u16,
-        /// Number of principal components to output (default: all)
-        #[arg(short = 'r', long = "components")]
+        /// How many leading components to write. Default: every component
+        #[arg(short = 'r', long = "components", value_name = "N")]
         components: Option<usize>,
-        /// Gram accumulation backend: cpu (default) or cuda
-        #[arg(long = "backend", default_value = "cpu")]
+        /// Where the Gram matrix is accumulated: cpu (default) or cuda
+        #[arg(long = "backend", default_value = "cpu", value_name = "BACKEND")]
         backend: String,
     },
 }
@@ -483,8 +703,13 @@ fn extract_groups(
         Some(g) => Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             format!(
-                "--groups requires exactly two non-empty group names separated by a comma; got {}",
-                g.len()
+                "--groups requires exactly two non-empty group names separated by a comma, for example --groups M,F; got {} ({})",
+                g.len(),
+                if g.is_empty() {
+                    "none".to_string()
+                } else {
+                    g.join(", ")
+                }
             ),
         )
         .into()),
@@ -512,7 +737,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if let Err(archive_error) =
                 capture_profile_resolution_failure(&raw_arguments, error.as_ref())
             {
-                log::error!("could not create configuration-failure archive: {archive_error}");
+                eprintln!("error: could not create configuration-failure archive: {archive_error}");
             }
             return Err(error);
         }
@@ -574,12 +799,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             let (g1, g2) = extract_groups(groups)?;
             let mut corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+                .map_err(|e| format!("distrib: {e}"))?;
             if disable_correction {
                 corr = rsx_core::test_method::CorrectionMethod::None;
             }
             let test = rsx_core::test_method::TestMethod::parse_str(&test_method)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+                .map_err(|e| format!("distrib: {e}"))?;
             commands::distrib::run(&commands::distrib::DistribParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
@@ -611,20 +836,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             let (g1, g2) = extract_groups(groups)?;
             let corr = rsx_core::test_method::CorrectionMethod::parse_str(&correction)
-                .unwrap_or_else(|e| {
-                    log::error!("{e}");
-                    std::process::exit(1);
-                });
-            let test =
-                rsx_core::test_method::TestMethod::parse_str(&test_method).unwrap_or_else(|e| {
-                    log::error!("{e}");
-                    std::process::exit(1);
-                });
+                .map_err(|e| format!("signif: {e}"))?;
+            let test = rsx_core::test_method::TestMethod::parse_str(&test_method)
+                .map_err(|e| format!("signif: {e}"))?;
             let backend = rsx_core::compute_backend::PValueBackend::parse_str(&backend)
-                .unwrap_or_else(|e| {
-                    log::error!("{e}");
-                    std::process::exit(1);
-                });
+                .map_err(|e| format!("signif: {e}"))?;
             commands::signif::run_with_backend(
                 &commands::signif::SignifParams {
                     markers_table_path: markers_table,
@@ -658,10 +874,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             let (g1, g2) = extract_groups(groups)?;
             let backend = rsx_core::compute_backend::PValueBackend::parse_str(&backend)
-                .unwrap_or_else(|e| {
-                    log::error!("{e}");
-                    std::process::exit(1);
-                });
+                .map_err(|e| format!("triage: {e}"))?;
             commands::triage::run(&commands::triage::TriageParams {
                 markers_table_path: markers_table,
                 popmap_file_path: popmap,
@@ -810,10 +1023,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             backend,
         } => {
             let backend = rsx_core::compute_backend::PValueBackend::parse_str(&backend)
-                .unwrap_or_else(|e| {
-                    log::error!("{e}");
-                    std::process::exit(1);
-                });
+                .map_err(|e| format!("pca: {e}"))?;
             commands::pca::run(&commands::pca::PcaParams {
                 markers_table_path: markers_table,
                 output_dir,
@@ -836,7 +1046,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if result.is_ok() {
                 return Err(archive_error);
             }
-            log::error!("could not enrich reproducibility archive: {archive_error}");
+            eprintln!("error: could not enrich reproducibility archive: {archive_error}");
         }
     }
     result
@@ -918,7 +1128,15 @@ where
 
 fn resolved_run_profile(cli: &Cli) -> Result<RunProfile, Box<dyn std::error::Error>> {
     let profile_name = match &cli.profile {
-        Some(path) => RunProfile::parse_toml(&fs::read_to_string(path)?)?.profile_name,
+        Some(path) => {
+            let text = fs::read_to_string(path)
+                .map_err(|error| format!("cannot read --profile {path}: {error}"))?;
+            RunProfile::parse_toml(&text)
+                .map_err(|error| {
+                    format!("cannot parse --profile {path}: {error}. Expected schema_version = 1")
+                })?
+                .profile_name
+        }
         None => "cli-v1".to_owned(),
     };
     let run = match &cli.command {
@@ -1140,16 +1358,53 @@ fn write_hydrated_profile(profile: &RunProfile) -> Result<(), Box<dyn std::error
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(&temporary)?;
-    file.write_all(profile.to_toml()?.as_bytes())?;
-    file.sync_all()?;
-    fs::rename(temporary, destination)?;
+        .open(&temporary)
+        .map_err(|error| {
+            format!(
+                "cannot create hydrated profile {} (temporary file {}): {error}",
+                destination.display(),
+                temporary.display()
+            )
+        })?;
+    file.write_all(profile.to_toml()?.as_bytes())
+        .map_err(|error| {
+            format!(
+                "cannot write hydrated profile {}: {error}",
+                destination.display()
+            )
+        })?;
+    file.sync_all().map_err(|error| {
+        format!(
+            "cannot finish writing hydrated profile {}: {error}",
+            destination.display()
+        )
+    })?;
+    fs::rename(&temporary, destination).map_err(|error| {
+        format!(
+            "cannot replace hydrated profile {} with {}: {error}",
+            destination.display(),
+            temporary.display()
+        )
+    })?;
     Ok(())
 }
 
+fn report_error(error: &dyn std::error::Error) {
+    let message = error.to_string();
+    if message.starts_with("error:") {
+        if message.ends_with('\n') {
+            eprint!("{message}");
+        } else {
+            eprintln!("{message}");
+        }
+    } else {
+        eprintln!("error: {message}");
+    }
+}
+
 fn main() {
-    if let Err(e) = run() {
-        log::error!("{e}");
+    if let Err(error) = run() {
+        report_error(error.as_ref());
         std::process::exit(1);
     }
 }

@@ -16,19 +16,33 @@ use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::Path;
 
+/// Arguments for `map`.
 pub struct MapParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Path of the population map.
     pub popmap_file_path: String,
+    /// Path of the reference FASTA.
     pub genome_file_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
+    /// Minimum mapping quality retained.
     pub min_quality: u32,
+    /// Fraction of individuals that must carry a marker before it is retained.
     pub min_frequency: f32,
+    /// P-value cutoff before multiple-testing correction.
     pub signif_threshold: f32,
+    /// Multiple-testing correction: `bonferroni`, `fdr`, or `none`.
     pub correction: crate::test_method::CorrectionMethod,
+    /// Association test: `chisq`, `fisher`, or `gtest`.
     pub test_method: crate::test_method::TestMethod,
+    /// When true, append the Bayes factor and the posterior probability.
     pub output_bayes: bool,
+    /// First group name. Empty means the caller has not chosen one yet.
     pub group1: String,
+    /// Second group name. Empty means the caller has not chosen one yet.
     pub group2: String,
 }
 
@@ -57,6 +71,7 @@ fn load_contig_lengths(genome_path: &Path) -> std::io::Result<HashMap<String, u6
     Ok(lengths)
 }
 
+/// Run the command from the paths in `params`.
 pub fn run(params: &MapParams) -> Result<(), Box<dyn std::error::Error>> {
     let table_path = Path::new(&params.markers_table_path);
     let popmap = Popmap::from_file(Path::new(&params.popmap_file_path))?;

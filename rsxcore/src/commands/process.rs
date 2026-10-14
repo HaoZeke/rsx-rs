@@ -13,9 +13,13 @@ use std::path::Path;
 
 /// Parameters for the `process` command.
 pub struct ProcessParams {
+    /// Directory of demultiplexed FASTA or FASTQ files.
     pub input_dir_path: String,
+    /// Path of the file to write.
     pub output_file_path: String,
+    /// Worker threads. Must be at least 1.
     pub n_threads: u32,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
     /// If set, group markers by min-hash of canonical k-mers of this size.
     /// Heuristic (not exact) collapse of sequencing error variants.
@@ -51,6 +55,15 @@ fn estimate_parallel_merge_capacity(input_files: &[crate::io::seq_reader::InputF
 
 /// Run the `process` command.
 pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
+    if params.n_threads == 0 {
+        return Err("process: n_threads must be at least 1 (CLI: --threads / -T)".into());
+    }
+    if params.kmer_dedup == Some(0) {
+        return Err(
+            "process: kmer_dedup must be at least 1 when set (CLI: --kmer-dedup). Omit it to disable deduplication."
+                .into(),
+        );
+    }
     log::info!("RADSex process started");
     let start = std::time::Instant::now();
 
@@ -104,7 +117,11 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                         log::debug!("Finished processing individual {}", f.individual_name);
                     }
                     Err(e) => {
-                        let msg = format!("Error processing {}: {e}", f.path.display());
+                        let msg = format!(
+                            "cannot read {} for individual {}: {e}. Expected FASTA or FASTQ, optionally gzipped",
+                            f.path.display(),
+                            f.individual_name
+                        );
                         log::error!("{msg}");
                         err_count.fetch_add(1, Ordering::Relaxed);
                         if let Ok(mut slot) = first_err.lock() {
@@ -136,17 +153,24 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             let per_file: Vec<Result<_, _>> = input_files
                 .par_iter()
                 .map(|f| {
-                    count_sequences_packed(&f.path).map(|c| {
-                        log::debug!("Finished processing individual {}", f.individual_name);
-                        (f.individual_name.clone(), c)
-                    })
+                    count_sequences_packed(&f.path)
+                        .map(|c| {
+                            log::debug!("Finished processing individual {}", f.individual_name);
+                            (f.individual_name.clone(), c)
+                        })
+                        .map_err(|e| {
+                            format!(
+                                "cannot read {} for individual {}: {e}. Expected FASTA or FASTQ, optionally gzipped",
+                                f.path.display(),
+                                f.individual_name
+                            )
+                        })
                 })
                 .collect();
 
             let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
             for result in per_file {
-                let (name, counts) = result
-                    .map_err(|e| format!("process failed while reading an input file: {e}"))?;
+                let (name, counts) = result?;
                 let idx = individual_indices[&name];
                 for (packed_seq, count) in counts {
                     let entry = global
@@ -175,7 +199,12 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
                     log::info!("Finished processing individual {}", f.individual_name);
                 }
                 Err(e) => {
-                    return Err(format!("Error processing {}: {e}", f.path.display()).into());
+                    return Err(format!(
+                        "cannot read {} for individual {}: {e}. Expected FASTA or FASTQ, optionally gzipped",
+                        f.path.display(),
+                        f.individual_name
+                    )
+                    .into());
                 }
             }
         }

@@ -118,5 +118,8 @@ pub fn write_parquet(
     _sample_names: &[String],
     _rows: impl Iterator<Item = (u64, Vec<u8>, Vec<u16>)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    Err("Parquet output requires --features parquet-io".into())
+    Err(
+        "merge: --output-parquet needs the parquet-io feature. Rebuild with `cargo build -p rsx-cli --release --features parquet-io`"
+            .into(),
+    )
 }

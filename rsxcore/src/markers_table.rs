@@ -33,9 +33,13 @@ fn should_use_parallel(len: usize) -> bool {
 /// Used by all commands to trade off speed vs. functionality (e.g. fasta output
 /// or per-marker sequences for mapping requires storing the sequence).
 pub struct ParserConfig {
+    /// Keep the sequence text on each marker.
     pub store_sequence: bool,
+    /// Keep the per-individual depth vector on each marker.
     pub store_depths: bool,
+    /// Look up a popmap group for each individual column.
     pub compute_groups: bool,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
 }
 
@@ -56,7 +60,9 @@ impl Default for ParserConfig {
 /// materializing the full n_markers × n_ind matrix in RAM. See the paper and
 /// `docs/orgmode/reference/architecture.org` for the design.
 pub struct MarkersTableStream {
+    /// Parsed comment and column names.
     pub header: crate::io::table_io::TableHeader,
+    /// Two group names to compare, or none to use the only two groups in the popmap.
     pub groups: Vec<String>,
     config: ParserConfig,
     mmap: Mmap,
@@ -65,6 +71,7 @@ pub struct MarkersTableStream {
 }
 
 impl MarkersTableStream {
+    /// Open a marker depth table.
     pub fn open(
         path: &Path,
         popmap: Option<&Popmap>,
@@ -151,6 +158,9 @@ impl MarkersTableStream {
         self.par_for_each(f)
     }
 
+    /// Process all markers with the same callback shape as the parallel method.
+    ///
+    /// Without the `parallel` feature this walks the table in order.
     #[cfg(not(feature = "parallel"))]
     pub fn for_each_parallel<F>(&self, f: F) -> std::io::Result<()>
     where
@@ -266,6 +276,7 @@ impl MarkersTableStream {
         });
     }
 
+    /// Read every marker into a vector.
     pub fn collect(&self) -> std::io::Result<Vec<Marker>> {
         let mut markers = Vec::new();
         self.for_each(|m| markers.push(m.clone()))?;

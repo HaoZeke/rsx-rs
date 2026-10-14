@@ -23,7 +23,9 @@ use std::io::Write;
 /// Falls back to single-node rayon if MPI is not initialized or size=1.
 #[cfg(feature = "mpi")]
 pub fn run_mpi(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
-    let universe = mpi::initialize().expect("MPI initialize failed; check mpiexec / launcher and that only one MPI init happens per process");
+    let universe = mpi::initialize().ok_or_else(|| {
+        "process: MPI is already initialized, or the launcher did not start this process under mpiexec/mpirun. Initialize MPI only once per process"
+    })?;
     let world = universe.world();
     let rank = world.rank() as usize;
     let size = world.size() as usize;

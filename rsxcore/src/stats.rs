@@ -223,7 +223,13 @@ pub fn find_median(data: &mut [u16]) -> f64 {
     if len % 2 == 1 {
         upper
     } else {
-        let lower = f64::from(*left.iter().max().expect("even slice has a lower half"));
+        let Some(lower_value) = left.iter().copied().max() else {
+            // `len >= 2` and `k = len / 2` always leave a non-empty lower
+            // partition. If that invariant ever fails, return the upper
+            // order statistic instead of panicking on user data.
+            return upper;
+        };
+        let lower = f64::from(lower_value);
         (lower + upper) / 2.0
     }
 }
@@ -432,11 +438,14 @@ pub fn benjamini_hochberg_weighted(p_values: &[(f64, u64)]) -> Vec<f64> {
 /// Shape parameters for a Beta prior.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BetaPrior {
+    /// Beta shape alpha. Must be finite and greater than zero.
     pub alpha: f64,
+    /// Beta shape beta. Must be finite and greater than zero.
     pub beta: f64,
 }
 
 impl BetaPrior {
+    /// Fn.
     pub const fn uniform() -> Self {
         Self {
             alpha: 1.0,
@@ -448,8 +457,11 @@ impl BetaPrior {
 /// Priors for the independent-group and shared-prevalence hypotheses.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BayesFactorModel {
+    /// Beta prior for prevalence in group 1 under separate prevalences.
     pub alternative_group1: BetaPrior,
+    /// Beta prior for prevalence in group 2 under separate prevalences.
     pub alternative_group2: BetaPrior,
+    /// Prevalence prior for the shared null.
     pub null: BetaPrior,
 }
 
@@ -463,6 +475,7 @@ impl BayesFactorModel {
         }
     }
 
+    /// Reject parameters that are non-finite or outside their domain.
     pub fn validate(&self) -> Result<(), BayesianModelError> {
         validate_beta_prior("alternative_group1", self.alternative_group1)?;
         validate_beta_prior("alternative_group2", self.alternative_group2)?;
@@ -473,7 +486,12 @@ impl BayesFactorModel {
 /// Prior for a marker prevalence used in posterior model evidence.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PrevalencePrior {
-    Fixed { probability: f64 },
+    /// Use one prevalence, stored in `probability`.
+    Fixed {
+        /// Prevalence strictly between 0 and 1.
+        probability: f64,
+    },
+    /// Integrate prevalence against this Beta prior.
     Beta(BetaPrior),
 }
 
@@ -489,11 +507,14 @@ impl PrevalencePrior {
 /// Prevalence priors for the directional alternative and shared null.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PosteriorModel {
+    /// Prevalence prior for the sex-linked hypothesis.
     pub linked: PrevalencePrior,
+    /// Prevalence prior for the shared null.
     pub null: PrevalencePrior,
 }
 
 impl PosteriorModel {
+    /// Fn.
     pub const fn fixed(linked_probability: f64, null_probability: f64) -> Self {
         Self {
             linked: PrevalencePrior::Fixed {
@@ -505,6 +526,7 @@ impl PosteriorModel {
         }
     }
 
+    /// Reject parameters that are non-finite or outside their domain.
     pub fn validate(&self) -> Result<(), BayesianModelError> {
         self.linked.validate("posterior.linked")?;
         self.null.validate("posterior.null")
@@ -519,6 +541,7 @@ pub struct BayesianModelError {
 }
 
 impl BayesianModelError {
+    /// Name of the parameter that failed validation.
     pub fn field(&self) -> &str {
         &self.field
     }
@@ -632,11 +655,17 @@ fn log_beta(alpha: f64, beta: f64) -> f64 {
 /// Parameters of the directional binomial-mixture model.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DirectionalModel {
+    /// Prior probability that a marker is sex-linked.
     pub linkage_prior: f64,
+    /// Expected prevalence in the linked group.
     pub linked_prevalence: f64,
+    /// Expected prevalence under the shared-prevalence null.
     pub null_prevalence: f64,
+    /// Mixture weight of the group1-linked direction.
     pub group1_linked_weight: f64,
+    /// Prevalence priors used to compute the posterior.
     pub posterior: PosteriorModel,
+    /// Beta priors used to compute the Bayes factor.
     pub bayes_factor: BayesFactorModel,
 }
 

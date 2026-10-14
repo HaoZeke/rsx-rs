@@ -22,12 +22,29 @@ impl TableHeader {
     /// The file starts with an optional comment line `#Number of markers : N`
     /// followed by a tab-separated header line `id\tsequence\tind1\t...\tindN`.
     pub fn from_file(path: &Path) -> io::Result<Self> {
-        let file = std::fs::File::open(path)?;
+        let file = std::fs::File::open(path).map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "cannot open markers table {}: {error}. Expected a TSV with an optional '#Number of markers : N' line and a header row 'id\\tsequence\\t<individual>...'",
+                    path.display()
+                ),
+            )
+        })?;
         let mut reader = io::BufReader::new(file);
         let mut line = String::new();
 
         // Read first line
-        reader.read_line(&mut line)?;
+        let first_len = reader.read_line(&mut line)?;
+        if first_len == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "markers table {} is empty. Expected an optional '#Number of markers : N' line and a header row 'id\\tsequence\\t<individual>...'",
+                    path.display()
+                ),
+            ));
+        }
         let mut n_markers = 0u64;
 
         if line.starts_with('#') {
@@ -36,16 +53,31 @@ impl TableHeader {
                 n_markers = count_str.trim().parse().unwrap_or(0);
             }
             line.clear();
-            reader.read_line(&mut line)?;
+            let header_len = reader.read_line(&mut line)?;
+            if header_len == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "markers table {} has a comment line but no header. Expected 'id\\tsequence\\t<individual>...'",
+                        path.display()
+                    ),
+                ));
+            }
         }
 
         let line = line.trim_end_matches('\n').trim_end_matches('\r');
         let columns: Vec<String> = line.split('\t').map(|s| s.to_string()).collect();
-        let n_individuals = if columns.len() >= 2 {
-            (columns.len() - 2) as u16
-        } else {
-            0
-        };
+        if columns.len() < 3 || columns[0] != "id" || columns[1] != "sequence" {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "markers table {} header is {:?}. Expected columns id, sequence, then one column per individual",
+                    path.display(),
+                    columns
+                ),
+            ));
+        }
+        let n_individuals = (columns.len() - 2) as u16;
 
         Ok(TableHeader {
             n_markers,
@@ -125,5 +157,21 @@ mod tests {
         assert_eq!(header.n_markers, 100);
         assert_eq!(header.n_individuals, 3);
         assert_eq!(header.columns.len(), 5);
+    }
+
+    #[test]
+    fn test_table_header_rejects_a_missing_sequence_column() {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        writeln!(f, "sequence\tind1").unwrap();
+        let error = TableHeader::from_file(f.path()).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("Expected columns id, sequence"),
+            "{message}"
+        );
+        assert!(
+            message.contains(&f.path().display().to_string()),
+            "{message}"
+        );
     }
 }

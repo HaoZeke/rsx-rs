@@ -338,6 +338,7 @@ static CUDA_MODULE: OnceLock<CachedCudaModule> = OnceLock::new();
 static CUDA_PINNED_RESULTS: Mutex<Vec<cudarc::driver::PinnedHostSlice<f64>>> =
     Mutex::new(Vec::new());
 
+/// Page-locked host buffer borrowed from the process-wide CUDA pool.
 #[cfg(feature = "cuda")]
 #[derive(Debug)]
 pub struct PooledPinnedResult {
@@ -460,7 +461,9 @@ fn cuda_module() -> Result<(&'static CachedCudaModule, f64), Box<dyn std::error:
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AssociationCounts {
+    /// First group name. Empty means the caller has not chosen one yet.
     pub group1: u32,
+    /// Second group name. Empty means the caller has not chosen one yet.
     pub group2: u32,
 }
 
@@ -552,25 +555,32 @@ impl From<&crate::stats::DirectionalModel> for DeviceDirectionalModel {
 #[cfg(feature = "cuda")]
 unsafe impl cudarc::driver::DeviceRepr for DeviceDirectionalModel {}
 
-/// Execution backend for batched chi-square p-values.
+/// Execution backend for batched association tests and Gram accumulation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum PValueBackend {
+    /// Evaluate the batch on the host. This is the default.
     #[default]
     Cpu,
+    /// Evaluate the batch with the CUDA kernels. Requires the `cuda` feature.
     Cuda,
 }
 
 impl PValueBackend {
+    /// Parse a backend name from the CLI or a run profile.
+    ///
+    /// Accepted values are `cpu` and `cuda` (alias `gpu`). Selecting `cuda`
+    /// on a build without the `cuda` feature returns an error at execution.
     pub fn parse_str(value: &str) -> Result<Self, String> {
         match value.to_ascii_lowercase().as_str() {
             "cpu" => Ok(Self::Cpu),
             "cuda" | "gpu" => Ok(Self::Cuda),
             _ => Err(format!(
-                "Unknown p-value backend: {value}. Options: cpu, cuda"
+                "backend '{value}' is not recognized. Accepted values: cpu, cuda (alias: gpu)"
             )),
         }
     }
 
+    /// Stable token written into logs and profiles (`cpu` or `cuda`).
     pub fn name(self) -> &'static str {
         match self {
             Self::Cpu => "cpu",
@@ -582,29 +592,44 @@ impl PValueBackend {
 /// Timing and transfer accounting for one batch evaluation.
 #[derive(Debug, Clone)]
 pub struct BatchMetrics {
+    /// Execution backend: `cpu` or `cuda`.
     pub backend: PValueBackend,
+    /// Device name reported for this batch.
     pub device: String,
+    /// Number of markers in the batch.
     pub markers: usize,
+    /// Bytes copied to the device.
     pub host_to_device_bytes: usize,
+    /// Bytes copied back to the host.
     pub device_to_host_bytes: usize,
+    /// Seconds spent preparing the device before the batch.
     pub setup_seconds: f64,
+    /// Seconds spent copying inputs to the device.
     pub host_to_device_seconds: f64,
+    /// Seconds spent in the kernel or the host loop.
     pub kernel_seconds: f64,
+    /// Seconds spent copying results back.
     pub device_to_host_seconds: f64,
+    /// Seconds from the start of the batch to the returned buffer.
     pub total_seconds: f64,
+    /// Whether the page-locked result buffer was taken from the pool.
     pub output_buffer_reused: bool,
+    /// Bytes of host staging memory used for the transfer.
     pub host_staging_bytes: usize,
 }
 
 /// Host storage for computed p-values.
 #[derive(Debug)]
 pub enum PValueBuffer {
+    /// P-values owned by an ordinary `Vec`.
     Owned(Vec<f64>),
+    /// P-values in page-locked memory from the CUDA pool.
     #[cfg(feature = "cuda")]
     PageLocked(PooledPinnedResult),
 }
 
 impl PValueBuffer {
+    /// Borrow the p-values. Returns an error if the buffer cannot be viewed as a slice.
     pub fn try_as_slice(&self) -> Result<&[f64], Box<dyn std::error::Error>> {
         match self {
             Self::Owned(values) => Ok(values),
@@ -613,6 +638,7 @@ impl PValueBuffer {
         }
     }
 
+    /// Whether this buffer is page-locked host memory.
     pub fn is_page_locked(&self) -> bool {
         match self {
             Self::Owned(_) => false,
@@ -633,10 +659,13 @@ impl PValueBuffer {
 /// P-values and backend measurements for one batch.
 #[derive(Debug)]
 pub struct BatchResult {
+    /// One p-value per marker in the batch.
     pub p_values: PValueBuffer,
+    /// Timing and transfer sizes for this batch.
     pub metrics: BatchMetrics,
 }
 
+/// Chi-square p-value for each count pair.
 pub fn compute_chi_squared_batch(
     backend: PValueBackend,
     counts: &[AssociationCounts],
@@ -648,6 +677,7 @@ pub fn compute_chi_squared_batch(
         .into_vec()
 }
 
+/// Chi-square p-values and timing for the batch.
 pub fn compute_chi_squared_batch_with_metrics(
     backend: PValueBackend,
     counts: &[AssociationCounts],
@@ -676,6 +706,7 @@ pub fn compute_p_batch(
         .into_vec()
 }
 
+/// P-values and timing for the batch.
 pub fn compute_p_batch_with_metrics(
     backend: PValueBackend,
     test: crate::test_method::TestMethod,
@@ -755,7 +786,7 @@ fn compute_cuda(
 ) -> Result<BatchResult, Box<dyn std::error::Error>> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,
-        "CUDA backend requested, but rsxcore was built without the `cuda` feature",
+        "backend cuda was requested, but this build does not include the cuda feature. Rebuild with `cargo build -p rsx-cli --release --features cuda`, or pass --backend cpu",
     )
     .into())
 }
@@ -878,8 +909,11 @@ fn marker_launch_config(elements: usize) -> cudarc::driver::LaunchConfig {
 /// Per-marker Bayes factors and directional posteriors with backend timings.
 #[derive(Debug)]
 pub struct BayesEvidenceResult {
+    /// One Bayes factor per marker in the batch.
     pub bayes_factors: Vec<f64>,
+    /// One posterior probability per marker in the batch.
     pub posteriors: Vec<f64>,
+    /// Timing and transfer sizes for this batch.
     pub metrics: BatchMetrics,
 }
 
@@ -904,6 +938,7 @@ pub fn compute_bayes_evidence_batch(
     Ok((result.bayes_factors, result.posteriors))
 }
 
+/// Bayes factors, posteriors, and timing for the batch.
 pub fn compute_bayes_evidence_batch_with_metrics(
     backend: PValueBackend,
     counts: &[AssociationCounts],
@@ -977,7 +1012,7 @@ fn bayes_evidence_cuda(
 ) -> Result<BayesEvidenceResult, Box<dyn std::error::Error>> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,
-        "CUDA backend requested, but rsxcore was built without the `cuda` feature",
+        "backend cuda was requested, but this build does not include the cuda feature. Rebuild with `cargo build -p rsx-cli --release --features cuda`, or pass --backend cpu",
     )
     .into())
 }
@@ -1114,6 +1149,7 @@ impl GramAccumulator {
     #[cfg(feature = "cuda")]
     const MARKERS_PER_CHUNK: u64 = 512;
 
+    /// Create an empty Gram accumulator for `individuals` columns.
     pub fn new(
         backend: PValueBackend,
         individuals: usize,
@@ -1151,7 +1187,7 @@ impl GramAccumulator {
     fn prepare_device(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         Err(std::io::Error::new(
             std::io::ErrorKind::Unsupported,
-            "CUDA backend requested, but rsxcore was built without the `cuda` feature",
+            "backend cuda was requested, but this build does not include the cuda feature. Rebuild with `cargo build -p rsx-cli --release --features cuda`, or pass --backend cpu",
         )
         .into())
     }

@@ -38,11 +38,17 @@ pub const DEFAULT_SPILL_FRACTION: f64 = 0.55;
 /// Working-set estimate.
 #[derive(Debug, Clone, Copy)]
 pub struct SizeEstimate {
+    /// Number of individuals in the estimate.
     pub n_samples: usize,
+    /// Number of markers in the estimate.
     pub m_markers: usize,
+    /// Bytes stored per depth value.
     pub bytes_per_cell: u64,
+    /// Multiplier for allocator and mask overhead.
     pub overhead_factor: f64,
+    /// Extra multiplier for commands that retain more than the depth matrix.
     pub command_multiplier: f64,
+    /// Predicted working-set size in bytes.
     pub estimated_bytes: u64,
 }
 
@@ -107,7 +113,9 @@ pub fn spill_threshold_bytes() -> u64 {
 /// Wraps the underlying source so the analysis commands can stay generic
 /// over `MarkerStream` without caring which physical backing they got.
 pub enum MarkerTableSource {
+    /// Markers kept as Arrow record batches.
     InMemory(ArrowMarkerSource),
+    /// Markers stored in a temporary Parquet file.
     Spilled(ParquetMarkerSource),
 }
 
@@ -227,7 +235,9 @@ impl MarkerStream for MarkerTableSource {
 /// Combined error for `from_arrow_ipc`.
 #[derive(Debug)]
 pub enum MarkerSourceError {
+    /// The in-memory Arrow source could not be built.
     Arrow(ArrowSourceError),
+    /// The Parquet spill could not be written or read.
     Parquet(ParquetSourceError),
 }
 

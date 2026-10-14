@@ -8,10 +8,15 @@ use crate::source::MarkerStream;
 use std::io::Write;
 use std::path::Path;
 
+/// Arguments for `pca`.
 pub struct PcaParams {
+    /// Path of the marker depth table.
     pub markers_table_path: String,
+    /// Directory created for the PCA tables.
     pub output_dir: String,
+    /// Depth at or above which an individual counts as carrying a marker.
     pub min_depth: u16,
+    /// How many components to return. `None` means all of them.
     pub n_components: Option<usize>,
     /// Where the Gram accumulation runs.
     pub backend: crate::compute_backend::PValueBackend,
@@ -169,6 +174,7 @@ pub fn rank1_upper_update_sparse(gram: &mut [f64], mean: &mut [f64], depths: &[u
     }
 }
 
+/// Run the command from the paths in `params`.
 pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
     let c = compute_pca(
         &params.markers_table_path,
@@ -179,6 +185,7 @@ pub fn run(params: &PcaParams) -> Result<(), Box<dyn std::error::Error>> {
     write_pca_outputs(&c, &params.output_dir)
 }
 
+/// Run the command against an open marker stream.
 pub fn run_with_source<S: MarkerStream>(
     source: &S,
     params: &PcaParams,
@@ -357,16 +364,24 @@ use arrow::datatypes::{DataType, Field, Schema};
 #[cfg(feature = "arrow-output")]
 use arrow::record_batch::RecordBatch;
 
+/// PCA eigenvalues and sample scores as Arrow record batches.
 #[cfg(feature = "arrow-output")]
 pub struct PcaArrowResult {
+    /// Eigenvalue record batch, one row per component.
     pub eigenvalues: RecordBatch,
+    /// Sample-score record batch, one row per individual.
     pub loadings: RecordBatch,
+    /// Number of markers that entered the calculation.
     pub n_markers: u64,
+    /// N individuals.
     pub n_individuals: usize,
+    /// How many components to return. `None` means all of them.
     pub n_components: usize,
+    /// Sum of the eigenvalues.
     pub total_variance: f64,
 }
 
+/// Run the command and return Arrow record batches instead of a file.
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::error::Error>> {
     let c = compute_pca(
@@ -378,6 +393,7 @@ pub fn run_to_arrow(params: &PcaParams) -> Result<PcaArrowResult, Box<dyn std::e
     pca_to_arrow_batches(c)
 }
 
+/// Run the command against a marker stream and return Arrow record batches.
 #[cfg(feature = "arrow-output")]
 pub fn run_to_arrow_with_source<S: MarkerStream>(
     source: &S,

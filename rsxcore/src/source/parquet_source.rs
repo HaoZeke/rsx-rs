@@ -156,10 +156,14 @@ fn map_arrow_err(e: ArrowSourceError) -> io::Error {
     io::Error::other(format!("arrow source: {e}"))
 }
 
+/// Failure while spilling markers to a Parquet file.
 #[derive(Debug)]
 pub enum ParquetSourceError {
+    /// The source contained no batches.
     EmptyInput,
+    /// The temporary Parquet file could not be created.
     TempFile(String),
+    /// Writing the Parquet file failed.
     Write(String),
 }
 
