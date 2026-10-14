@@ -9,7 +9,7 @@ use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::source::MarkerStream;
 use crate::stats;
-use crate::test_method::{CorrectionMethod, TestMethod, compute_p};
+use crate::test_method::{CorrectionMethod, TestMethod};
 use std::io::Write;
 use std::path::Path;
 
@@ -120,20 +120,35 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
         );
     }
 
+    let lattice =
+        crate::test_method::AssociationLattice::build(params.test_method, total_g1, total_g2);
+
     // FDR: two full table passes only (p-values, then re-stream write). n_markers
     // for the header is p_values.len() — no separate count_markers pass.
     // Stores O(n_markers) p/q floats only. Documented in commands.org / README.
     if matches!(params.correction, CorrectionMethod::Fdr) {
         log::info!("signif FDR pass 1: collecting p-values");
-        let mut p_values: Vec<f64> = Vec::new();
-        source.for_each(|marker| {
-            if marker.n_individuals > 0 {
-                let g1 = marker.presence.count_masked(&mask_g1);
-                let g2 = marker.presence.count_masked(&mask_g2);
-                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
-                p_values.push(p);
+        #[cfg(feature = "parallel")]
+        let p_values = source.par_filter_map_collect(|marker| {
+            if marker.n_individuals == 0 {
+                return None;
             }
+            let g1 = marker.presence.count_masked(&mask_g1);
+            let g2 = marker.presence.count_masked(&mask_g2);
+            Some(lattice.p(g1, g2))
         })?;
+        #[cfg(not(feature = "parallel"))]
+        let p_values = {
+            let mut p_values: Vec<f64> = Vec::new();
+            source.for_each(|marker| {
+                if marker.n_individuals > 0 {
+                    let g1 = marker.presence.count_masked(&mask_g1);
+                    let g2 = marker.presence.count_masked(&mask_g2);
+                    p_values.push(lattice.p(g1, g2));
+                }
+            })?;
+            p_values
+        };
         let n_markers = p_values.len() as u64;
         log::info!("signif FDR pass 1: {} markers", n_markers);
 
@@ -244,54 +259,102 @@ pub fn run_with_source_and_backend<S: MarkerStream>(
         }
     }
 
-    let mut write_err: Option<std::io::Error> = None;
-    source.for_each(|marker| {
-        if write_err.is_some() || marker.n_individuals == 0 {
-            return;
+    #[cfg(feature = "parallel")]
+    let hits = source.par_filter_map_collect(|marker| {
+        if marker.n_individuals == 0 {
+            return None;
         }
         let g1 = marker.presence.count_masked(&mask_g1);
         let g2 = marker.presence.count_masked(&mask_g2);
-        let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
-
+        let p = lattice.p(g1, g2);
         // Full f64 compare (do not cast to f32 — lossy near thresholds).
         if p >= corrected_threshold {
-            return;
+            return None;
         }
-        let p_corr = stats::bonferroni_correct(p, effective_n_markers);
-
-        let result = if params.output_fasta {
-            let mut m = marker.clone();
-            m.p = p;
-            m.p_corrected = p_corr;
-            m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)
-        } else if params.output_bayes {
-            write_marker_bayes_row(
-                &mut output,
-                marker,
-                stats::bayes_factor_2x2_with_validated_model(
-                    g1,
-                    g2,
-                    total_g1,
-                    total_g2,
-                    &params.bayes_model.bayes_factor,
-                ),
-                stats::posterior_sex_linked_with_model(
-                    g1,
-                    g2,
-                    total_g1,
-                    total_g2,
-                    &params.bayes_model,
-                ),
-            )
-        } else {
-            marker.write_as_table(&mut output)
-        };
-        if let Err(e) = result {
-            write_err = Some(e);
-        }
+        let mut kept = marker.clone();
+        kept.p = p;
+        kept.p_corrected = stats::bonferroni_correct(p, effective_n_markers);
+        Some((kept, g1, g2))
     })?;
-    if let Some(e) = write_err {
-        return Err(e.into());
+    #[cfg(feature = "parallel")]
+    {
+        for (marker, g1, g2) in &hits {
+            let result = if params.output_fasta {
+                marker.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)
+            } else if params.output_bayes {
+                write_marker_bayes_row(
+                    &mut output,
+                    marker,
+                    stats::bayes_factor_2x2_with_validated_model(
+                        *g1,
+                        *g2,
+                        total_g1,
+                        total_g2,
+                        &params.bayes_model.bayes_factor,
+                    ),
+                    stats::posterior_sex_linked_with_model(
+                        *g1,
+                        *g2,
+                        total_g1,
+                        total_g2,
+                        &params.bayes_model,
+                    ),
+                )
+            } else {
+                marker.write_as_table(&mut output)
+            };
+            result?;
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        let mut write_err: Option<std::io::Error> = None;
+        source.for_each(|marker| {
+            if write_err.is_some() || marker.n_individuals == 0 {
+                return;
+            }
+            let g1 = marker.presence.count_masked(&mask_g1);
+            let g2 = marker.presence.count_masked(&mask_g2);
+            let p = lattice.p(g1, g2);
+            if p >= corrected_threshold {
+                return;
+            }
+            let p_corr = stats::bonferroni_correct(p, effective_n_markers);
+            let result = if params.output_fasta {
+                let mut m = marker.clone();
+                m.p = p;
+                m.p_corrected = p_corr;
+                m.write_as_fasta_bitset(&mut output, params.min_depth as u32, &fasta_groups)
+            } else if params.output_bayes {
+                write_marker_bayes_row(
+                    &mut output,
+                    marker,
+                    stats::bayes_factor_2x2_with_validated_model(
+                        g1,
+                        g2,
+                        total_g1,
+                        total_g2,
+                        &params.bayes_model.bayes_factor,
+                    ),
+                    stats::posterior_sex_linked_with_model(
+                        g1,
+                        g2,
+                        total_g1,
+                        total_g2,
+                        &params.bayes_model,
+                    ),
+                )
+            } else {
+                marker.write_as_table(&mut output)
+            };
+            if let Err(e) = result {
+                write_err = Some(e);
+            }
+        })?;
+        if let Some(e) = write_err {
+            return Err(e.into());
+        }
     }
 
     Ok(())

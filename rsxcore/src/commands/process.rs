@@ -3,11 +3,12 @@
 
 //! `process` command: create marker depth table from demultiplexed reads.
 //!
-//! Single-phase concurrent merge: rayon threads insert directly into a
-//! DashMap during file processing. No sequential merge bottleneck.
-//! Sequences stored as 2-bit packed DNA (4x memory reduction).
+//! Each file is counted on its own, then the per-individual maps are merged by
+//! hash shard (no per-key lock). Sequences are stored as 2-bit packed DNA.
 
-use crate::io::seq_reader::{PackedDnaKey, count_sequences_packed, get_input_files, unpack_2bit};
+use crate::io::seq_reader::{
+    PackedDnaKey, count_sequences_packed, get_input_files, unpack_2bit_into,
+};
 use std::io::Write;
 use std::path::Path;
 
@@ -58,128 +59,49 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     let input_files = get_input_files(input_dir)?;
     let n_individuals = input_files.len();
 
-    // Build individual name -> column index mapping
-    let individual_indices: ahash::AHashMap<String, usize> = input_files
-        .iter()
-        .enumerate()
-        .map(|(i, f)| (f.individual_name.clone(), i))
-        .collect();
-
     #[cfg(feature = "parallel")]
     let mut global = {
         use rayon::prelude::*;
-        use std::sync::Mutex;
-        use std::sync::atomic::{AtomicUsize, Ordering};
 
         rayon::ThreadPoolBuilder::new()
             .num_threads(params.n_threads as usize)
             .build_global()
             .ok();
 
-        // Use DashMap for concurrent merge when many files (>= 8),
-        // fall back to collect+merge for fewer files where DashMap
-        // sharding overhead dominates.
+        let per_file: Vec<ahash::AHashMap<PackedDnaKey, u16>> = input_files
+            .par_iter()
+            .map(|f| {
+                let counts = count_sequences_packed(&f.path).map_err(|e| {
+                    format!("process failed while reading {}: {e}", f.path.display())
+                })?;
+                log::debug!("Finished processing individual {}", f.individual_name);
+                Ok(counts)
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+
         if n_individuals >= 8 {
-            use dashmap::DashMap;
-
-            // Size the shared table from observed input bytes so small panels stay light
-            // while large RAD panels start near a useful capacity.
-            let initial_capacity = estimate_parallel_merge_capacity(&input_files);
-            let dm: DashMap<PackedDnaKey, Vec<u16>, ahash::RandomState> =
-                DashMap::with_capacity_and_hasher(initial_capacity, ahash::RandomState::new());
-            let err_count = AtomicUsize::new(0);
-            let first_err: Mutex<Option<String>> = Mutex::new(None);
-
-            input_files
-                .par_iter()
-                .for_each(|f| match count_sequences_packed(&f.path) {
-                    Ok(counts) => {
-                        let idx = individual_indices[&f.individual_name];
-                        for (packed_seq, count) in counts {
-                            let mut entry = dm
-                                .entry(packed_seq)
-                                .or_insert_with(|| vec![0u16; n_individuals]);
-                            entry[idx] = count;
-                        }
-                        log::debug!("Finished processing individual {}", f.individual_name);
-                    }
-                    Err(e) => {
-                        let msg = format!("Error processing {}: {e}", f.path.display());
-                        log::error!("{msg}");
-                        err_count.fetch_add(1, Ordering::Relaxed);
-                        if let Ok(mut slot) = first_err.lock() {
-                            if slot.is_none() {
-                                *slot = Some(msg);
-                            }
-                        }
-                    }
-                });
-
-            if err_count.load(Ordering::Relaxed) > 0 {
-                let detail = first_err
-                    .into_inner()
-                    .ok()
-                    .and_then(|s| s)
-                    .unwrap_or_else(|| "one or more input files failed".into());
-                return Err(format!(
-                    "process failed for {} of {} individuals: {detail}",
-                    err_count.load(Ordering::Relaxed),
-                    n_individuals
-                )
-                .into());
-            }
-
-            // Convert to AHashMap for uniform output path
-            dm.into_iter().collect::<ahash::AHashMap<_, _>>()
+            let capacity = estimate_parallel_merge_capacity(&input_files);
+            merge_counts_sharded(per_file, n_individuals, capacity)
         } else {
-            // Few files: collect per-file results, merge sequentially
-            let per_file: Vec<Result<_, _>> = input_files
-                .par_iter()
-                .map(|f| {
-                    count_sequences_packed(&f.path).map(|c| {
-                        log::debug!("Finished processing individual {}", f.individual_name);
-                        (f.individual_name.clone(), c)
-                    })
-                })
-                .collect();
-
-            let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
-            for result in per_file {
-                let (name, counts) = result
-                    .map_err(|e| format!("process failed while reading an input file: {e}"))?;
-                let idx = individual_indices[&name];
-                for (packed_seq, count) in counts {
-                    let entry = global
-                        .entry(packed_seq)
-                        .or_insert_with(|| vec![0u16; n_individuals]);
-                    entry[idx] = count;
-                }
-            }
-            global
+            merge_counts_serial(per_file, n_individuals)
         }
     };
 
     #[cfg(not(feature = "parallel"))]
     let mut global = {
-        let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
+        let mut per_file = Vec::with_capacity(n_individuals);
         for f in &input_files {
             match count_sequences_packed(&f.path) {
                 Ok(counts) => {
-                    let idx = individual_indices[&f.individual_name];
-                    for (packed_seq, count) in counts {
-                        let entry = global
-                            .entry(packed_seq)
-                            .or_insert_with(|| vec![0u16; n_individuals]);
-                        entry[idx] = count;
-                    }
                     log::info!("Finished processing individual {}", f.individual_name);
+                    per_file.push(counts);
                 }
                 Err(e) => {
                     return Err(format!("Error processing {}: {e}", f.path.display()).into());
                 }
             }
         }
-        global
+        merge_counts_serial(per_file, n_individuals)
     };
 
     // Optional k-mer deduplication: group markers by canonical k-mer
@@ -230,11 +152,19 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
             params.min_depth <= 1 || depths.iter().any(|&d| d >= params.min_depth)
         })
         .collect();
-    // Deterministic row order by packed sequence key.
+    // Deterministic row order by packed sequence key. Keys are unique, so the
+    // parallel sort agrees with a stable sort.
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        retained.par_sort_by(|(a, _), (b, _)| a.as_slice().cmp(b.as_slice()));
+    }
+    #[cfg(not(feature = "parallel"))]
     retained.sort_by(|(a, _), (b, _)| a.as_slice().cmp(b.as_slice()));
 
     // Write output (unpack 2-bit keys back to ASCII for TSV)
-    let mut output = std::io::BufWriter::new(std::fs::File::create(&params.output_file_path)?);
+    let file = std::fs::File::create(&params.output_file_path)?;
+    let mut output = std::io::BufWriter::with_capacity(1 << 20, file);
     writeln!(output, "#Number of markers : {}", retained.len())?;
 
     write!(output, "id\tsequence")?;
@@ -248,14 +178,20 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
         retained.len()
     );
 
+    let mut sequence = Vec::with_capacity(256);
+    let mut line = Vec::with_capacity(1024);
     for (id, (packed_seq, depths)) in (0_u64..).zip(retained.iter()) {
-        let unpacked = unpack_2bit(packed_seq.as_slice());
-        let seq_str = std::str::from_utf8(&unpacked).unwrap_or("?");
-        write!(output, "{}\t{}", id, seq_str)?;
-        for &d in depths {
-            write!(output, "\t{d}")?;
+        unpack_2bit_into(packed_seq.as_slice(), &mut sequence);
+        line.clear();
+        push_u64(&mut line, id);
+        line.push(b'\t');
+        line.extend_from_slice(&sequence);
+        for &depth in depths {
+            line.push(b'\t');
+            push_u16(&mut line, depth);
         }
-        writeln!(output)?;
+        line.push(b'\n');
+        output.write_all(&line)?;
     }
 
     let elapsed = start.elapsed();
@@ -268,6 +204,93 @@ pub fn run(params: &ProcessParams) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     Ok(())
+}
+
+fn merge_counts_serial(
+    maps: Vec<ahash::AHashMap<PackedDnaKey, u16>>,
+    n_individuals: usize,
+) -> ahash::AHashMap<PackedDnaKey, Vec<u16>> {
+    let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> = ahash::AHashMap::new();
+    for (index, counts) in maps.into_iter().enumerate() {
+        for (packed_seq, count) in counts {
+            let entry = global
+                .entry(packed_seq)
+                .or_insert_with(|| vec![0_u16; n_individuals]);
+            entry[index] = count;
+        }
+    }
+    global
+}
+
+#[cfg(feature = "parallel")]
+fn merge_counts_sharded(
+    maps: Vec<ahash::AHashMap<PackedDnaKey, u16>>,
+    n_individuals: usize,
+    capacity: usize,
+) -> ahash::AHashMap<PackedDnaKey, Vec<u16>> {
+    use rayon::prelude::*;
+    use std::hash::{Hash, Hasher};
+
+    let shards = rayon::current_num_threads().max(1);
+    let mut buckets: Vec<Vec<(PackedDnaKey, u16, u32)>> = (0..shards).map(|_| Vec::new()).collect();
+    for (index, counts) in maps.into_iter().enumerate() {
+        for (key, count) in counts {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            key.hash(&mut hasher);
+            let shard = (hasher.finish() as usize) % shards;
+            buckets[shard].push((key, count, index as u32));
+        }
+    }
+
+    let parts: Vec<ahash::AHashMap<PackedDnaKey, Vec<u16>>> = buckets
+        .into_par_iter()
+        .map(|bucket| {
+            let mut local: ahash::AHashMap<PackedDnaKey, Vec<u16>> =
+                ahash::AHashMap::with_capacity(bucket.len());
+            for (key, count, index) in bucket {
+                let entry = local
+                    .entry(key)
+                    .or_insert_with(|| vec![0_u16; n_individuals]);
+                entry[index as usize] = count;
+            }
+            local
+        })
+        .collect();
+
+    let mut global: ahash::AHashMap<PackedDnaKey, Vec<u16>> =
+        ahash::AHashMap::with_capacity(capacity);
+    for part in parts {
+        global.extend(part);
+    }
+    global
+}
+
+fn push_u16(buf: &mut Vec<u8>, mut value: u16) {
+    let mut tmp = [0_u8; 5];
+    let mut index = 5;
+    loop {
+        index -= 1;
+        tmp[index] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+    buf.extend_from_slice(&tmp[index..]);
+}
+
+fn push_u64(buf: &mut Vec<u8>, mut value: u64) {
+    let mut tmp = [0_u8; 20];
+    let mut index = 20;
+    loop {
+        index -= 1;
+        tmp[index] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+    buf.extend_from_slice(&tmp[index..]);
 }
 
 #[cfg(test)]

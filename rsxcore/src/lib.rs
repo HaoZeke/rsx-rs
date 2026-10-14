@@ -31,6 +31,7 @@ pub mod io;
 pub mod kmer;
 pub mod marker;
 pub mod markers_table;
+pub mod ozaki_ii;
 pub mod popmap;
 pub mod run_profile;
 pub mod source;

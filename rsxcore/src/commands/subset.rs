@@ -9,7 +9,7 @@ use crate::bitset::GroupMask;
 use crate::markers_table::{MarkersTableStream, ParserConfig};
 use crate::popmap::{GroupConfig, Popmap};
 use crate::stats;
-use crate::test_method::compute_p;
+use crate::test_method::AssociationLattice;
 use std::io::Write;
 use std::path::Path;
 
@@ -117,6 +117,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
         (groups.group1.clone(), &mask_g1),
         (groups.group2.clone(), &mask_g2),
     ];
+    let lattice = AssociationLattice::build(params.test_method, total_g1, total_g2);
 
     let filter_marker = |marker: &crate::marker::Marker| {
         if marker.n_individuals > 0 {
@@ -130,7 +131,7 @@ pub fn run(params: &SubsetParams) -> Result<(), Box<dyn std::error::Error>> {
                 && marker.n_individuals >= params.min_individuals
                 && marker.n_individuals <= params.max_individuals
             {
-                let p = compute_p(params.test_method, g1, g2, total_g1, total_g2);
+                let p = lattice.p(g1, g2);
                 let p_corr = stats::bonferroni_correct(p, effective_n_markers);
 
                 let mut m = marker.clone();

@@ -131,6 +131,11 @@ fn accumulate_gram_streaming<S: MarkerStream>(
     n: usize,
     backend: crate::compute_backend::PValueBackend,
 ) -> Result<GramStreamingAcc, Box<dyn std::error::Error>> {
+    if backend == crate::compute_backend::PValueBackend::Cpu
+        && let Some(exact) = accumulate_gram_cpu_exact(source, n)?
+    {
+        return Ok(exact);
+    }
     let mut accumulator = crate::compute_backend::GramAccumulator::new(backend, n)?;
     let mut push_err: Option<Box<dyn std::error::Error>> = None;
     source.for_each(|marker| {
@@ -145,6 +150,97 @@ fn accumulate_gram_streaming<S: MarkerStream>(
         return Err(error);
     }
     accumulator.finish()
+}
+
+/// Parallel `u64` Gram. Returns `None` when a sum would overflow `u64` or would
+/// not be an exact `f64`, so the caller repeats the scan with incremental f64
+/// and the formatted PCA files stay byte-identical.
+fn accumulate_gram_cpu_exact<S: MarkerStream>(
+    source: &S,
+    n: usize,
+) -> Result<Option<GramStreamingAcc>, Box<dyn std::error::Error>> {
+    let acc = ExactGram::zeros(n);
+    #[cfg(feature = "parallel")]
+    let acc = source.par_fold_reduce(acc, ExactGram::fold, ExactGram::reduce)?;
+    #[cfg(not(feature = "parallel"))]
+    let acc = {
+        let mut acc = acc;
+        source.for_each(|marker| ExactGram::fold(&mut acc, marker))?;
+        acc
+    };
+    if !acc.exact_as_f64() {
+        return Ok(None);
+    }
+    Ok(Some((
+        acc.gram.iter().map(|&value| value as f64).collect(),
+        acc.mean.iter().map(|&value| value as f64).collect(),
+        acc.markers,
+    )))
+}
+
+#[derive(Clone)]
+struct ExactGram {
+    gram: Vec<u64>,
+    mean: Vec<u64>,
+    markers: u64,
+    overflowed: bool,
+    individuals: usize,
+}
+
+impl ExactGram {
+    fn zeros(individuals: usize) -> Self {
+        Self {
+            gram: vec![0; individuals * individuals],
+            mean: vec![0; individuals],
+            markers: 0,
+            overflowed: false,
+            individuals,
+        }
+    }
+
+    fn fold(acc: &mut Self, marker: &crate::marker::Marker) {
+        if marker.n_individuals == 0 || acc.overflowed {
+            return;
+        }
+        acc.markers += 1;
+        let n = acc.individuals;
+        let depths = &marker.individual_depths;
+        for (i, &di) in depths.iter().enumerate().take(n) {
+            let xi = u64::from(di);
+            let (mean, mean_overflow) = acc.mean[i].overflowing_add(xi);
+            acc.mean[i] = mean;
+            acc.overflowed |= mean_overflow;
+            let base = i * n;
+            for (j, &dj) in depths.iter().enumerate().take(n).skip(i) {
+                let product = xi * u64::from(dj);
+                let (sum, overflow) = acc.gram[base + j].overflowing_add(product);
+                acc.gram[base + j] = sum;
+                acc.overflowed |= overflow;
+            }
+        }
+    }
+
+    fn reduce(mut left: Self, right: Self) -> Self {
+        left.markers += right.markers;
+        left.overflowed |= right.overflowed;
+        for (dst, src) in left.mean.iter_mut().zip(right.mean) {
+            let (sum, overflow) = dst.overflowing_add(src);
+            *dst = sum;
+            left.overflowed |= overflow;
+        }
+        for (dst, src) in left.gram.iter_mut().zip(right.gram) {
+            let (sum, overflow) = dst.overflowing_add(src);
+            *dst = sum;
+            left.overflowed |= overflow;
+        }
+        left
+    }
+
+    fn exact_as_f64(&self) -> bool {
+        !self.overflowed
+            && crate::ozaki_ii::u64_values_fit_f64(&self.gram)
+            && crate::ozaki_ii::u64_values_fit_f64(&self.mean)
+    }
 }
 
 /// Sparse rank-1 outer product for highly zero depth rows (exact). Exposed for

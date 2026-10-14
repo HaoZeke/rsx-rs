@@ -71,6 +71,25 @@ pub trait MarkerStream {
         Fold: Fn(&mut Acc, &Marker) + Send + Sync + Clone,
         Reduce: Fn(Acc, Acc) -> Acc + Send + Sync;
 
+    /// Collect `filter_map` hits in table order.
+    ///
+    /// The default walks the stream serially. The TSV reader overrides this and
+    /// parses line-aligned chunks in parallel, then concatenates them in order.
+    #[cfg(feature = "parallel")]
+    fn par_filter_map_collect<T, F>(&self, filter_map: F) -> std::io::Result<Vec<T>>
+    where
+        T: Send,
+        F: Fn(&Marker) -> Option<T> + Send + Sync,
+    {
+        let mut collected = Vec::new();
+        self.for_each(|marker| {
+            if let Some(item) = filter_map(marker) {
+                collected.push(item);
+            }
+        })?;
+        Ok(collected)
+    }
+
     /// Optional columnar fast path for the `freq` histogram (count markers by
     /// number of individuals with depth ≥ min_depth).
     ///
@@ -125,5 +144,14 @@ impl MarkerStream for crate::markers_table::MarkersTableStream {
         Reduce: Fn(Acc, Acc) -> Acc + Send + Sync,
     {
         self.par_fold_reduce(init, fold, reduce)
+    }
+
+    #[cfg(feature = "parallel")]
+    fn par_filter_map_collect<T, F>(&self, filter_map: F) -> std::io::Result<Vec<T>>
+    where
+        T: Send,
+        F: Fn(&Marker) -> Option<T> + Send + Sync,
+    {
+        crate::markers_table::MarkersTableStream::par_filter_map_collect(self, filter_map)
     }
 }

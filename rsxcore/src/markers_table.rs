@@ -117,15 +117,47 @@ impl MarkersTableStream {
     }
 
     /// Count markers with n_individuals > 0 (for Bonferroni correction).
-    /// Streaming: O(1) memory, just counts.
+    ///
+    /// Presence uses the same integer depth rule as the full parser, but does
+    /// not materialize ids, sequences, or depth vectors. Large tables are
+    /// counted in line-aligned parallel chunks.
     pub fn count_markers(&self) -> std::io::Result<u64> {
-        let mut n = 0u64;
-        self.for_each(|m| {
-            if m.n_individuals > 0 {
+        let data = &self.mmap[self.data_start..];
+        if data.is_empty() {
+            return Ok(0);
+        }
+        #[cfg(feature = "parallel")]
+        if should_use_parallel(data.len()) {
+            let chunks = self.make_line_aligned_chunks(data, 1 << 20);
+            let n: u64 = chunks
+                .par_iter()
+                .map(|chunk| self.count_present_slice(chunk))
+                .sum();
+            return Ok(n);
+        }
+        Ok(self.count_present_slice(data))
+    }
+
+    /// Markers whose parsed depth meets `min_depth` in at least one individual.
+    fn count_present_slice(&self, data: &[u8]) -> u64 {
+        let min_depth = self.config.min_depth;
+        let n_individuals = self.n_individuals as usize;
+        let mut n = 0_u64;
+        for_each_line(data, |line| {
+            let Some((_, tab2)) = find_first_two_tabs(line) else {
+                return;
+            };
+            let mut present = 0_u32;
+            for_each_depth_field(line, tab2, |col, field| {
+                if col < n_individuals && fast_parse_u16(field) >= min_depth {
+                    present += 1;
+                }
+            });
+            if present > 0 {
                 n += 1;
             }
-        })?;
-        Ok(n)
+        });
+        n
     }
 
     /// Process all markers. Uses fast path when sequence isn't needed.

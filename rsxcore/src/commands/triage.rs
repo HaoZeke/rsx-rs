@@ -152,13 +152,134 @@ struct TriageRow {
     class: &'static str,
 }
 
-impl TriageRow {
-    fn is_more_informative_than(&self, other: &Self) -> bool {
-        self.posterior
-            .total_cmp(&other.posterior)
-            .then_with(|| self.bayes_factor.total_cmp(&other.bayes_factor))
-            .then_with(|| other.p.total_cmp(&self.p))
-            .is_gt()
+fn scores_beat(posterior: f64, bayes_factor: f64, p: f64, other: &TriageRow) -> bool {
+    posterior
+        .total_cmp(&other.posterior)
+        .then_with(|| bayes_factor.total_cmp(&other.bayes_factor))
+        .then_with(|| other.p.total_cmp(&p))
+        .is_gt()
+}
+
+struct TriageLattice {
+    stride: usize,
+    p: Vec<f64>,
+    bayes_factor: Vec<f64>,
+    posterior: Vec<f64>,
+    total_g1: u32,
+    total_g2: u32,
+}
+
+impl TriageLattice {
+    fn build(model: &stats::DirectionalModel, total_g1: u32, total_g2: u32) -> Self {
+        let cells = (total_g1 as usize + 1).saturating_mul(total_g2 as usize + 1);
+        if cells > 250_000 {
+            return Self {
+                stride: 0,
+                p: Vec::new(),
+                bayes_factor: Vec::new(),
+                posterior: Vec::new(),
+                total_g1,
+                total_g2,
+            };
+        }
+        let mut p = Vec::with_capacity(cells);
+        let mut bayes_factor = Vec::with_capacity(cells);
+        let mut posterior = Vec::with_capacity(cells);
+        for g1 in 0..=total_g1 {
+            for g2 in 0..=total_g2 {
+                p.push(compute_p(
+                    TestMethod::ChiSquared,
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                ));
+                bayes_factor.push(stats::bayes_factor_2x2_with_validated_model(
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    &model.bayes_factor,
+                ));
+                posterior.push(stats::posterior_sex_linked_with_model(
+                    g1, g2, total_g1, total_g2, model,
+                ));
+            }
+        }
+        Self {
+            stride: total_g2 as usize + 1,
+            p,
+            bayes_factor,
+            posterior,
+            total_g1,
+            total_g2,
+        }
+    }
+
+    fn get(&self, g1: u32, g2: u32, model: &stats::DirectionalModel) -> (f64, f64, f64) {
+        if self.stride == 0 || g1 > self.total_g1 || g2 > self.total_g2 {
+            return (
+                compute_p(TestMethod::ChiSquared, g1, g2, self.total_g1, self.total_g2),
+                stats::bayes_factor_2x2_with_validated_model(
+                    g1,
+                    g2,
+                    self.total_g1,
+                    self.total_g2,
+                    &model.bayes_factor,
+                ),
+                stats::posterior_sex_linked_with_model(g1, g2, self.total_g1, self.total_g2, model),
+            );
+        }
+        let index = g1 as usize * self.stride + g2 as usize;
+        (
+            self.p[index],
+            self.bayes_factor[index],
+            self.posterior[index],
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_triage_row(
+    id: &str,
+    sequence: &str,
+    group1: &str,
+    group2: &str,
+    g1: u32,
+    g2: u32,
+    total_g1: u32,
+    total_g2: u32,
+    p: f64,
+    corrected_p: f64,
+    bayes_factor: f64,
+    posterior: f64,
+    strict_call: bool,
+    posterior_call: bool,
+    bayes_factor_call: bool,
+) -> TriageRow {
+    let g1_penetrance = penetrance(g1, total_g1);
+    let g2_penetrance = penetrance(g2, total_g2);
+    TriageRow {
+        id: id.to_string(),
+        sequence: sequence.to_string(),
+        group1: group1.to_string(),
+        group1_present: g1,
+        group1_total: total_g1,
+        group1_penetrance: g1_penetrance,
+        group2: group2.to_string(),
+        group2_present: g2,
+        group2_total: total_g2,
+        group2_penetrance: g2_penetrance,
+        bias_direction: bias_direction(group1, group2, g1_penetrance, g2_penetrance),
+        bias: stats::group_bias(g1, total_g1, g2, total_g2),
+        p,
+        corrected_p,
+        bayes_factor,
+        posterior,
+        strict_call,
+        posterior_call,
+        bayes_factor_call,
+        class: candidate_class(strict_call, posterior_call, bayes_factor_call),
     }
 }
 
@@ -258,6 +379,7 @@ pub fn run_with_source<S: MarkerStream>(
         );
     }
 
+    let lattice = TriageLattice::build(&params.bayes_model, total_g1, total_g2);
     let mut write_err: Option<std::io::Error> = None;
     let mut called_rows = 0_u64;
     let mut best_exploratory: Option<TriageRow> = None;
@@ -279,69 +401,57 @@ pub fn run_with_source<S: MarkerStream>(
                     evidence.posteriors[index],
                 )
             }
-            None => (
-                compute_p(TestMethod::ChiSquared, g1, g2, total_g1, total_g2),
-                stats::bayes_factor_2x2_with_validated_model(
-                    g1,
-                    g2,
-                    total_g1,
-                    total_g2,
-                    &params.bayes_model.bayes_factor,
-                ),
-                stats::posterior_sex_linked_with_model(
-                    g1,
-                    g2,
-                    total_g1,
-                    total_g2,
-                    &params.bayes_model,
-                ),
-            ),
+            None => lattice.get(g1, g2, &params.bayes_model),
         };
         let p_corrected = stats::bonferroni_correct(p, n_markers);
         let strict_call = p < strict_threshold;
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
-        let g1_penetrance = penetrance(g1, total_g1);
-        let g2_penetrance = penetrance(g2, total_g2);
-        let bias = stats::group_bias(g1, total_g1, g2, total_g2);
-        let class = candidate_class(strict_call, posterior_call, bayes_factor_call);
-        let direction =
-            bias_direction(&groups.group1, &groups.group2, g1_penetrance, g2_penetrance);
-
-        let row = TriageRow {
-            id: marker.id.clone(),
-            sequence: marker.sequence.clone(),
-            group1: groups.group1.clone(),
-            group1_present: g1,
-            group1_total: total_g1,
-            group1_penetrance: g1_penetrance,
-            group2: groups.group2.clone(),
-            group2_present: g2,
-            group2_total: total_g2,
-            group2_penetrance: g2_penetrance,
-            bias_direction: direction,
-            bias,
-            p,
-            corrected_p: p_corrected,
-            bayes_factor: bf,
-            posterior,
-            strict_call,
-            posterior_call,
-            bayes_factor_call,
-            class,
-        };
-
-        if !(strict_call || posterior_call || bayes_factor_call) {
-            if best_exploratory
+        let called = strict_call || posterior_call || bayes_factor_call;
+        if !called {
+            let keep = best_exploratory
                 .as_ref()
-                .is_none_or(|best| row.is_more_informative_than(best))
-            {
-                best_exploratory = Some(row);
+                .is_none_or(|best| scores_beat(posterior, bf, p, best));
+            if keep {
+                best_exploratory = Some(build_triage_row(
+                    &marker.id,
+                    &marker.sequence,
+                    &groups.group1,
+                    &groups.group2,
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    p,
+                    p_corrected,
+                    bf,
+                    posterior,
+                    strict_call,
+                    posterior_call,
+                    bayes_factor_call,
+                ));
             }
             return;
         }
 
         called_rows += 1;
+        let row = build_triage_row(
+            &marker.id,
+            &marker.sequence,
+            &groups.group1,
+            &groups.group2,
+            g1,
+            g2,
+            total_g1,
+            total_g2,
+            p,
+            p_corrected,
+            bf,
+            posterior,
+            strict_call,
+            posterior_call,
+            bayes_factor_call,
+        );
         if let Err(e) = write_row(&mut output, &row) {
             write_err = Some(e);
         }
@@ -474,6 +584,7 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
         class_b.append_value(row.class);
     };
 
+    let lattice = TriageLattice::build(&params.bayes_model, total_g1, total_g2);
     let mut called_rows = 0_u64;
     let mut best_exploratory: Option<TriageRow> = None;
 
@@ -484,64 +595,56 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
 
         let g1 = marker.presence.count_masked(&mask_g1);
         let g2 = marker.presence.count_masked(&mask_g2);
-
-        let p = compute_p(TestMethod::ChiSquared, g1, g2, total_g1, total_g2);
+        let (p, bf, posterior) = lattice.get(g1, g2, &params.bayes_model);
         let p_corrected = stats::bonferroni_correct(p, n_markers);
-
         let strict_call = p < corrected_threshold;
-        let bf = stats::bayes_factor_2x2_with_validated_model(
-            g1,
-            g2,
-            total_g1,
-            total_g2,
-            &params.bayes_model.bayes_factor,
-        );
-        let posterior =
-            stats::posterior_sex_linked_with_model(g1, g2, total_g1, total_g2, &params.bayes_model);
-
         let posterior_call = posterior > params.posterior_threshold;
         let bayes_factor_call = bf > params.bayes_factor_threshold;
-
-        let g1_pen = penetrance(g1, total_g1);
-        let g2_pen = penetrance(g2, total_g2);
-        let bias = stats::group_bias(g1, total_g1, g2, total_g2);
-        let dir = bias_direction(&groups.group1, &groups.group2, g1_pen, g2_pen);
-        let class = candidate_class(strict_call, posterior_call, bayes_factor_call);
-
-        let row = TriageRow {
-            id: marker.id.clone(),
-            sequence: marker.sequence.clone(),
-            group1: g1_name.clone(),
-            group1_present: g1,
-            group1_total: total_g1,
-            group1_penetrance: g1_pen,
-            group2: g2_name.clone(),
-            group2_present: g2,
-            group2_total: total_g2,
-            group2_penetrance: g2_pen,
-            bias_direction: dir,
-            bias,
-            p,
-            corrected_p: p_corrected,
-            bayes_factor: bf,
-            posterior,
-            strict_call,
-            posterior_call,
-            bayes_factor_call,
-            class,
-        };
-
-        if !(strict_call || posterior_call || bayes_factor_call) {
-            if best_exploratory
+        let called = strict_call || posterior_call || bayes_factor_call;
+        if !called {
+            let keep = best_exploratory
                 .as_ref()
-                .is_none_or(|best| row.is_more_informative_than(best))
-            {
-                best_exploratory = Some(row);
+                .is_none_or(|best| scores_beat(posterior, bf, p, best));
+            if keep {
+                best_exploratory = Some(build_triage_row(
+                    &marker.id,
+                    &marker.sequence,
+                    &g1_name,
+                    &g2_name,
+                    g1,
+                    g2,
+                    total_g1,
+                    total_g2,
+                    p,
+                    p_corrected,
+                    bf,
+                    posterior,
+                    strict_call,
+                    posterior_call,
+                    bayes_factor_call,
+                ));
             }
             return;
         }
 
         called_rows += 1;
+        let row = build_triage_row(
+            &marker.id,
+            &marker.sequence,
+            &g1_name,
+            &g2_name,
+            g1,
+            g2,
+            total_g1,
+            total_g2,
+            p,
+            p_corrected,
+            bf,
+            posterior,
+            strict_call,
+            posterior_call,
+            bayes_factor_call,
+        );
         append_row(&row);
     })?;
 
@@ -582,9 +685,12 @@ pub fn run_to_arrow_with_source<S: MarkerStream>(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "cuda", feature = "arrow-output"))]
     use super::*;
+    #[cfg(any(feature = "cuda", feature = "arrow-output"))]
     use std::io::Write;
 
+    #[cfg(any(feature = "cuda", feature = "arrow-output"))]
     fn make_triage_fixture() -> (std::path::PathBuf, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap().keep();
         std::fs::create_dir_all(&dir).unwrap();

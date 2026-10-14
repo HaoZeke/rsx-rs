@@ -54,6 +54,14 @@ fn generate_c_header(crate_dir: &str) {
 }
 
 fn main() {
+    println!("cargo::rustc-check-cfg=cfg(rsx_avx512_intrinsics)");
+    // AVX-512 packed-double helpers in std::arch stabilized in 1.89.
+    // The crate MSRV stays 1.85; the Gram prototype uses them only when the
+    // compiler is new enough.
+    if rustc_minor() >= 89 {
+        println!("cargo:rustc-cfg=rsx_avx512_intrinsics");
+    }
+
     #[cfg(feature = "gen-header")]
     {
         let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -69,4 +77,20 @@ fn main() {
         );
         generate_c_header(&crate_dir);
     }
+}
+
+fn rustc_minor() -> u32 {
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
+    let Ok(output) = std::process::Command::new(rustc).arg("--version").output() else {
+        return 0;
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    let Some(version) = text.split_whitespace().nth(1) else {
+        return 0;
+    };
+    version
+        .split('.')
+        .nth(1)
+        .and_then(|minor| minor.parse().ok())
+        .unwrap_or(0)
 }
